@@ -1,0 +1,132 @@
+#
+# drive package
+#
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drive"
+version = "1.1.0"
+authors = [{ "name" = "DINUM", "email" = "dev@mail.numerique.gouv.fr" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Framework :: Django :: 5",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+description = "An application to print markdown to pdf from a set of managed templates."
+keywords = ["Django", "Contacts", "Templates", "RBAC"]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "celery[redis]==5.3.6",
+    "django-configurations==2.5",
+    "django-cors-headers==4.3.1",
+    "redis==5.0.3",
+    "django-redis==5.4.0",
+    "django==5.0.7",
+    "djangorestframework==3.14.0",
+    "drf_spectacular==0.26.5",
+    "dockerflow==2022.8.0",
+    "factory_boy==3.3.0",
+    "gunicorn==22.0.0",
+    "psycopg[binary]==3.1.14",
+    "requests==2.32.2",
+    "sentry-sdk==2.8.0",
+    "url-normalize==1.4.3",
+    "whitenoise==6.6.0",
+    "mozilla-django-oidc==4.0.0",
+    "opensearch-py==2.7.1",
+    "pydantic==2.8.2",
+    "pyjwt==2.9.0",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/numerique-gouv/drive/issues/new"
+"Changelog" = "https://github.com/numerique-gouv/drive/blob/main/CHANGELOG.md"
+"Homepage" = "https://github.com/numerique-gouv/drive"
+"Repository" = "https://github.com/numerique-gouv/drive"
+
+[project.optional-dependencies]
+dev = [
+    "django-extensions==3.2.3",
+    "drf-spectacular-sidecar==2023.12.1",
+    "faker==28.0.0",
+    "ipdb==0.13.13",
+    "ipython==8.18.1",
+    "pyfakefs==5.3.2",
+    "pylint-django==2.5.5",
+    "pylint==3.0.3",
+    "pytest-cov==4.1.0",
+    "pytest-django==4.7.0",
+    "pytest==7.4.3",
+    "pytest-icdiff==0.8",
+    "pytest-xdist==3.5.0",
+    "responses==0.24.1",
+    "ruff==0.1.6",
+    "types-requests==2.31.0.10",
+]
+
+[tool.setuptools]
+packages = { find = { where = ["."], exclude = ["tests"] } }
+zip-safe = true
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[tool.ruff]
+exclude = [
+    ".git",
+    ".venv",
+    "build",
+    "venv",
+    "__pycache__",
+    "*/migrations/*",
+]
+ignore= ["DJ001", "PLR2004"]
+line-length = 88
+
+
+[tool.ruff.lint]
+select = [
+    "B", # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C4", # flake8-comprehensions
+    "DJ", # flake8-django
+    "I", # isort
+    "PLC", # pylint-convention
+    "PLE", # pylint-error
+    "PLR", # pylint-refactoring
+    "PLW", # pylint-warning
+    "RUF100", # Ruff unused-noqa
+    "RUF200", # Ruff check pyproject.toml
+    "S", # flake8-bandit
+    "SLF", # flake8-self
+    "T20", # flake8-print
+]
+
+[tool.ruff.lint.isort]
+section-order = ["future","standard-library","django","third-party","drive","first-party","local-folder"]
+sections = { drive=["core"], django=["django"] }
+
+[tool.ruff.per-file-ignores]
+"**/tests/*" = ["S", "SLF"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "-v",
+    "--cov-report",
+    "term-missing",
+    # Allow test files to have the same name in different directories.
+    "--import-mode=importlib",
+]
+python_files = [
+    "test_*.py",
+    "tests.py",
+]
