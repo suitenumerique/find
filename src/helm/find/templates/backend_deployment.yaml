@@ -1,18 +1,18 @@
-{{- $envVars := include "drive.common.env" (list . .Values.backend) -}}
-{{- $fullName := include "drive.backend.fullname" . -}}
+{{- $envVars := include "find.common.env" (list . .Values.backend) -}}
+{{- $fullName := include "find.backend.fullname" . -}}
 {{- $component := "backend" -}}
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: {{ $fullName }}-migrate
+  name: {{ $fullName }}
   namespace: {{ .Release.Namespace | quote }}
-  {{- with .Values.backend.migrateJobAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   labels:
-    {{- include "drive.common.labels" (list . $component) | nindent 4 }}
+    {{- include "find.common.labels" (list . $component) | nindent 4 }}
 spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "find.common.selectorLabels" (list . $component) | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -20,11 +20,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "drive.common.selectorLabels" (list . $component) | nindent 8 }}
+        {{- include "find.common.selectorLabels" (list . $component) | nindent 8 }}
     spec:
       {{- if $.Values.image.credentials }}
       imagePullSecrets:
-        - name: {{ include "drive.secret.dockerconfigjson.name" (dict "fullname" (include "drive.fullname" .) "imageCredentials" $.Values.image.credentials) }}
+        - name: {{ include "find.secret.dockerconfigjson.name" (dict "fullname" (include "find.fullname" .) "imageCredentials" $.Values.image.credentials) }}
       {{- end}}
       shareProcessNamespace: {{ .Values.backend.shareProcessNamespace }}
       containers:
@@ -34,7 +34,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ (.Values.backend.image | default dict).repository | default .Values.image.repository }}:{{ (.Values.backend.image | default dict).tag | default .Values.image.tag }}"
           imagePullPolicy: {{ (.Values.backend.image | default dict).pullPolicy | default .Values.image.pullPolicy }}
-          {{- with .Values.backend.migrate.command }}
+          {{- with .Values.backend.command }}
           command:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -49,6 +49,22 @@ spec:
           {{- with .Values.backend.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.backend.probes.liveness }}
+          livenessProbe:
+            {{- include "find.probes.abstract" (merge .Values.backend.probes.liveness (dict "targetPort" .Values.backend.service.targetPort )) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.backend.probes.readiness }}
+          readinessProbe:
+            {{- include "find.probes.abstract" (merge .Values.backend.probes.readiness (dict "targetPort" .Values.backend.service.targetPort )) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.backend.probes.startup }}
+          startupProbe:
+            {{- include "find.probes.abstract" (merge .Values.backend.probes.startup (dict "targetPort" .Values.backend.service.targetPort )) | nindent 12 }}
           {{- end }}
           {{- with .Values.backend.resources }}
           resources:
@@ -82,12 +98,11 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      restartPolicy: {{ .Values.backend.migrate.restartPolicy }}
       volumes:
         {{- range $index, $value := .Values.mountFiles }}
         - name: "files-{{ $index }}"
           configMap:
-            name: "{{ include "drive.fullname" $ }}-files-{{ $index }}"
+            name: "{{ include "find.fullname" $ }}-files-{{ $index }}"
         {{- end }}
         {{- range $name, $volume := .Values.backend.persistence }}
         - name: "{{ $name }}"

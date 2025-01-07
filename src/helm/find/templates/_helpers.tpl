@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "drive.name" -}}
+{{- define "find.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "drive.fullname" -}}
+{{- define "find.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "drive.chart" -}}
+{{- define "find.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
-drive.labels
+find.labels
 */}}
-{{- define "drive.labels" -}}
-helm.sh/chart: {{ include "drive.chart" . }}
-{{ include "drive.selectorLabels" . }}
+{{- define "find.labels" -}}
+helm.sh/chart: {{ include "find.chart" . }}
+{{ include "find.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,14 +45,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "drive.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "drive.name" . }}
+{{- define "find.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "find.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 transform dictionnary of environment variables
-Usage : {{ include "drive.env.transformDict" .Values.envVars }}
+Usage : {{ include "find.env.transformDict" .Values.envVars }}
 
 Example:
 envVars:
@@ -69,7 +69,7 @@ envVars:
       name: secret-name
       key: "key_in_secret"
 */}}
-{{- define "drive.env.transformDict" -}}
+{{- define "find.env.transformDict" -}}
 {{- range $key, $value := . }}
 - name: {{ $key | quote }}
 {{- if $value | kindIs "map" }}
@@ -82,12 +82,12 @@ envVars:
 
 
 {{/*
-drive env vars
+find env vars
 */}}
-{{- define "drive.common.env" -}}
+{{- define "find.common.env" -}}
 {{- $topLevelScope := index . 0 -}}
 {{- $workerScope := index . 1 -}}
-{{- include "drive.env.transformDict" $workerScope.envVars -}}
+{{- include "find.env.transformDict" $workerScope.envVars -}}
 {{- end }}
 
 {{/*
@@ -95,10 +95,10 @@ Common labels
 
 Requires array with top level scope and component name
 */}}
-{{- define "drive.common.labels" -}}
+{{- define "find.common.labels" -}}
 {{- $topLevelScope := index . 0 -}}
 {{- $component := index . 1 -}}
-{{- include "drive.labels" $topLevelScope }}
+{{- include "find.labels" $topLevelScope }}
 app.kubernetes.io/component: {{ $component }}
 {{- end }}
 
@@ -107,14 +107,14 @@ Common selector labels
 
 Requires array with top level scope and component name
 */}}
-{{- define "drive.common.selectorLabels" -}}
+{{- define "find.common.selectorLabels" -}}
 {{- $topLevelScope := index . 0 -}}
 {{- $component := index . 1 -}}
-{{- include "drive.selectorLabels" $topLevelScope }}
+{{- include "find.selectorLabels" $topLevelScope }}
 app.kubernetes.io/component: {{ $component }}
 {{- end }}
 
-{{- define "drive.probes.abstract" -}}
+{{- define "find.probes.abstract" -}}
 {{- if .exec -}}
 exec:
 {{- toYaml .exec | nindent 2 }}
@@ -135,8 +135,8 @@ Full name for the backend
 
 Requires top level scope
 */}}
-{{- define "drive.backend.fullname" -}}
-{{ include "drive.fullname" . }}-backend
+{{- define "find.backend.fullname" -}}
+{{ include "find.fullname" . }}-backend
 {{- end }}
 
 {{/*
@@ -144,8 +144,8 @@ Full name for the frontend
 
 Requires top level scope
 */}}
-{{- define "drive.frontend.fullname" -}}
-{{ include "drive.fullname" . }}-frontend
+{{- define "find.frontend.fullname" -}}
+{{ include "find.fullname" . }}-frontend
 {{- end }}
 
 {{/*
@@ -153,32 +153,32 @@ Full name for the webrtc
 
 Requires top level scope
 */}}
-{{- define "drive.webrtc.fullname" -}}
-{{ include "drive.fullname" . }}-webrtc
+{{- define "find.webrtc.fullname" -}}
+{{ include "find.fullname" . }}-webrtc
 {{- end }}
 
 {{/*
-Usage : {{ include "drive.secret.dockerconfigjson.name" (dict "fullname" (include "drive.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
+Usage : {{ include "find.secret.dockerconfigjson.name" (dict "fullname" (include "find.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
 */}}
-{{- define "drive.secret.dockerconfigjson.name" }}
+{{- define "find.secret.dockerconfigjson.name" }}
 {{- if (default (dict) .imageCredentials).name }}{{ .imageCredentials.name }}{{ else }}{{ .fullname | trunc 63 | trimSuffix "-" }}-dockerconfig{{ end -}}
 {{- end }}
 
 {{/*
-Usage : {{ include "drive.secret.dockerconfigjson" (dict "fullname" (include "drive.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
+Usage : {{ include "find.secret.dockerconfigjson" (dict "fullname" (include "find.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
 */}}
-{{- define "drive.secret.dockerconfigjson" }}
+{{- define "find.secret.dockerconfigjson" }}
 {{- if .imageCredentials -}}
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ template "drive.secret.dockerconfigjson.name" (dict "fullname" .fullname "imageCredentials" .imageCredentials) }}
+  name: {{ template "find.secret.dockerconfigjson.name" (dict "fullname" .fullname "imageCredentials" .imageCredentials) }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": before-hook-creation
 type: kubernetes.io/dockerconfigjson
 data:
-  .dockerconfigjson: {{ template "drive.secret.dockerconfigjson.data" .imageCredentials }}
+  .dockerconfigjson: {{ template "find.secret.dockerconfigjson.data" .imageCredentials }}
 {{- end -}}
 {{- end }}

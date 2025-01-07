@@ -1,16 +1,16 @@
-"""Drive celery configuration file."""
+"""find celery configuration file."""
 import os
 
 from celery import Celery
 from configurations.importer import install
 
 # Set the default Django settings module for the 'celery' program.
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "drive.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "find.settings")
 os.environ.setdefault("DJANGO_CONFIGURATION", "Development")
 
 install(check_options=True)
 
-app = Celery("drive")
+app = Celery("find")
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.

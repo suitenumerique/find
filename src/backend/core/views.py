@@ -1,4 +1,4 @@
-"""Views for drive's core app."""
+"""Views for find's core app."""
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
@@ -35,7 +35,7 @@ class DocumentView(views.APIView):
     @property
     def index_name(self):
         """Compute index name from the service name extracted during authentication"""
-        return f"drive-{self.request.auth}"
+        return f"find-{self.request.auth}"
 
     # pylint: disable=too-many-locals
     def post(self, request, *args, **kwargs):
@@ -46,7 +46,7 @@ class DocumentView(views.APIView):
         the following scenarios based on the type of request data:
 
         1. **Single Document Indexing**: If the request contains a single document (as a
-            dictionary), it will be indexed into an OpenSearch index named `drive-{auth_token}`.
+            dictionary), it will be indexed into an OpenSearch index named `find-{auth_token}`.
             On success, the indexed document is returned with a `201 Created` status. If an
             error occurs, a `400 Bad Request` response with an error message is returned.
 

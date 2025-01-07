@@ -12,7 +12,7 @@ services:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - plugins.security.ssl.http.enabled=false
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=drive.PASS123
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=find.PASS123
     ulimits:
       memlock:
         soft: -1
@@ -43,7 +43,7 @@ services:
       args:
         DOCKER_USER: ${DOCKER_USER:-1000}
     user: ${DOCKER_USER:-1000}
-    image: drive:backend-development
+    image: find:backend-development
     environment:
       - PYLINTHOME=/app/.pylint.d
       - DJANGO_CONFIGURATION=Development
@@ -62,8 +62,8 @@ services:
   
   celery:
     user: ${DOCKER_USER:-1000}
-    image: drive:backend-development
-    command: ["celery", "-A", "drive.celery_app", "worker", "-l", "DEBUG"]
+    image: find:backend-development
+    command: ["celery", "-A", "find.celery_app", "worker", "-l", "DEBUG"]
     environment:
       - DJANGO_CONFIGURATION=Development
     env_file:

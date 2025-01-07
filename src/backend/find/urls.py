@@ -1,4 +1,4 @@
-"""URL configuration for the drive project"""
+"""URL configuration for the find project"""
 
 from django.conf import settings
 from django.contrib import admin

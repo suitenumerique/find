@@ -1,28 +1,28 @@
 # Django
 DJANGO_ALLOWED_HOSTS=*
 DJANGO_SECRET_KEY=ThisIsAnExampleKeyForDevPurposeOnly
-DJANGO_SETTINGS_MODULE=drive.settings
+DJANGO_SETTINGS_MODULE=find.settings
 DJANGO_SUPERUSER_PASSWORD=admin
 
 # Python
 PYTHONPATH=/app
 
-# drive settings
+# find settings
 
 # Backend url
-DRIVE_BASE_URL="http://localhost:8072"
+FIND_BASE_URL="http://localhost:8072"
 
 # Opensearch
-OPENSEARCH_PASSWORD=drive.PASS123
+OPENSEARCH_PASSWORD=find.PASS123
 OPENSEARCH_USE_SSL=false
 
 # OIDC
-OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/drive/protocol/openid-connect/certs
-OIDC_OP_AUTHORIZATION_ENDPOINT=http://localhost:8083/realms/drive/protocol/openid-connect/auth
-OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/drive/protocol/openid-connect/token
-OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/drive/protocol/openid-connect/userinfo
+OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/certs
+OIDC_OP_AUTHORIZATION_ENDPOINT=http://localhost:8083/realms/find/protocol/openid-connect/auth
+OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/token
+OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/userinfo
 
-OIDC_RP_CLIENT_ID=drive
+OIDC_RP_CLIENT_ID=find
 OIDC_RP_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly
 OIDC_RP_SIGN_ALGO=RS256
 OIDC_RP_SCOPES="openid email"

@@ -1,6 +1,6 @@
 # Gunicorn-django settings
 bind = ["0.0.0.0:8000"]
-name = "drive"
+name = "find"
 python_path = "/app"
 
 # Run

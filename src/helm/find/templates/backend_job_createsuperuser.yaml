@@ -1,5 +1,5 @@
-{{- $envVars := include "drive.common.env" (list . .Values.backend) -}}
-{{- $fullName := include "drive.backend.fullname" . -}}
+{{- $envVars := include "find.common.env" (list . .Values.backend) -}}
+{{- $fullName := include "find.backend.fullname" . -}}
 {{- $component := "backend" -}}
 apiVersion: batch/v1
 kind: Job
@@ -11,7 +11,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    {{- include "drive.common.labels" (list . $component) | nindent 4 }}
+    {{- include "find.common.labels" (list . $component) | nindent 4 }}
 spec:
   template:
     metadata:
@@ -20,11 +20,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "drive.common.selectorLabels" (list . $component) | nindent 8 }}
+        {{- include "find.common.selectorLabels" (list . $component) | nindent 8 }}
     spec:
       {{- if $.Values.image.credentials }}
       imagePullSecrets:
-        - name: {{ include "drive.secret.dockerconfigjson.name" (dict "fullname" (include "drive.fullname" .) "imageCredentials" $.Values.image.credentials) }}
+        - name: {{ include "find.secret.dockerconfigjson.name" (dict "fullname" (include "find.fullname" .) "imageCredentials" $.Values.image.credentials) }}
       {{- end}}
       shareProcessNamespace: {{ .Values.backend.shareProcessNamespace }}
       containers:
@@ -87,7 +87,7 @@ spec:
         {{- range $index, $value := .Values.mountFiles }}
         - name: "files-{{ $index }}"
           configMap:
-            name: "{{ include "drive.fullname" $ }}-files-{{ $index }}"
+            name: "{{ include "find.fullname" $ }}-files-{{ $index }}"
         {{- end }}
         {{- range $name, $volume := .Values.backend.persistence }}
         - name: "{{ $name }}"

@@ -1,4 +1,4 @@
-# Drive helm chart
+# Find helm chart
 
 ## Parameters
 
@@ -6,8 +6,8 @@
 
 | Name                                       | Description                                          | Value                    |
 | ------------------------------------------ | ---------------------------------------------------- | ------------------------ |
-| `image.repository`                         | Repository to use to pull drive's container image     | `lasuite/drive-backend` |
-| `image.tag`                                | drive's container tag                                 | `latest`                 |
+| `image.repository`                         | Repository to use to pull find's container image     | `lasuite/find-backend` |
+| `image.tag`                                | find's container tag                                 | `latest`                 |
 | `image.pullPolicy`                         | Container image pull policy                          | `IfNotPresent`           |
 | `image.credentials.username`               | Username for container registry authentication       |                          |
 | `image.credentials.password`               | Password for container registry authentication       |                          |
@@ -17,7 +17,7 @@
 | `fullnameOverride`                         | Override the full application name                   | `""`                     |
 | `ingress.enabled`                          | whether to enable the Ingress or not                 | `false`                  |
 | `ingress.className`                        | IngressClass to use for the Ingress                  | `nil`                    |
-| `ingress.host`                             | Host for the Ingress                                 | `drive.example.com`       |
+| `ingress.host`                             | Host for the Ingress                                 | `find.example.com`       |
 | `ingress.path`                             | Path to use for the Ingress                          | `/`                      |
 | `ingress.hosts`                            | Additional host to configure for the Ingress         | `[]`                     |
 | `ingress.tls.enabled`                      | Weather to enable TLS for the Ingress                | `true`                   |
@@ -26,7 +26,7 @@
 | `ingress.customBackends`                   | Add custom backends to ingress                       | `[]`                     |
 | `ingressAdmin.enabled`                     | whether to enable the Ingress or not                 | `false`                  |
 | `ingressAdmin.className`                   | IngressClass to use for the Ingress                  | `nil`                    |
-| `ingressAdmin.host`                        | Host for the Ingress                                 | `drive.example.com`       |
+| `ingressAdmin.host`                        | Host for the Ingress                                 | `find.example.com`       |
 | `ingressAdmin.path`                        | Path to use for the Ingress                          | `/admin`                 |
 | `ingressAdmin.hosts`                       | Additional host to configure for the Ingress         | `[]`                     |
 | `ingressAdmin.tls.enabled`                 | Weather to enable TLS for the Ingress                | `true`                   |
@@ -83,8 +83,8 @@
 
 | Name                                                   | Description                                                                         | Value                     |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------- |
-| `frontend.image.repository`                            | Repository to use to pull drive's frontend container image                           | `lasuite/drive-frontend` |
-| `frontend.image.tag`                                   | drive's frontend container tag                                                       | `latest`                  |
+| `frontend.image.repository`                            | Repository to use to pull find's frontend container image                           | `lasuite/find-frontend` |
+| `frontend.image.tag`                                   | find's frontend container tag                                                       | `latest`                  |
 | `frontend.image.pullPolicy`                            | frontend container image pull policy                                                | `IfNotPresent`            |
 | `frontend.command`                                     | Override the frontend container command                                             | `[]`                      |
 | `frontend.args`                                        | Override the frontend container args                                                | `[]`                      |

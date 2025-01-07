@@ -1,9 +1,9 @@
 load('ext://uibutton', 'cmd_button', 'bool_input', 'location')
 load('ext://namespace', 'namespace_create', 'namespace_inject')
-namespace_create('drive')
+namespace_create('find')
 
 docker_build(
-    'localhost:5001/drive-backend:latest',
+    'localhost:5001/find-backend:latest',
     context='..',
     dockerfile='../Dockerfile',
     only=['./src/backend', './docker'],
@@ -18,27 +18,28 @@ docker_build(
 )
 
 docker_build(
-    'localhost:5001/drive-frontend:latest',
+    'localhost:5001/find-frontend:latest',
     context='..',
     dockerfile='../src/frontend/Dockerfile',
     only=['./src/frontend', './docker', './.dockerignore'],
-    target = 'drive',
+    target = 'find',
     live_update=[
         sync('../src/frontend', '/home/frontend'),
     ]
 )
 
-k8s_yaml(local('cd ../src/helm && helmfile -n drive -e dev template .'))
+
+k8s_yaml(local('cd ../src/helm && helmfile -n find -e dev template .'))
 
 migration = '''
 set -eu
 # get k8s pod name from tilt resource name
-POD_NAME="$(tilt get kubernetesdiscovery drive-backend -ojsonpath='{.status.pods[0].name}')"
-kubectl -n drive exec "$POD_NAME" -- python manage.py makemigrations
+POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
+kubectl -n find exec "$POD_NAME" -- python manage.py makemigrations
 '''
 cmd_button('Make migration',
            argv=['sh', '-c', migration],
-           resource='drive-backend',
+           resource='find-backend',
            icon_name='developer_board',
            text='Run makemigration',
 )
@@ -46,12 +47,12 @@ cmd_button('Make migration',
 pod_migrate = '''
 set -eu
 # get k8s pod name from tilt resource name
-POD_NAME="$(tilt get kubernetesdiscovery drive-backend -ojsonpath='{.status.pods[0].name}')"
-kubectl -n drive exec "$POD_NAME" -- python manage.py migrate --no-input
+POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
+kubectl -n find exec "$POD_NAME" -- python manage.py migrate --no-input
 '''
 cmd_button('Migrate db',
            argv=['sh', '-c', pod_migrate],
-           resource='drive-backend',
+           resource='find-backend',
            icon_name='developer_board',
            text='Run database migration',
 )

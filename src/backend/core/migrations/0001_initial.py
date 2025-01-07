@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
             options={
                 'verbose_name': 'service',
                 'verbose_name_plural': 'services',
-                'db_table': 'drive_service',
+                'db_table': 'find_service',
                 'ordering': ['-is_active', '-created_at'],
             },
         ),

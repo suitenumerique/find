@@ -1,4 +1,4 @@
-"""Models for drive's core app"""
+"""Models for find's core app"""
 import secrets
 import string
 
@@ -13,11 +13,11 @@ TOKEN_LENGTH = 50
 
 
 class User(AbstractUser):
-    """User for the drive application"""
+    """User for the find application"""
 
 
 class Service(models.Model):
-    """Service registered to index its documents to our drive"""
+    """Service registered to index its documents to our find"""
 
     name = models.SlugField(max_length=20, unique=True)
     token = models.CharField(max_length=TOKEN_LENGTH)
@@ -25,7 +25,7 @@ class Service(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = "drive_service"
+        db_table = "find_service"
         verbose_name = _("service")
         verbose_name_plural = _("services")
         ordering = ["-is_active", "-created_at"]
@@ -55,4 +55,4 @@ class Service(models.Model):
     @property
     def index_name(self):
         """Compute index name from service name"""
-        return f"drive-{self.name:s}"
+        return f"find-{self.name:s}"

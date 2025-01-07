@@ -6,7 +6,7 @@ REPO_DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd)"
 UNSET_USER=0
 
 COMPOSE_FILE="${REPO_DIR}/docker-compose.yml"
-COMPOSE_PROJECT="drive"
+COMPOSE_PROJECT="find"
 
 
 # _set_user: set (or unset) default user id used to run docker commands
