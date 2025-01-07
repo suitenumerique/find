@@ -1,5 +1,5 @@
 apiVersion: v2
 name: extra
-description: A Helm chart to add some manifests to drive
+description: A Helm chart to add some manifests to find
 type: application
 version: 0.1.0

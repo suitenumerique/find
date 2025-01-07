@@ -1,4 +1,4 @@
-"""Factories for the drive's core app"""
+"""Factories for the find's core app"""
 
 from uuid import uuid4
 

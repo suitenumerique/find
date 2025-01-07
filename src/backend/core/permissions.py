@@ -1,4 +1,4 @@
-"""Permission classes for drive's core app"""
+"""Permission classes for find's core app"""
 
 from rest_framework import permissions
 

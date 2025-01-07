@@ -20,7 +20,7 @@ from demo import defaults
 
 fake = Faker()
 
-logger = logging.getLogger("drive.commands.demo.create_demo")
+logger = logging.getLogger("find.commands.demo.create_demo")
 
 
 class BulkIndexing:

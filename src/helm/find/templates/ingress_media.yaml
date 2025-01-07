@@ -1,5 +1,5 @@
 {{- if .Values.ingressMedia.enabled -}}
-{{- $fullName := include "drive.fullname" . -}}
+{{- $fullName := include "find.fullname" . -}}
 {{- if and .Values.ingressMedia.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingressMedia.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingressMedia.annotations "kubernetes.io/ingress.class" .Values.ingressMedia.className}}
@@ -17,7 +17,7 @@ metadata:
   name: {{ $fullName }}-media
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "drive.labels" . | nindent 4 }}
+    {{- include "find.labels" . | nindent 4 }}
   {{- with .Values.ingressMedia.annotations }}
   annotations:
   {{- toYaml . | nindent 4 }}
@@ -53,11 +53,11 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ include "drive.backend.fullname" . }}
+                name: {{ include "find.backend.fullname" . }}
                 port:
                   number: {{ .Values.backend.service.port }}
               {{- else }}
-              serviceName: {{ include "drive.backend.fullname" . }}
+              serviceName: {{ include "find.backend.fullname" . }}
               servicePort: {{ .Values.backend.service.port }}
             {{- end }}
     {{- end }}
@@ -72,11 +72,11 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ include "drive.backend.fullname" $ }}
+                name: {{ include "find.backend.fullname" $ }}
                 port:
                   number: {{ $.Values.backend.service.port }}
               {{- else }}
-              serviceName: {{ include "drive.backend.fullname" $ }}
+              serviceName: {{ include "find.backend.fullname" $ }}
               servicePort: {{ $.Values.backend.service.port }}
             {{- end }}
     {{- end }}

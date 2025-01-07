@@ -1,5 +1,5 @@
 """
-WSGI config for the drive project.
+WSGI config for the find project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,7 +11,7 @@ import os
 
 from configurations.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "drive.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "find.settings")
 os.environ.setdefault("DJANGO_CONFIGURATION", "Development")
 
 application = get_wsgi_application()

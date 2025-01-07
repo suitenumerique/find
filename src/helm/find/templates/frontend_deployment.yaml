@@ -1,5 +1,5 @@
-{{- $envVars := include "drive.common.env" (list . .Values.frontend) -}}
-{{- $fullName := include "drive.frontend.fullname" . -}}
+{{- $envVars := include "find.common.env" (list . .Values.frontend) -}}
+{{- $fullName := include "find.frontend.fullname" . -}}
 {{- $component := "frontend" -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -7,12 +7,12 @@ metadata:
   name: {{ $fullName }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "drive.common.labels" (list . $component) | nindent 4 }}
+    {{- include "find.common.labels" (list . $component) | nindent 4 }}
 spec:
   replicas: {{ .Values.frontend.replicas }}
   selector:
     matchLabels:
-      {{- include "drive.common.selectorLabels" (list . $component) | nindent 6 }}
+      {{- include "find.common.selectorLabels" (list . $component) | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -20,11 +20,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "drive.common.selectorLabels" (list . $component) | nindent 8 }}
+        {{- include "find.common.selectorLabels" (list . $component) | nindent 8 }}
     spec:
       {{- if $.Values.image.credentials }}
       imagePullSecrets:
-        - name: {{ include "drive.secret.dockerconfigjson.name" (dict "fullname" (include "drive.fullname" .) "imageCredentials" $.Values.image.credentials) }}
+        - name: {{ include "find.secret.dockerconfigjson.name" (dict "fullname" (include "find.fullname" .) "imageCredentials" $.Values.image.credentials) }}
       {{- end}}
       shareProcessNamespace: {{ .Values.frontend.shareProcessNamespace }}
       containers:
@@ -56,15 +56,15 @@ spec:
               protocol: TCP
           {{- if .Values.frontend.probes.liveness }}
           livenessProbe:
-            {{- include "drive.probes.abstract" (merge .Values.frontend.probes.liveness (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
+            {{- include "find.probes.abstract" (merge .Values.frontend.probes.liveness (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
           {{- end }}
           {{- if .Values.frontend.probes.readiness }}
           readinessProbe:
-            {{- include "drive.probes.abstract" (merge .Values.frontend.probes.readiness (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
+            {{- include "find.probes.abstract" (merge .Values.frontend.probes.readiness (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
           {{- end }}
           {{- if .Values.frontend.probes.startup }}
           startupProbe:
-            {{- include "drive.probes.abstract" (merge .Values.frontend.probes.startup (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
+            {{- include "find.probes.abstract" (merge .Values.frontend.probes.startup (dict "targetPort" .Values.frontend.service.targetPort )) | nindent 12 }}
           {{- end }}
           {{- with .Values.frontend.resources }}
           resources:
@@ -102,7 +102,7 @@ spec:
         {{- range $index, $value := .Values.mountFiles }}
         - name: "files-{{ $index }}"
           configMap:
-            name: "{{ include "drive.fullname" $ }}-files-{{ $index }}"
+            name: "{{ include "find.fullname" $ }}-files-{{ $index }}"
         {{- end }}
         {{- range $name, $volume := .Values.frontend.persistence }}
         - name: "{{ $name }}"

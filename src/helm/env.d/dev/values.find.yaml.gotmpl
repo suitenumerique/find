@@ -1,16 +1,16 @@
 image:
-  repository: localhost:5001/drive-backend
+  repository: localhost:5001/find-backend
   pullPolicy: Always
   tag: "latest"
 
 backend:
   replicas: 1
   envVars:
-    DJANGO_CSRF_TRUSTED_ORIGINS: https://drive.127.0.0.1.nip.io,http://drive.127.0.0.1.nip.io
+    DJANGO_CSRF_TRUSTED_ORIGINS: https://find.127.0.0.1.nip.io,http://find.127.0.0.1.nip.io
     DJANGO_CONFIGURATION: Production
     DJANGO_ALLOWED_HOSTS: "*"
     DJANGO_SECRET_KEY: {{ .Values.djangoSecretKey }}
-    DJANGO_SETTINGS_MODULE: drive.settings
+    DJANGO_SETTINGS_MODULE: find.settings
     DJANGO_SUPERUSER_PASSWORD: admin
     DJANGO_EMAIL_HOST: "mailcatcher"
     DJANGO_EMAIL_PORT: 1025
@@ -24,17 +24,17 @@ backend:
     OIDC_RP_CLIENT_SECRET: {{ .Values.oidc.clientSecret }}
     OIDC_RP_SIGN_ALGO: RS256
     OIDC_RP_SCOPES: "openid email"
-    OIDC_REDIRECT_ALLOWED_HOSTS: https://drive.127.0.0.1.nip.io
+    OIDC_REDIRECT_ALLOWED_HOSTS: https://find.127.0.0.1.nip.io
     OIDC_AUTH_REQUEST_EXTRA_PARAMS: "{'acr_values': 'eidas1'}"
-    LOGIN_REDIRECT_URL: https://drive.127.0.0.1.nip.io
-    LOGIN_REDIRECT_URL_FAILURE: https://drive.127.0.0.1.nip.io
-    LOGOUT_REDIRECT_URL: https://drive.127.0.0.1.nip.io
+    LOGIN_REDIRECT_URL: https://find.127.0.0.1.nip.io
+    LOGIN_REDIRECT_URL_FAILURE: https://find.127.0.0.1.nip.io
+    LOGOUT_REDIRECT_URL: https://find.127.0.0.1.nip.io
     DB_HOST: postgres-postgresql
-    DB_NAME: drive
+    DB_NAME: find
     DB_USER: dinum
     DB_PASSWORD: pass
     DB_PORT: 5432
-    POSTGRES_DB: drive
+    POSTGRES_DB: find
     POSTGRES_USER: dinum
     POSTGRES_PASSWORD: pass
     REDIS_URL: redis://default:pass@redis-master:6379/1
@@ -52,8 +52,8 @@ backend:
   command:
     - "gunicorn"
     - "-c"
-    - "/usr/local/etc/gunicorn/drive.py"
-    - "drive.wsgi:application"
+    - "/usr/local/etc/gunicorn/find.py"
+    - "find.wsgi:application"
     - "--reload"
 
   createsuperuser:
@@ -67,8 +67,8 @@ backend:
 frontend:
   envVars:
     PORT: 8080
-    NEXT_PUBLIC_API_ORIGIN: https://drive.127.0.0.1.nip.io
-    NEXT_PUBLIC_SIGNALING_URL: wss://drive.127.0.0.1.nip.io/ws
+    NEXT_PUBLIC_API_ORIGIN: https://find.127.0.0.1.nip.io
+    NEXT_PUBLIC_SIGNALING_URL: wss://find.127.0.0.1.nip.io/ws
 
   replicas: 1
   command:
@@ -76,14 +76,14 @@ frontend:
     - dev
 
   image:
-    repository: localhost:5001/drive-frontend
+    repository: localhost:5001/find-frontend
     pullPolicy: Always
     tag: "latest"
 
 ingress:
   enabled: true
-  host: drive.127.0.0.1.nip.io
+  host: find.127.0.0.1.nip.io
 
 ingressAdmin:
   enabled: true
-  host: drive.127.0.0.1.nip.io
+  host: find.127.0.0.1.nip.io

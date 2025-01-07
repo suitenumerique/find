@@ -77,6 +77,7 @@ bootstrap: \
 	build \
 	migrate \
 	demo \
+	back-i18n-generate \
 	back-i18n-compile
 .PHONY: bootstrap
 
@@ -151,14 +152,14 @@ test-back-parallel: ## run all back-end tests in parallel
 	bin/pytest -n auto $${args:-${1}}
 .PHONY: test-back-parallel
 
-makemigrations:  ## run django makemigrations for the drive project.
+makemigrations:  ## run django makemigrations for the find project.
 	@echo "$(BOLD)Running makemigrations$(RESET)"
 	@$(COMPOSE) up -d postgresql
 	@$(WAIT_DB)
 	@$(MANAGE) makemigrations
 .PHONY: makemigrations
 
-migrate:  ## run django migrations for the drive project.
+migrate:  ## run django migrations for the find project.
 	@echo "$(BOLD)Running migrations$(RESET)"
 	@$(COMPOSE) up -d postgresql
 	@$(WAIT_DB)
@@ -197,15 +198,15 @@ resetdb: ## flush database and create a superuser "admin"
 .PHONY: resetdb
 
 env.d/development/common:
-	cp -n env.d/development/common.dist env.d/development/common
+	cp --update=none env.d/development/common.dist env.d/development/common
 
 env.d/development/postgresql:
-	cp -n env.d/development/postgresql.dist env.d/development/postgresql
+	cp --update=none env.d/development/postgresql.dist env.d/development/postgresql
 
 # -- Internationalization
 
 env.d/development/crowdin:
-	cp -n env.d/development/crowdin.dist env.d/development/crowdin
+	cp --update=none env.d/development/crowdin.dist env.d/development/crowdin
 
 crowdin-download: ## Download translated message from crowdin
 	@$(COMPOSE_RUN_CROWDIN) download -c crowdin/config.yml
@@ -249,7 +250,7 @@ clean: ## restore repository state as it was freshly cloned
 .PHONY: clean
 
 help:
-	@echo "$(BOLD)drive Makefile"
+	@echo "$(BOLD)find Makefile"
 	@echo "Please use 'make $(BOLD)target$(RESET)' where $(BOLD)target$(RESET) is one of:"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-30s$(RESET) %s\n", $$1, $$2}'
 .PHONY: help

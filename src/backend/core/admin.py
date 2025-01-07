@@ -1,4 +1,4 @@
-"""Admin config for drive's core app"""
+"""Admin config for find's core app"""
 from django.contrib import admin
 
 from .models import Service

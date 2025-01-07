@@ -1,4 +1,4 @@
-"""Enums for drive's core app."""
+"""Enums for find's core app."""
 
 RELEVANCE = "relevance"
 

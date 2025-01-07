@@ -1,4 +1,4 @@
-# Django drive
+# Django find
 
 # ---- base image to inherit from ----
 FROM python:3.10-slim-bullseye AS base
@@ -24,7 +24,7 @@ RUN mkdir /install && \
 
 # ---- static link collector ----
 FROM base AS link-collector
-ARG DRIVE_STATIC_ROOT=/data/static
+ARG FIND_STATIC_ROOT=/data/static
 
 # Install libpangocairo & rdfind
 RUN apt-get update && \
@@ -36,7 +36,7 @@ RUN apt-get update && \
 # Copy installed python dependencies
 COPY --from=back-builder /install /usr/local
 
-# Copy drive application (see .dockerignore)
+# Copy find application (see .dockerignore)
 COPY ./src/backend /app/
 
 WORKDIR /app
@@ -47,7 +47,7 @@ RUN DJANGO_CONFIGURATION=Build DJANGO_JWT_PRIVATE_SIGNING_KEY=Dummy \
 
 # Replace duplicated file by a symlink to decrease the overall size of the
 # final image
-RUN rdfind -makesymlinks true -followsymlinks true -makeresultsfile false ${DRIVE_STATIC_ROOT}
+RUN rdfind -makesymlinks true -followsymlinks true -makeresultsfile false ${FIND_STATIC_ROOT}
 
 # ---- Core application image ----
 FROM base AS core
@@ -77,7 +77,7 @@ RUN chmod g=u /etc/passwd
 # Copy installed python dependencies
 COPY --from=back-builder /install /usr/local
 
-# Copy drive application (see .dockerignore)
+# Copy find application (see .dockerignore)
 COPY ./src/backend /app/
 
 WORKDIR /app
@@ -98,9 +98,9 @@ RUN apt-get update && \
     apt-get install -y postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
-# Uninstall drive and re-install it in editable mode along with development
+# Uninstall find and re-install it in editable mode along with development
 # dependencies
-RUN pip uninstall -y drive
+RUN pip uninstall -y find
 RUN pip install -e .[dev]
 
 # Restore the un-privileged user running the application
@@ -118,21 +118,21 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ---- Production image ----
 FROM core AS backend-production
 
-ARG DRIVE_STATIC_ROOT=/data/static
+ARG FIND_STATIC_ROOT=/data/static
 
 # Gunicorn
 RUN mkdir -p /usr/local/etc/gunicorn
-COPY docker/files/usr/local/etc/gunicorn/drive.py /usr/local/etc/gunicorn/drive.py
+COPY docker/files/usr/local/etc/gunicorn/find.py /usr/local/etc/gunicorn/find.py
 
 # Un-privileged user running the application
 ARG DOCKER_USER
 USER ${DOCKER_USER}
 
 # Copy statics
-COPY --from=link-collector ${DRIVE_STATIC_ROOT} ${DRIVE_STATIC_ROOT}
+COPY --from=link-collector ${FIND_STATIC_ROOT} ${FIND_STATIC_ROOT}
 
-# Copy drive mails
+# Copy find mails
 COPY --from=mail-builder /mail/backend/core/templates/mail /app/core/templates/mail
 
-# The default command runs gunicorn WSGI server in drive's main module
-CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/drive.py", "drive.wsgi:application"]
+# The default command runs gunicorn WSGI server in find's main module
+CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/find.py", "find.wsgi:application"]

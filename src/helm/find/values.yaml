@@ -1,18 +1,18 @@
-# Default values for drive.
+# Default values for find.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 ## @section General configuration
 
-## @param image.repository Repository to use to pull drive's container image
-## @param image.tag drive's container tag
+## @param image.repository Repository to use to pull find's container image
+## @param image.tag find's container tag
 ## @param image.pullPolicy Container image pull policy
 ## @extra image.credentials.username Username for container registry authentication
 ## @extra image.credentials.password Password for container registry authentication
 ## @extra image.credentials.registry Registry url for which the credentials are specified
 ## @extra image.credentials.name Name of the generated secret for imagePullSecrets
 image:
-  repository: lasuite/drive-backend
+  repository: lasuite/find-backend
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -32,7 +32,7 @@ commonEnvVars: &commonEnvVars
 ingress:
   enabled: false
   className: null
-  host: drive.example.com
+  host: find.example.com
   path: /
   ## @param ingress.hosts Additional host to configure for the Ingress
   hosts: []
@@ -56,7 +56,7 @@ ingress:
 ingressAdmin:
   enabled: false
   className: null
-  host: drive.example.com
+  host: find.example.com
   path: /admin
   ## @param ingressAdmin.hosts Additional host to configure for the Ingress
   hosts: [ ]
@@ -176,11 +176,11 @@ backend:
 ## @section frontend
 
 frontend:
-  ## @param frontend.image.repository Repository to use to pull drive's frontend container image
-  ## @param frontend.image.tag drive's frontend container tag
+  ## @param frontend.image.repository Repository to use to pull find's frontend container image
+  ## @param frontend.image.tag find's frontend container tag
   ## @param frontend.image.pullPolicy frontend container image pull policy
   image:
-    repository: lasuite/drive-frontend
+    repository: lasuite/find-frontend
     pullPolicy: IfNotPresent
     tag: "latest"
 

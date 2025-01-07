@@ -1,10 +1,10 @@
-# Drive
+# Find
 
-Drive can index documents from several applications sharing a common OIDC federation
+Find can index documents from several applications sharing a common OIDC federation
 and allows users to search documents with their access rights accross all applications
 in the federation.
 
-Drive is built on top of [Django Rest
+Find is built on top of [Django Rest
 Framework](https://www.django-rest-framework.org/).
 
 ## Getting started
@@ -16,14 +16,15 @@ Compose](https://docs.docker.com/compose/install) installed on your laptop:
 
 ```bash
 $ docker -v
-  Docker version 20.10.2, build 2291f61
+  Docker version 27.4.1, build b9d17ea
 
-$ docker compose -v
-  docker compose version 1.27.4, build 40524192
+$ docker compose version
+  Docker Compose version v2.32.1
 ```
 
 > ⚠️ You may need to run the following commands with `sudo` but this can be
-> avoided by assigning your user to the `docker` group.
+> avoided by assigning your user to the `docker` group. See docker 
+> [Documentation](https://docs.docker.com/engine/install/linux-postinstall/)
 
 ### Project bootstrap
 

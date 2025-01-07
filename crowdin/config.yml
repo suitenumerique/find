@@ -17,13 +17,13 @@ preserve_hierarchy: true
 files: [
  {
   source : "/backend/locale/django.pot",
-  dest: "/backend-drive.pot",
+  dest: "/backend-find.pot",
   translation : "/backend/locale/%locale_with_underscore%/LC_MESSAGES/django.po"
  },
   {
-    source: "/frontend/packages/i18n/locales/drive/translations-crowdin.json",
-    dest: "/frontend-drive.json",
-    translation: "/frontend/packages/i18n/locales/drive/%two_letters_code%/translations.json",
+    source: "/frontend/packages/i18n/locales/find/translations-crowdin.json",
+    dest: "/frontend-find.json",
+    translation: "/frontend/packages/i18n/locales/find/%two_letters_code%/translations.json",
     skip_untranslated_strings: true,
   },
 ]
