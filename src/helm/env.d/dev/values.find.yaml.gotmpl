@@ -64,22 +64,6 @@ backend:
         shell -c "from core.models import User; not User.objects.filter(username='admin').exists() and User.objects.create_superuser('admin', 'admin@example.com', 'admin')"
     restartPolicy: Never
 
-frontend:
-  envVars:
-    PORT: 8080
-    NEXT_PUBLIC_API_ORIGIN: https://find.127.0.0.1.nip.io
-    NEXT_PUBLIC_SIGNALING_URL: wss://find.127.0.0.1.nip.io/ws
-
-  replicas: 1
-  command:
-    - yarn
-    - dev
-
-  image:
-    repository: localhost:5001/find-frontend
-    pullPolicy: Always
-    tag: "latest"
-
 ingress:
   enabled: true
   host: find.127.0.0.1.nip.io

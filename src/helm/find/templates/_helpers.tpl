@@ -140,15 +140,6 @@ Requires top level scope
 {{- end }}
 
 {{/*
-Full name for the frontend
-
-Requires top level scope
-*/}}
-{{- define "find.frontend.fullname" -}}
-{{ include "find.fullname" . }}-frontend
-{{- end }}
-
-{{/*
 Full name for the webrtc
 
 Requires top level scope
