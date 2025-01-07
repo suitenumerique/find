@@ -111,12 +111,6 @@ backend:
         python manage.py createsuperuser --email $DJANGO_SUPERUSER_EMAIL --password $DJANGO_SUPERUSER_PASSWORD
     restartPolicy: Never
 
-frontend:
-  image:
-    repository: lasuite/find-frontend
-    pullPolicy: Always
-    tag: "v1.1.0"
-
 ingress:
   enabled: true
   host: find-preprod.beta.numerique.gouv.fr

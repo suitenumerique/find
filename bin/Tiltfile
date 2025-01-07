@@ -17,17 +17,6 @@ docker_build(
     ]
 )
 
-docker_build(
-    'localhost:5001/find-frontend:latest',
-    context='..',
-    dockerfile='../src/frontend/Dockerfile',
-    only=['./src/frontend', './docker', './.dockerignore'],
-    target = 'find',
-    live_update=[
-        sync('../src/frontend', '/home/frontend'),
-    ]
-)
-
 
 k8s_yaml(local('cd ../src/helm && helmfile -n find -e dev template .'))
 
