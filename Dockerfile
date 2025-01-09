@@ -1,7 +1,7 @@
 # Django find
 
 # ---- base image to inherit from ----
-FROM python:3.10-slim-bullseye AS base
+FROM python:3.12-slim-bookworm AS base
 
 # Upgrade pip to its latest release to speed up dependencies installation
 RUN python -m pip install --upgrade pip
@@ -42,7 +42,9 @@ COPY ./src/backend /app/
 WORKDIR /app
 
 # collectstatic
-RUN DJANGO_CONFIGURATION=Build DJANGO_JWT_PRIVATE_SIGNING_KEY=Dummy \
+RUN DJANGO_CONFIGURATION=Build \
+    DJANGO_JWT_PRIVATE_SIGNING_KEY=Dummy \
+    OPENSEARCH_PASSWORD=Dummy \
     python manage.py collectstatic --noinput
 
 # Replace duplicated file by a symlink to decrease the overall size of the
@@ -130,9 +132,6 @@ USER ${DOCKER_USER}
 
 # Copy statics
 COPY --from=link-collector ${FIND_STATIC_ROOT} ${FIND_STATIC_ROOT}
-
-# Copy find mails
-COPY --from=mail-builder /mail/backend/core/templates/mail /app/core/templates/mail
 
 # The default command runs gunicorn WSGI server in find's main module
 CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/find.py", "find.wsgi:application"]
