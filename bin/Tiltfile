@@ -11,8 +11,8 @@ docker_build(
     live_update=[
         sync('../src/backend', '/app'),
         run(
-            'pip install -r /app/requirements.txt',
-            trigger=['./api/requirements.txt']
+            'pip install .',
+            trigger=['../src/backend/pyproject.toml']
         )
     ]
 )
@@ -20,28 +20,28 @@ docker_build(
 
 k8s_yaml(local('cd ../src/helm && helmfile -n find -e dev template .'))
 
-migration = '''
-set -eu
-# get k8s pod name from tilt resource name
-POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
-kubectl -n find exec "$POD_NAME" -- python manage.py makemigrations
-'''
-cmd_button('Make migration',
-           argv=['sh', '-c', migration],
-           resource='find-backend',
-           icon_name='developer_board',
-           text='Run makemigration',
-)
-
-pod_migrate = '''
+migrate_db = '''
 set -eu
 # get k8s pod name from tilt resource name
 POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
 kubectl -n find exec "$POD_NAME" -- python manage.py migrate --no-input
 '''
 cmd_button('Migrate db',
-           argv=['sh', '-c', pod_migrate],
+           argv=['sh', '-c', migrate_db],
            resource='find-backend',
            icon_name='developer_board',
            text='Run database migration',
+)
+
+create_demo = '''
+set -eu
+# get k8s pod name from tilt resource name
+POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
+kubectl -n find exec "$POD_NAME" -- python manage.py create_demo --force
+'''
+cmd_button('Create demo fixtures',
+           argv=['sh', '-c', create_demo],
+           resource='find-backend',
+           icon_name='developer_board',
+           text='Run demo fixtures',
 )

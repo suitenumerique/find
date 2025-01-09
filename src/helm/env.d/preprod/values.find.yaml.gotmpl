@@ -13,16 +13,16 @@ backend:
     DJANGO_ALLOWED_HOSTS: "*"
     DJANGO_SUPERUSER_EMAIL:
       secretKeyRef:
-        name: backend
+        name: find-backend
         key: DJANGO_SUPERUSER_EMAIL
     DJANGO_SECRET_KEY:
       secretKeyRef:
-        name: backend
+        name: find-backend
         key: DJANGO_SECRET_KEY
     DJANGO_SETTINGS_MODULE: find.settings
     DJANGO_SUPERUSER_PASSWORD:
       secretKeyRef:
-        name: backend
+        name: find-backend
         key: DJANGO_SUPERUSER_PASSWORD
     DJANGO_EMAIL_HOST: "snap-mail.numerique.gouv.fr"
     DJANGO_EMAIL_PORT: 465
@@ -35,11 +35,11 @@ backend:
     OIDC_OP_LOGOUT_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/session/end
     OIDC_RP_CLIENT_ID:
       secretKeyRef:
-        name: backend
+        name: find-backend
         key: OIDC_RP_CLIENT_ID
     OIDC_RP_CLIENT_SECRET:
       secretKeyRef:
-        name: backend
+        name: find-backend
         key: OIDC_RP_CLIENT_SECRET
     OIDC_RP_SIGN_ALGO: RS256
     OIDC_RP_SCOPES: "openid email"
@@ -68,18 +68,6 @@ backend:
       secretKeyRef:
         name: postgresql.postgres.libre.sh
         key: port
-    POSTGRES_USER:
-      secretKeyRef:
-        name: postgresql.postgres.libre.sh
-        key: username
-    POSTGRES_DB:
-      secretKeyRef:
-        name: postgresql.postgres.libre.sh
-        key: database
-    POSTGRES_PASSWORD:
-      secretKeyRef:
-        name: postgresql.postgres.libre.sh
-        key: password
     REDIS_URL:
       secretKeyRef:
         name: redis.redis.libre.sh
@@ -102,6 +90,10 @@ backend:
         key: bucket
     AWS_S3_REGION_NAME: local
     STORAGES_STATICFILES_BACKEND: django.contrib.staticfiles.storage.StaticFilesStorage
+    OPENSEARCH_PASSWORD:
+      secretKeyRef:
+        name: find-backend
+        key: OPENSEARCH_PASSWORD
 
   createsuperuser:
     command:
