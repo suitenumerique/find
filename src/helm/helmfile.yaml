@@ -5,21 +5,6 @@ environments:
       - version: 0.0.1
     secrets:
       - env.d/{{ .Environment.Name }}/secrets.enc.yaml
-  staging:
-    values:
-      - version: 0.0.1
-    secrets:
-      - env.d/{{ .Environment.Name }}/secrets.enc.yaml
-  preprod:
-    values:
-      - version: 0.0.1
-    secrets:
-      - env.d/{{ .Environment.Name }}/secrets.enc.yaml
-  production:
-    values:
-      - version: 0.0.1
-    secrets:
-      - env.d/{{ .Environment.Name }}/secrets.enc.yaml
 ---
 repositories:
   - name: bitnami
@@ -54,20 +39,11 @@ releases:
         architecture: standalone
 
   - name: opensearch
-    installed: {{ eq .Environment.Name "dev" | toYaml }}
     namespace: {{ .Namespace }}
     chart: bitnami/opensearch
     version: 1.5.1
     values:
-      - security:
-          adminPassword: {{ .Values.opensearch.password }}
-      - dashboards:
-          enabled: true
-          ingress:
-            enabled: true
-            hostname: opensearch-dashboard.127.0.0.1.nip.io
-            tls: true
-            selfSigned: true
+      - env.d/{{ .Environment.Name }}/values.opensearch.yaml.gotmpl
 
   - name: extra
     installed: {{ ne .Environment.Name "dev" | toYaml }}

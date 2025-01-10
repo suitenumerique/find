@@ -1,0 +1,9 @@
+security:
+  adminPassword: {{ .Values.opensearch.password }}
+dashboards:
+  enabled: true
+  ingress:
+    enabled: true
+    hostname: opensearch-dashboard.127.0.0.1.nip.io
+    tls: true
+    selfSigned: true
