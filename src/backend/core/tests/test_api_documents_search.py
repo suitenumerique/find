@@ -4,6 +4,7 @@ Test suite for searching documents in OpenSearch over the API.
 Don't use pytest parametrized tests because batch generation and indexing
 of documents is slow and better done only once.
 """
+
 import operator
 
 import pytest

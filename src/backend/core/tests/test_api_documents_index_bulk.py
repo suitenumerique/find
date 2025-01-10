@@ -1,4 +1,5 @@
 """Tests indexing documents in OpenSearch over the API"""
+
 import datetime
 
 from django.utils import timezone
