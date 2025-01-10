@@ -1,4 +1,5 @@
 """Pydantic model to validate documents before indexation."""
+
 from typing import Annotated, List, Literal, Optional
 
 from django.utils import timezone

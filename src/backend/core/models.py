@@ -1,4 +1,5 @@
 """Models for find's core app"""
+
 import secrets
 import string
 

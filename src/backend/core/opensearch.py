@@ -1,4 +1,5 @@
 """Opensearch related utils."""
+
 from django.conf import settings
 
 from opensearchpy import OpenSearch
