@@ -30,7 +30,7 @@ dependencies = [
     "django-cors-headers==4.3.1",
     "redis==5.0.3",
     "django-redis==5.4.0",
-    "django==5.0.7",
+    "django==5.0.10",
     "djangorestframework==3.14.0",
     "drf_spectacular==0.26.5",
     "dockerflow==2022.8.0",
