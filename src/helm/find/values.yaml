@@ -171,3 +171,12 @@ backend:
 
   ## @param backend.extraVolumes Additional volumes to mount on the backend.
   extraVolumes: []
+
+  ## @param backend.createsuperuser.command Command to run to create superuser
+  ## @param backend.createsuperuser.restartPolicy Restart policy for the createsuperuser job
+  createsuperuser:
+    command:
+      - "python"
+      - "manage.py"
+      - "createsuperuser"    
+    restartPolicy: Never

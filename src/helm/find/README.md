@@ -4,34 +4,34 @@
 
 ### General configuration
 
-| Name                                       | Description                                          | Value                    |
-| ------------------------------------------ | ---------------------------------------------------- | ------------------------ |
+| Name                                       | Description                                          | Value                  |
+| ------------------------------------------ | ---------------------------------------------------- | ---------------------- |
 | `image.repository`                         | Repository to use to pull find's container image     | `lasuite/find-backend` |
-| `image.tag`                                | find's container tag                                 | `latest`                 |
-| `image.pullPolicy`                         | Container image pull policy                          | `IfNotPresent`           |
-| `image.credentials.username`               | Username for container registry authentication       |                          |
-| `image.credentials.password`               | Password for container registry authentication       |                          |
-| `image.credentials.registry`               | Registry url for which the credentials are specified |                          |
-| `image.credentials.name`                   | Name of the generated secret for imagePullSecrets    |                          |
-| `nameOverride`                             | Override the chart name                              | `""`                     |
-| `fullnameOverride`                         | Override the full application name                   | `""`                     |
-| `ingress.enabled`                          | whether to enable the Ingress or not                 | `false`                  |
-| `ingress.className`                        | IngressClass to use for the Ingress                  | `nil`                    |
-| `ingress.host`                             | Host for the Ingress                                 | `find.example.com`       |
-| `ingress.path`                             | Path to use for the Ingress                          | `/`                      |
-| `ingress.hosts`                            | Additional host to configure for the Ingress         | `[]`                     |
-| `ingress.tls.enabled`                      | Weather to enable TLS for the Ingress                | `true`                   |
-| `ingress.tls.additional[].secretName`      | Secret name for additional TLS config                |                          |
-| `ingress.tls.additional[].hosts[]`         | Hosts for additional TLS config                      |                          |
-| `ingress.customBackends`                   | Add custom backends to ingress                       | `[]`                     |
-| `ingressAdmin.enabled`                     | whether to enable the Ingress or not                 | `false`                  |
-| `ingressAdmin.className`                   | IngressClass to use for the Ingress                  | `nil`                    |
-| `ingressAdmin.host`                        | Host for the Ingress                                 | `find.example.com`       |
-| `ingressAdmin.path`                        | Path to use for the Ingress                          | `/admin`                 |
-| `ingressAdmin.hosts`                       | Additional host to configure for the Ingress         | `[]`                     |
-| `ingressAdmin.tls.enabled`                 | Weather to enable TLS for the Ingress                | `true`                   |
-| `ingressAdmin.tls.additional[].secretName` | Secret name for additional TLS config                |                          |
-| `ingressAdmin.tls.additional[].hosts[]`    | Hosts for additional TLS config                      |                          |
+| `image.tag`                                | find's container tag                                 | `latest`               |
+| `image.pullPolicy`                         | Container image pull policy                          | `IfNotPresent`         |
+| `image.credentials.username`               | Username for container registry authentication       |                        |
+| `image.credentials.password`               | Password for container registry authentication       |                        |
+| `image.credentials.registry`               | Registry url for which the credentials are specified |                        |
+| `image.credentials.name`                   | Name of the generated secret for imagePullSecrets    |                        |
+| `nameOverride`                             | Override the chart name                              | `""`                   |
+| `fullnameOverride`                         | Override the full application name                   | `""`                   |
+| `ingress.enabled`                          | whether to enable the Ingress or not                 | `false`                |
+| `ingress.className`                        | IngressClass to use for the Ingress                  | `nil`                  |
+| `ingress.host`                             | Host for the Ingress                                 | `find.example.com`     |
+| `ingress.path`                             | Path to use for the Ingress                          | `/`                    |
+| `ingress.hosts`                            | Additional host to configure for the Ingress         | `[]`                   |
+| `ingress.tls.enabled`                      | Weather to enable TLS for the Ingress                | `true`                 |
+| `ingress.tls.additional[].secretName`      | Secret name for additional TLS config                |                        |
+| `ingress.tls.additional[].hosts[]`         | Hosts for additional TLS config                      |                        |
+| `ingress.customBackends`                   | Add custom backends to ingress                       | `[]`                   |
+| `ingressAdmin.enabled`                     | whether to enable the Ingress or not                 | `false`                |
+| `ingressAdmin.className`                   | IngressClass to use for the Ingress                  | `nil`                  |
+| `ingressAdmin.host`                        | Host for the Ingress                                 | `find.example.com`     |
+| `ingressAdmin.path`                        | Path to use for the Ingress                          | `/admin`               |
+| `ingressAdmin.hosts`                       | Additional host to configure for the Ingress         | `[]`                   |
+| `ingressAdmin.tls.enabled`                 | Weather to enable TLS for the Ingress                | `true`                 |
+| `ingressAdmin.tls.additional[].secretName` | Secret name for additional TLS config                |                        |
+| `ingressAdmin.tls.additional[].hosts[]`    | Hosts for additional TLS config                      |                        |
 
 ### backend
 
@@ -42,6 +42,7 @@
 | `backend.replicas`                                    | Amount of backend replicas                                                         | `3`                                             |
 | `backend.shareProcessNamespace`                       | Enable share process namespace between containers                                  | `false`                                         |
 | `backend.sidecars`                                    | Add sidecars containers to backend deployment                                      | `[]`                                            |
+| `backend.migrateJobAnnotations`                       | Annotations for the migrate job                                                    | `{}`                                            |
 | `backend.securityContext`                             | Configure backend Pod security context                                             | `nil`                                           |
 | `backend.envVars`                                     | Configure backend container environment variables                                  | `undefined`                                     |
 | `backend.envVars.BY_VALUE`                            | Example environment variable by setting value directly                             |                                                 |
@@ -78,3 +79,5 @@
 | `backend.persistence.volume-name.mountPath`           | Path where the volume should be mounted to                                         |                                                 |
 | `backend.extraVolumeMounts`                           | Additional volumes to mount on the backend.                                        | `[]`                                            |
 | `backend.extraVolumes`                                | Additional volumes to mount on the backend.                                        | `[]`                                            |
+| `backend.createsuperuser.command`                     | Command to run to create superuser                                                 | `["python","manage.py","createsuperuser"]`      |
+| `backend.createsuperuser.restartPolicy`               | Restart policy for the createsuperuser job                                         | `Never`                                         |
