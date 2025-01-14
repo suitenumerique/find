@@ -57,7 +57,6 @@ releases:
     # https://opster.com/guides/opensearch/opensearch-basics/opensearch-security-access-control-users-roles-permissions/
     # https://opster.com/guides/opensearch/opensearch-security/changing-admin-password-opensearch/
 
-
   - name: find
     version: {{ .Values.version }}
     namespace: {{ .Namespace }}
