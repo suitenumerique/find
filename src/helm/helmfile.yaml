@@ -38,19 +38,25 @@ releases:
           password: pass
         architecture: standalone
 
+  - name: extra
+    installed: {{ eq .Environment.Name "dev" | toYaml }}
+    namespace: {{ .Namespace }}
+    chart: ./extra
+    secrets:
+      - env.d/{{ .Environment.Name }}/secrets.enc.yaml
+
   - name: opensearch
     namespace: {{ .Namespace }}
     chart: bitnami/opensearch
     version: 1.5.1
     values:
       - env.d/{{ .Environment.Name }}/values.opensearch.yaml.gotmpl
-
-  - name: extra
-    installed: {{ ne .Environment.Name "dev" | toYaml }}
-    namespace: {{ .Namespace }}
-    chart: ./extra
     secrets:
       - env.d/{{ .Environment.Name }}/secrets.enc.yaml
+    ### documentation
+    # https://opster.com/guides/opensearch/opensearch-basics/opensearch-security-access-control-users-roles-permissions/
+    # https://opster.com/guides/opensearch/opensearch-security/changing-admin-password-opensearch/
+
 
   - name: find
     version: {{ .Values.version }}

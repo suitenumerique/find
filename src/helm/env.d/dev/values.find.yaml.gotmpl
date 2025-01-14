@@ -56,7 +56,7 @@ backend:
     REDIS_URL: redis://default:pass@redis-master:6379/1
     STORAGES_STATICFILES_BACKEND: django.contrib.staticfiles.storage.StaticFilesStorage
     OPENSEARCH_HOST: opensearch
-    OPENSEARCH_USE_SSL: False
+    OPENSEARCH_USE_SSL: True
     OPENSEARCH_PORT: 9200
     OPENSEARCH_PASSWORD:
       secretKeyRef:
