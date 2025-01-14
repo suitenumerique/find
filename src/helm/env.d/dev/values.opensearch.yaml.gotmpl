@@ -1,9 +1,12 @@
 security:
-  adminPassword: {{ .Values.opensearch.password }}
+  enabled: true
+  existingSecret: opensearch
+  tls:
+    restEncryption: true
 dashboards:
   enabled: true
   ingress:
     enabled: true
-    hostname: opensearch-dashboard.127.0.0.1.nip.io
     tls: true
     selfSigned: true
+    hostname: find-dashboard.127.0.0.1.nip.io
