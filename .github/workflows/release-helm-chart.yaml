@@ -29,9 +29,8 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Publish Helm charts
-        uses: numerique-gouv/helm-gh-pages@add-overwrite-option
+        uses: numerique-gouv/helm-gh-pages@master
         with:
           charts_dir: ./src/helm
           linting: on
           token: ${{ secrets.GITHUB_TOKEN }}
-          override_releases: on
