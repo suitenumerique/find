@@ -2,6 +2,7 @@ name: Release Chart
 run-name: Release Chart
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
