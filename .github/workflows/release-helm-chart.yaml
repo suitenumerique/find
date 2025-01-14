@@ -34,3 +34,4 @@ jobs:
           charts_dir: ./src/helm
           linting: on
           token: ${{ secrets.GITHUB_TOKEN }}
+          override_releases: on
