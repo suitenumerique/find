@@ -5,12 +5,16 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-    paths:
-      - ./src/helm/find/**
+      - 'main'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - 'main'
   
 jobs:
   release:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
     runs-on: ubuntu-latest
