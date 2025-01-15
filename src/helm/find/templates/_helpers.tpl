@@ -31,6 +31,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Create version.
+*/}}
+{{- define "find.version" -}}
+{{- printf "%s-%s" .Chart.Version .Chart.AppVersion | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
 find.labels
 */}}
 {{- define "find.labels" -}}

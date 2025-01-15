@@ -20,7 +20,7 @@
 | `ingress.host`                             | Host for the Ingress                                 | `find.example.com`     |
 | `ingress.path`                             | Path to use for the Ingress                          | `/`                    |
 | `ingress.hosts`                            | Additional host to configure for the Ingress         | `[]`                   |
-| `ingress.tls.enabled`                      | Weather to enable TLS for the Ingress                | `true`                 |
+| `ingress.tls.enabled`                      | Whether to enable TLS for the Ingress                | `true`                 |
 | `ingress.tls.additional[].secretName`      | Secret name for additional TLS config                |                        |
 | `ingress.tls.additional[].hosts[]`         | Hosts for additional TLS config                      |                        |
 | `ingress.customBackends`                   | Add custom backends to ingress                       | `[]`                   |
@@ -29,7 +29,7 @@
 | `ingressAdmin.host`                        | Host for the Ingress                                 | `find.example.com`     |
 | `ingressAdmin.path`                        | Path to use for the Ingress                          | `/admin`               |
 | `ingressAdmin.hosts`                       | Additional host to configure for the Ingress         | `[]`                   |
-| `ingressAdmin.tls.enabled`                 | Weather to enable TLS for the Ingress                | `true`                 |
+| `ingressAdmin.tls.enabled`                 | Whether to enable TLS for the Ingress                | `true`                 |
 | `ingressAdmin.tls.additional[].secretName` | Secret name for additional TLS config                |                        |
 | `ingressAdmin.tls.additional[].hosts[]`    | Hosts for additional TLS config                      |                        |
 
@@ -79,5 +79,6 @@
 | `backend.persistence.volume-name.mountPath`           | Path where the volume should be mounted to                                         |                                                 |
 | `backend.extraVolumeMounts`                           | Additional volumes to mount on the backend.                                        | `[]`                                            |
 | `backend.extraVolumes`                                | Additional volumes to mount on the backend.                                        | `[]`                                            |
+| `backend.createsuperuser.enabled`                     | Whether to enable the create superuser command                                     | `false`                                         |
 | `backend.createsuperuser.command`                     | Command to run to create superuser                                                 | `["python","manage.py","createsuperuser"]`      |
 | `backend.createsuperuser.restartPolicy`               | Restart policy for the createsuperuser job                                         | `Never`                                         |

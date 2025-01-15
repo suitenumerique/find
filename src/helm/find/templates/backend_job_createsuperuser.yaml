@@ -1,6 +1,7 @@
 {{- $envVars := include "find.common.env" (list . .Values.backend) -}}
 {{- $fullName := include "find.backend.fullname" . -}}
 {{- $component := "backend" -}}
+{{- if .Values.backend.createsuperuser.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -119,3 +120,4 @@ spec:
           emptyDir: {}
           {{- end }}
         {{- end }}
+{{- end }}

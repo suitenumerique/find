@@ -37,7 +37,7 @@ ingress:
   ## @param ingress.hosts Additional host to configure for the Ingress
   hosts: []
   #  - chart-example.local
-  ## @param ingress.tls.enabled Weather to enable TLS for the Ingress
+  ## @param ingress.tls.enabled Whether to enable TLS for the Ingress
   ## @skip ingress.tls.additional
   ## @extra ingress.tls.additional[].secretName Secret name for additional TLS config
   ## @extra ingress.tls.additional[].hosts[] Hosts for additional TLS config
@@ -61,7 +61,7 @@ ingressAdmin:
   ## @param ingressAdmin.hosts Additional host to configure for the Ingress
   hosts: [ ]
   #  - chart-example.local
-  ## @param ingressAdmin.tls.enabled Weather to enable TLS for the Ingress
+  ## @param ingressAdmin.tls.enabled Whether to enable TLS for the Ingress
   ## @skip ingressAdmin.tls.additional
   ## @extra ingressAdmin.tls.additional[].secretName Secret name for additional TLS config
   ## @extra ingressAdmin.tls.additional[].hosts[] Hosts for additional TLS config
@@ -118,8 +118,8 @@ backend:
     targetPort: 8000
     annotations: {}
 
- ## @param backend.migrate.command backend migrate command
- ## @param backend.migrate.restartPolicy backend migrate job restart policy
+  ## @param backend.migrate.command backend migrate command
+  ## @param backend.migrate.restartPolicy backend migrate job restart policy
   migrate:
     command:
       - "python"
@@ -172,9 +172,11 @@ backend:
   ## @param backend.extraVolumes Additional volumes to mount on the backend.
   extraVolumes: []
 
+  ## @param backend.createsuperuser.enabled Whether to enable the create superuser command
   ## @param backend.createsuperuser.command Command to run to create superuser
   ## @param backend.createsuperuser.restartPolicy Restart policy for the createsuperuser job
   createsuperuser:
+    enabled: false
     command:
       - "python"
       - "manage.py"
