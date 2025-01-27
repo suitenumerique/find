@@ -8,6 +8,7 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
   {{- with .Values.backend.migrateJobAnnotations }}
   annotations:
+    argocd.argoproj.io/sync-options: Replace=true,Force=true
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
