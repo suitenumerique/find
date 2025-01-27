@@ -2,7 +2,7 @@
 environments:
   dev:
     values:
-      - version: 0.0.1
+      - version: 0.0.2
     secrets:
       - env.d/{{ .Environment.Name }}/secrets.enc.yaml
 ---
