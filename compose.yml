@@ -4,7 +4,7 @@ services:
     env_file:
       - env.d/development/postgresql
     ports:
-      - "15432:5432"
+      - "25432:5432"
 
   opensearch:
     image: opensearchproject/opensearch:latest
@@ -59,7 +59,7 @@ services:
         - postgresql
         - opensearch
         - redis
-  
+
   celery:
     user: ${DOCKER_USER:-1000}
     image: find:backend-development
