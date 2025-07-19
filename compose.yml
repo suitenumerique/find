@@ -51,7 +51,12 @@ services:
       - env.d/development/common
       - env.d/development/postgresql
     ports:
-      - "8071:8000"
+      - "8081:8000"
+    networks:
+      default: {}
+      lasuite-net:
+        aliases:
+          - find
     volumes:
       - ./src/backend:/app
       - ./data/static:/data/static
@@ -94,3 +99,8 @@ services:
       HOME: /tmp
     volumes:
       - ".:/app"
+
+networks:
+  lasuite-net:
+    name: lasuite-net
+    driver: bridge
