@@ -8,7 +8,7 @@ from django.utils.text import slugify
 import factory
 from faker import Faker
 
-from .models import Service
+from . import enums, models
 
 fake = Faker()
 
@@ -28,7 +28,7 @@ class DocumentSchemaFactory(factory.DictFactory):
     size = factory.LazyFunction(lambda: fake.random_int(min=0, max=1024**2))
     users = factory.LazyFunction(lambda: [uuid4() for _ in range(3)])
     groups = factory.LazyFunction(lambda: [slugify(fake.word()) for _ in range(3)])
-    is_public = factory.Faker("boolean")
+    reach = factory.Iterator(list(enums.Reach))
 
     @factory.lazy_attribute
     def updated_at(self):
@@ -50,4 +50,4 @@ class ServiceFactory(factory.django.DjangoModelFactory):
     is_active = True
 
     class Meta:
-        model = Service
+        model = models.Service

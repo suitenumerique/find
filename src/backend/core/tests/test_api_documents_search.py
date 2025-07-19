@@ -77,7 +77,7 @@ def test_api_documents_search_query_title():
         "size": document["size"],
         "created_at": document["created_at"].isoformat(),
         "updated_at": document["updated_at"].isoformat(),
-        "is_public": document["is_public"],
+        "reach": document["reach"],
         "title": "The quick brown fox",
     }
     assert fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
@@ -95,7 +95,7 @@ def test_api_documents_search_query_title():
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
-        "is_public": other_fox_document["is_public"],
+        "reach": other_fox_document["reach"],
         "title": "The blue fox",
     }
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
@@ -133,7 +133,7 @@ def test_api_documents_search_query_content():
         "size": document["size"],
         "created_at": document["created_at"].isoformat(),
         "updated_at": document["updated_at"].isoformat(),
-        "is_public": document["is_public"],
+        "reach": document["reach"],
         "title": document["title"],
     }
     assert fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
@@ -151,7 +151,7 @@ def test_api_documents_search_query_content():
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
-        "is_public": other_fox_document["is_public"],
+        "reach": other_fox_document["reach"],
         "title": other_fox_document["title"],
     }
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
@@ -172,8 +172,8 @@ def test_api_documents_search_ordering_by_fields():
         (enums.UPDATED_AT, "desc"),
         (enums.SIZE, "asc"),
         (enums.SIZE, "desc"),
-        (enums.IS_PUBLIC, "asc"),
-        (enums.IS_PUBLIC, "desc"),
+        (enums.REACH, "asc"),
+        (enums.REACH, "desc"),
     ]
 
     for field, direction in parameters:
@@ -240,7 +240,7 @@ def test_api_documents_search_ordering_by_unknown_field():
                 "loc": ["order_by"],
                 "msg": (
                     "Input should be 'relevance', 'title', 'created_at', "
-                    "'updated_at', 'size' or 'is_public'"
+                    "'updated_at', 'size' or 'reach'"
                 ),
                 "type": "literal_error",
             }
@@ -269,24 +269,15 @@ def test_api_documents_search_ordering_by_unknown_direction():
         ]
 
 
-def test_api_documents_search_filtering_by_is_public():
-    """It should be possible to filter results by their publication status"""
+def test_api_documents_search_filtering_by_reach():
+    """It should be possible to filter results by their reach"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
     prepare_index(service.index_name, documents)
 
-    parameters = [
-        [True, "True"],
-        [False, "False"],
-        [True, "true"],
-        [False, "false"],
-        [True, "1"],
-        [False, "0"],
-    ]
-
-    for public_boolean, public_string in parameters:
+    for reach in enums.Reach:
         response = APIClient().get(
-            f"/api/v1.0/documents/?q=*&is_public={public_string}",
+            f"/api/v1.0/documents/?q=*&reach={reach.value}",
             HTTP_AUTHORIZATION=f"Bearer {service.token}",
         )
 
@@ -294,7 +285,7 @@ def test_api_documents_search_filtering_by_is_public():
         responses = response.json()
 
         for result in responses:
-            assert public_boolean == result["_source"]["is_public"]
+            assert reach == result["_source"]["reach"]
 
 
 # Pagination
@@ -422,16 +413,18 @@ def test_api_documents_search_pagination_invalid_parameters():
 
 
 def test_api_documents_search_pagination_with_filtering():
-    """Pagination should work correctly when combined with filtering by is_public"""
+    """Pagination should work correctly when combined with filtering by reach"""
     service = factories.ServiceFactory(name="test-service")
-    public_documents = factories.DocumentSchemaFactory.build_batch(3, is_public=True)
+    public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
-    private_documents = factories.DocumentSchemaFactory.build_batch(2, is_public=False)
+    private_documents = factories.DocumentSchemaFactory.build_batch(
+        2, reach="authenticated"
+    )
     prepare_index(service.index_name, public_documents + private_documents)
 
     # Filter by public documents, request first page
     response = APIClient().get(
-        "/api/v1.0/documents/?q=*&is_public=true&page_number=1&page_size=2",
+        "/api/v1.0/documents/?q=*&reach=public&page_number=1&page_size=2",
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
     assert response.status_code == 200
@@ -440,7 +433,7 @@ def test_api_documents_search_pagination_with_filtering():
 
     # Request second page for public documents (remaining 1 document)
     response = APIClient().get(
-        "/api/v1.0/documents/?q=*&is_public=true&page_number=2&page_size=2",
+        "/api/v1.0/documents/?q=*&reach=public&page_number=2&page_size=2",
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 

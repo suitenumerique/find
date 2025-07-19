@@ -127,10 +127,10 @@ def test_api_documents_index_single_success():
             ("Input should be a valid list"),
         ),
         (
-            "is_public",
-            "invalid_boolean",
-            "bool_parsing",
-            "Input should be a valid boolean, unable to interpret input",
+            "reach",
+            "invalid",
+            "enum",
+            "Input should be 'public', 'authenticated' or 'restricted'",
         ),
     ],
 )
@@ -183,7 +183,7 @@ def test_api_documents_index_single_required(field):
     [
         ("users", []),
         ("groups", []),
-        ("is_public", False),
+        ("reach", "restricted"),
     ],
 )
 def test_api_documents_index_single_default(field, default_value):
