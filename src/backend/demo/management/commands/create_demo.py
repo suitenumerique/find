@@ -14,7 +14,7 @@ from django.utils.text import slugify
 from faker import Faker
 from opensearchpy.helpers import bulk
 
-from core import factories, opensearch
+from core import enums, factories, opensearch
 
 from demo import defaults
 
@@ -133,7 +133,7 @@ def generate_document():
         "size": random.randint(0, 100 * 1024**2),
         "users": [str(uuid4()) for _ in range(3)],
         "groups": [slugify(fake.word()) for _ in range(3)],
-        "is_public": fake.boolean(),
+        "reach": random.choice(list(enums.Reach)).value,
     }
 
 

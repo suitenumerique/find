@@ -39,7 +39,7 @@ def ensure_index_exists(index_name):
                         "size": {"type": "long"},
                         "users": {"type": "keyword"},
                         "groups": {"type": "keyword"},
-                        "is_public": {"type": "boolean"},
+                        "reach": {"type": "keyword"},
                     },
                 }
             },
