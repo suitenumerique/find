@@ -155,8 +155,8 @@ class DocumentView(views.APIView):
         ---------------
         q : str
             The search query string. This is a required parameter.
-        is_public : bool, optional
-            Filter results based on the 'is_public' field.
+        reach : str, optional
+            Filter results based on the 'reach' field.
         order_by : str, optional
             Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
             Defaults to 'relevance' if not specified.
@@ -218,10 +218,10 @@ class DocumentView(views.APIView):
                 {params.order_by: {"order": params.order_direction}}
             )
 
-        # Filter by is_public if provided
-        if params.is_public is not None:
+        # Filter by reach if provided
+        if params.reach is not None:
             search_body["query"]["bool"]["filter"].append(
-                {"term": {enums.IS_PUBLIC: params.is_public}}
+                {"term": {enums.REACH: params.reach}}
             )
 
         # Filter by users and groups based on authentication$

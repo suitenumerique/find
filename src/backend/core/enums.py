@@ -1,12 +1,27 @@
 """Enums for find's core app."""
 
-RELEVANCE = "relevance"
+from enum import Enum
+
+# Reach
+
+
+class Reach(str, Enum):
+    """Publication options for indexed documents"""
+
+    PUBLIC = "public"
+    AUTHENTICATED = "authenticated"
+    RESTRICTED = "restricted"
+
+
+# Fields
 
 CREATED_AT = "created_at"
-IS_PUBLIC = "is_public"
+REACH = "reach"
 SIZE = "size"
 TITLE = "title"
 UPDATED_AT = "updated_at"
 
-ORDER_BY_OPTIONS = (RELEVANCE, TITLE, CREATED_AT, UPDATED_AT, SIZE, IS_PUBLIC)
-SOURCE_FIELDS = (TITLE, SIZE, CREATED_AT, UPDATED_AT, IS_PUBLIC)
+RELEVANCE = "relevance"
+
+ORDER_BY_OPTIONS = (RELEVANCE, TITLE, CREATED_AT, UPDATED_AT, SIZE, REACH)
+SOURCE_FIELDS = (TITLE, SIZE, CREATED_AT, UPDATED_AT, REACH)
