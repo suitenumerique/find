@@ -59,6 +59,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='service',
-            constraint=models.CheckConstraint(check=models.Q(('token__length', 50)), name='token_length_exact_50'),
+            constraint=models.CheckConstraint(condition=models.Q(('token__length', 50)), name='token_length_exact_50'),
         ),
     ]
