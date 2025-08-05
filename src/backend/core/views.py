@@ -87,6 +87,7 @@ class DocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
+        index_name = request.auth.name
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -113,8 +114,8 @@ class DocumentView(views.APIView):
             if has_errors:
                 return Response(results, status=status.HTTP_400_BAD_REQUEST)
 
-            ensure_index_exists(self.index_name)
-            response = client.bulk(index=self.index_name, body=actions)
+            ensure_index_exists(index_name)
+            response = client.bulk(index=index_name, body=actions)
             for i, item in enumerate(response["items"]):
                 if item["index"]["status"] != 201:
                     results[i]["status"] = "error"
@@ -131,10 +132,10 @@ class DocumentView(views.APIView):
         document_dict = document.model_dump()
         _id = document_dict.pop("id")
         try:
-            client.index(index=self.index_name, body=document_dict, id=_id)
+            client.index(index=index_name, body=document_dict, id=_id)
         except ReadTimeoutError:
-            ensure_index_exists(self.index_name)
-            client.index(index=self.index_name, body=document_dict, id=_id)
+            ensure_index_exists(index_name)
+            client.index(index=index_name, body=document_dict, id=_id)
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED

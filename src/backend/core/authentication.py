@@ -25,11 +25,9 @@ class ServiceTokenAuthentication(authentication.BaseAuthentication):
     def authenticate_credentials(self, token):
         """Check that the token is registered and valid."""
         try:
-            service_name = (
-                self.model.objects.only("name").get(token=token, is_active=True).name
-            )
+            service = self.model.objects.only("name").get(token=token, is_active=True)
         except self.model.DoesNotExist as excpt:
             raise exceptions.AuthenticationFailed("Invalid token.") from excpt
 
         # We don't associate tokens with a user
-        return AnonymousUser(), service_name
+        return AnonymousUser(), service
