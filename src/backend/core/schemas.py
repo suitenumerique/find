@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Literal, Optional, Union
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -77,6 +77,7 @@ class DocumentSchema(BaseModel):
 class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
+    services: Union[str, List[str], None] = Field(default_factory=list)
     q: str
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
@@ -87,9 +88,28 @@ class SearchQueryParametersSchema(BaseModel):
     @model_validator(mode="before")
     @staticmethod
     def handle_lists(values):
-        """Make sure we get strings and ignore multiple values."""
+        """
+        Ensure 'services' is always a list of strings, even if a single string was provided.
+        Ignore multiple values for other parameters.
+        """
+        services = values.get("services")
+        if isinstance(services, str):
+            # Convert comma-separated strings to list
+            values["services"] = [s.strip() for s in services.split(",") if s.strip()]
+        elif isinstance(services, list):
+            # Clean up list of strings
+            values["services"] = [str(s).strip() for s in services if str(s).strip()]
+        elif services is None:
+            values["services"] = []
+        else:
+            # Unexpected type — convert to list of one
+            values["services"] = [str(services).strip()]
+
         for key, value in values.items():
             if isinstance(value, list):
+                if key == "services":
+                    continue
                 # Take the first item if it's a list
                 values[key] = value[0] if value else None
+
         return values

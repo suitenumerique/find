@@ -237,5 +237,5 @@ class DocumentView(views.APIView):
         #     "terms": {"groups": list(groups)}
         # })
 
-        response = client.search(index=self.index_name, body=search_body)
+        response = client.search(index=",".join(params.services), body=search_body)
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

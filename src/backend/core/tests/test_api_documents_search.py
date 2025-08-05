@@ -8,40 +8,14 @@ of documents is slow and better done only once.
 import operator
 
 import pytest
-from opensearchpy.helpers import bulk
+
 from rest_framework.test import APIClient
 
-from core import enums, factories, opensearch
+from core import enums, factories
+
+from .utils import prepare_index
 
 pytestmark = pytest.mark.django_db
-
-
-def prepare_index(index_name, documents):
-    """Prepare the search index before testing a query on it."""
-
-    documents = documents if isinstance(documents, list) else [documents]
-
-    # Ensure existence of an empty index
-    opensearch.client.indices.delete(index=index_name)
-    opensearch.ensure_index_exists(index_name)
-
-    # Bulk index documents
-    actions = []
-    for document in documents:
-        _source = document.copy()
-        _id = _source.pop("id")
-        actions.append(
-            {
-                "_op_type": "index",
-                "_index": index_name,
-                "_id": _id,
-                "_source": _source,
-            }
-        )
-    bulk(opensearch.client, actions)
-
-    opensearch.client.indices.refresh(index=index_name)
-    assert opensearch.client.count(index=index_name)["count"] == len(documents)
 
 
 def test_api_documents_search_query_title():
