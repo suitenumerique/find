@@ -148,23 +148,23 @@ def create_demo(stdout):
             defaults.NB_OBJECTS["services"]
         )
         for service in services:
-            opensearch.ensure_index_exists(service.index_name)
-            opensearch.client.indices.refresh(index=service.index_name)
+            opensearch.ensure_index_exists(service.name)
+            opensearch.client.indices.refresh(index=service.name)
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
         for _ in range(defaults.NB_OBJECTS["documents"]):
             service = random.choice(services)
             document = generate_document()
-            actions.push(service.index_name, uuid4(), document)
+            actions.push(service.name, uuid4(), document)
         actions.flush()
 
     # Check and report on indexed documents
     total_indexed = 0
     for service in services:
-        opensearch.client.indices.refresh(index=service.index_name)
-        indexed = opensearch.client.count(index=service.index_name)["count"]
-        stdout.write(f"  - {service.index_name:s}: {indexed:d} documents")
+        opensearch.client.indices.refresh(index=service.name)
+        indexed = opensearch.client.count(index=service.name)["count"]
+        stdout.write(f"  - {service.name:s}: {indexed:d} documents")
         total_indexed += indexed
 
     stdout.write(f"  TOTAL: {total_indexed:d} documents")

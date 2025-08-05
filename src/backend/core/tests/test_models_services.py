@@ -23,12 +23,6 @@ def test_models_services_name_slugified():
     assert service.name == "my-service-name"
 
 
-def test_models_services_index_name():
-    """The index name should be computed as a property from the service name."""
-    service = factories.ServiceFactory(name="My service name")
-    assert service.index_name == "find-my-service-name"
-
-
 def test_models_services_token_50_characters_exact():
     """The token field should be 50 characters long."""
     service = factories.ServiceFactory()
