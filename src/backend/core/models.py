@@ -53,8 +53,3 @@ class Service(models.Model):
         characters = string.ascii_letters + string.digits + string.punctuation
         token = "".join(secrets.choice(characters) for _ in range(TOKEN_LENGTH))
         return token
-
-    @property
-    def index_name(self):
-        """Compute index name from service name"""
-        return f"find-{self.name:s}"
