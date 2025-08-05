@@ -32,7 +32,8 @@ class Service(models.Model):
         ordering = ["-is_active", "-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(token__length=TOKEN_LENGTH), name="token_length_exact_50"
+                condition=models.Q(token__length=TOKEN_LENGTH),
+                name="token_length_exact_50",
             ),
         ]
 
