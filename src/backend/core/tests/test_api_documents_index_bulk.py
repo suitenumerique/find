@@ -223,7 +223,7 @@ def test_api_documents_index_bulk_default(field, default_value):
         assert result["status"] == "success"
 
     indexed_document = opensearch.client.get(
-        index=service.index_name, id=responses[0]["_id"]
+        index=service.name, id=responses[0]["_id"]
     )["_source"]
     assert indexed_document[field] == default_value
 

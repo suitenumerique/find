@@ -204,7 +204,7 @@ def test_api_documents_index_single_default(field, default_value):
     assert response.json()["_id"] == str(document["id"])
 
     indexed_document = opensearch.client.get(
-        index=service.index_name, id=str(document["id"])
+        index=service.name, id=str(document["id"])
     )["_source"]
     assert indexed_document[field] == default_value
 

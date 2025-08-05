@@ -59,7 +59,7 @@ def test_api_documents_search_query_title():
         title="The brown goat", content="the wolf"
     )
     documents = [document, other_fox_document, no_fox_document]
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     response = APIClient().get(
         "/api/v1.0/documents/",
@@ -115,7 +115,7 @@ def test_api_documents_search_query_content():
     no_fox_document = factories.DocumentSchemaFactory.build(
         title="the wolf", content="The brown goat"
     )
-    prepare_index(service.index_name, [document, other_fox_document, no_fox_document])
+    prepare_index(service.name, [document, other_fox_document, no_fox_document])
 
     response = APIClient().get(
         "/api/v1.0/documents/",
@@ -161,7 +161,7 @@ def test_api_documents_search_ordering_by_fields():
     """It should be possible to order by several fields"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     parameters = [
         (enums.TITLE, "asc"),
@@ -198,7 +198,7 @@ def test_api_documents_search_ordering_by_relevance():
     """It should be possible to order by relevance (score)"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     for direction in ["asc", "desc"]:
         response = APIClient().get(
@@ -222,7 +222,7 @@ def test_api_documents_search_ordering_by_unknown_field():
     # Setup: Initialize the service and documents only once
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(2)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     # Define the parameters manually
     directions = ["asc", "desc"]
@@ -251,7 +251,7 @@ def test_api_documents_search_ordering_by_unknown_direction():
     """Trying to sort with an unknown direction should return a 400 error"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(2)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     for field in enums.ORDER_BY_OPTIONS:
         response = APIClient().get(
@@ -273,7 +273,7 @@ def test_api_documents_search_filtering_by_reach():
     """It should be possible to filter results by their reach"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     for reach in enums.ReachEnum:
         response = APIClient().get(
@@ -296,7 +296,7 @@ def test_api_documents_search_pagination_basic():
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(9)
     ids = [str(doc["id"]) for doc in documents]
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     # Request the first page with a page size of 3
     response = APIClient().get(
@@ -335,7 +335,7 @@ def test_api_documents_search_pagination_last_page_edge_case():
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(8)
     ids = [str(doc["id"]) for doc in documents]
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     # Request the first page with a page size of 3
     response = APIClient().get(
@@ -364,7 +364,7 @@ def test_api_documents_search_pagination_out_of_bounds():
     """
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     # Request the fourth page with a page size of 2 (there are only 2 pages)
     response = APIClient().get(
@@ -380,7 +380,7 @@ def test_api_documents_search_pagination_invalid_parameters():
     """Invalid pagination parameters should result in a 400 error"""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(4)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.name, documents)
 
     parameters = [
         (
@@ -420,7 +420,7 @@ def test_api_documents_search_pagination_with_filtering():
     private_documents = factories.DocumentSchemaFactory.build_batch(
         2, reach="authenticated"
     )
-    prepare_index(service.index_name, public_documents + private_documents)
+    prepare_index(service.name, public_documents + private_documents)
 
     # Filter by public documents, request first page
     response = APIClient().get(
