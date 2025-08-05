@@ -28,7 +28,7 @@ class DocumentSchemaFactory(factory.DictFactory):
     size = factory.LazyFunction(lambda: fake.random_int(min=0, max=1024**2))
     users = factory.LazyFunction(lambda: [uuid4() for _ in range(3)])
     groups = factory.LazyFunction(lambda: [slugify(fake.word()) for _ in range(3)])
-    reach = factory.Iterator(list(enums.Reach))
+    reach = factory.Iterator(list(enums.ReachEnum))
 
     @factory.lazy_attribute
     def updated_at(self):

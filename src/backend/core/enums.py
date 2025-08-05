@@ -5,7 +5,7 @@ from enum import Enum
 # Reach
 
 
-class Reach(str, Enum):
+class ReachEnum(str, Enum):
     """Publication options for indexed documents"""
 
     PUBLIC = "public"
