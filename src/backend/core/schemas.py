@@ -32,7 +32,7 @@ class DocumentSchema(BaseModel):
     groups: List[Annotated[str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]] = Field(
         default_factory=list
     )
-    reach: Optional[enums.Reach] = Field(default=enums.Reach.RESTRICTED)
+    reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
 
     model_config = ConfigDict(
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True
@@ -78,7 +78,7 @@ class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
     q: str
-    reach: Optional[enums.Reach] = None
+    reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     page_number: Optional[conint(ge=1)] = Field(default=1)

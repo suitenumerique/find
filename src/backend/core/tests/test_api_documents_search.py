@@ -275,7 +275,7 @@ def test_api_documents_search_filtering_by_reach():
     documents = factories.DocumentSchemaFactory.build_batch(4)
     prepare_index(service.index_name, documents)
 
-    for reach in enums.Reach:
+    for reach in enums.ReachEnum:
         response = APIClient().get(
             f"/api/v1.0/documents/?q=*&reach={reach.value}",
             HTTP_AUTHORIZATION=f"Bearer {service.token}",

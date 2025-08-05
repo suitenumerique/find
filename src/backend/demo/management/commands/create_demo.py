@@ -133,7 +133,7 @@ def generate_document():
         "size": random.randint(0, 100 * 1024**2),
         "users": [str(uuid4()) for _ in range(3)],
         "groups": [slugify(fake.word()) for _ in range(3)],
-        "reach": random.choice(list(enums.Reach)).value,
+        "reach": random.choice(list(enums.ReachEnum)).value,
     }
 
 
