@@ -19,7 +19,7 @@ class DocumentSchemaFactory(factory.DictFactory):
     indexation for testing and development purposes.
     """
 
-    id = factory.LazyFunction(uuid4)
+    id = factory.LazyFunction(lambda: str(uuid4()))
     title = factory.Sequence(lambda n: f"Test title {n!s}")
     path = factory.Sequence(lambda n: f"000{n}")
     content = factory.Sequence(lambda n: f"Test content {n!s}")
@@ -27,7 +27,7 @@ class DocumentSchemaFactory(factory.DictFactory):
         lambda: fake.date_time_this_decade(tzinfo=timezone.get_current_timezone())
     )
     size = factory.LazyFunction(lambda: fake.random_int(min=0, max=1024**2))
-    users = factory.LazyFunction(lambda: [uuid4() for _ in range(3)])
+    users = factory.LazyFunction(lambda: [str(uuid4()) for _ in range(3)])
     groups = factory.LazyFunction(lambda: [slugify(fake.word()) for _ in range(3)])
     reach = factory.Iterator(list(enums.ReachEnum))
     depth = 1
