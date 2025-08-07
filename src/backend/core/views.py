@@ -2,6 +2,8 @@
 
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from urllib3.exceptions import ReadTimeoutError
 
@@ -11,32 +13,16 @@ from .opensearch import client, ensure_index_exists
 from .permissions import IsAuthAuthenticated
 
 
-class DocumentView(views.APIView):
+class IndexDocumentView(views.APIView):
     """
-    API view for managing documents in an OpenSearch index.
-
-    This view provides functionality for both indexing and searching documents
-    within an OpenSearch index dedicated to the authenticated service. The class
-    supports the following operations:
-
-    1. **Document Indexing (POST)**:
+    API view for indexing documents in OpenSearch.
         - Handles both single document and bulk document indexing.
         - The index is dynamically determined based on the service authentication token,
-        ensuring that each service has its own isolated index.
-
-    2. **Document Search (GET)**:
-        - Enables searching through indexed documents with support for various filters
-        and sorting options.
-        - The search results can be sorted or filtered via querystring parameters.
+          ensuring that each service has its own isolated index.
     """
 
     authentication_classes = [ServiceTokenAuthentication]
     permission_classes = [IsAuthAuthenticated]
-
-    @property
-    def index_name(self):
-        """Compute index name from the service name extracted during authentication"""
-        return f"find-{self.request.auth}"
 
     # pylint: disable=too-many-locals
     def post(self, request, *args, **kwargs):
@@ -141,18 +127,30 @@ class DocumentView(views.APIView):
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
         )
 
-    def get(self, request, *args, **kwargs):
+
+class SearchDocumentView(views.APIView):
+    """
+    API view for searching documents in OpenSearch.
+        - Enables searching through indexed documents with support for various filters
+          and sorting options.
+        - The search results can be sorted or filtered via querystring parameters.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
         """
-        Handle GET requests to perform a search on indexed documents with optional filtering
+        Handle POST requests to perform a search on indexed documents with optional filtering
         and ordering.
 
-        The search query should be provided as a query parameter 'q'. The method constructs a
+        The search query should be provided as a "q" parameter. The method constructs a
         search request to OpenSearch using the specified query, with the option to filter by
-        'is_public' and order by 'relevance', 'created_at', 'updated_at', or 'size'.
+        'reach' and order by 'relevance', 'created_at', 'updated_at', or 'size'.
         The results are further filtered by 'users' and 'groups' based on the authentication
         header.
 
-        Query Parameters:
+        Body Parameters:
         ---------------
         q : str
             The search query string. This is a required parameter.
@@ -170,6 +168,11 @@ class DocumentView(views.APIView):
         page_size : int, optional
             The number of results to return per page.
             Defaults to 50 if not specified.
+        services: List[str], optional
+            List of services on which we intend to run the query (current service if left empty)
+        visited: List[uuid]
+            List of public/authenticated documents the user has visited to limit
+            the document returned to the ones the current user has seen.
 
         Returns:
         --------
@@ -177,8 +180,29 @@ class DocumentView(views.APIView):
             - 200 OK: Returns a list of search results matching the query.
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
+        # TODO resource server:
+        # - Replace authentication by resource server
+        # - Introspect access token and get user sub from access token
+        # - Get authorized index names for access token service ID
+        # - Check intersection between params.services and authorized index names
+        # - Raise 400 error if not all requested services are authorized
+        # - Implement filtering to limit response to only "visited" documents among those accessible with "public" and "authenticated" reach
+        # - V2: Get list of groups related to the user from SCIM provider (consider caching result)
+
+        # //////////////////////////////
+        # // Make it work temporarily //
+        # //////////////////////////////
+        authorization_header = request.headers.get("Authorization")
+        try:
+            user_sub = authorization_header.split(" ")[1]
+        except (IndexError, AttributeError) as err:
+            raise AuthenticationFailed("Invalid Authorization header format") from err
+
+        groups = []
+        # //////////////////////////////////////////////////
+
         # Extract and validate query parameters using Pydantic schema
-        params = schemas.SearchQueryParametersSchema(**request.GET)
+        params = schemas.SearchQueryParametersSchema(**request.data)
 
         # Compute pagination parameters
         from_value = (params.page_number - 1) * params.page_size
@@ -219,7 +243,39 @@ class DocumentView(views.APIView):
                 {params.order_by: {"order": params.order_direction}}
             )
 
-        # Filter by reach if provided
+        # Apply access control based on documents reach
+        search_body["query"]["bool"]["must"].append(
+            {
+                "bool": {
+                    "should": [
+                        {
+                            "bool": {
+                                "must_not": {
+                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED}
+                                }
+                            }
+                        },
+                        {
+                            "bool": {
+                                "must": {
+                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED}
+                                },
+                                "should": [
+                                    {"term": {enums.USERS: user_sub}},
+                                    {"terms": {enums.GROUPS: groups}},
+                                ],
+                                # At least one of the 2 optional should clauses must apply
+                                "minimum_should_match": 1,
+                            }
+                        },
+                    ],
+                    # At least one of the 2 optional should clauses must apply
+                    "minimum_should_match": 1,
+                }
+            }
+        )
+
+        # Optional filter by reach if explicitly provided in the query
         if params.reach is not None:
             search_body["query"]["bool"]["filter"].append(
                 {"term": {enums.REACH: params.reach}}
