@@ -137,12 +137,9 @@ def test_api_documents_index_single_success():
         ),
         (
             "users",
-            ["33052c8b-3181-4420-aede-f8396fc0f9az"],  # invalid UUID b/c contains a z*
-            "uuid_parsing",
-            (
-                "Input should be a valid UUID, invalid character: expected an optional "
-                "prefix of `urn:uuid:` followed by [0-9a-fA-F-], found `z` at 36"
-            ),
+            ["a" * 51],
+            "string_too_long",
+            "String should have at most 50 characters",
         ),
         (
             "groups",
