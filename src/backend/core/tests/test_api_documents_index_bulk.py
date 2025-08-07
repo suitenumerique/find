@@ -16,7 +16,7 @@ def test_api_documents_index_bulk_anonymous():
     """Anonymous requests should not be allowed to index documents in bulk."""
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    response = APIClient().post("/api/v1.0/documents/", documents, format="json")
+    response = APIClient().post("/api/v1.0/documents/index/", documents, format="json")
 
     assert response.status_code == 403
     assert response.json() == {
@@ -29,7 +29,7 @@ def test_api_documents_index_bulk_invalid_token():
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION="Bearer invalid",
         format="json",
@@ -45,7 +45,7 @@ def test_api_documents_index_bulk_success():
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -184,7 +184,7 @@ def test_api_documents_index_bulk_invalid_document(
     documents[0][field] = invalid_value
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -225,7 +225,7 @@ def test_api_documents_index_bulk_required(field):
     del documents[0][field]
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -258,7 +258,7 @@ def test_api_documents_index_bulk_default(field, default_value):
     del documents[0][field]
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -286,7 +286,7 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
     )
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -319,7 +319,7 @@ def test_api_documents_index_bulk_datetime_future(field):
     documents[0][field] = now + datetime.timedelta(seconds=3)
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",

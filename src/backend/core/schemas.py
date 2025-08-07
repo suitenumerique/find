@@ -81,8 +81,9 @@ class DocumentSchema(BaseModel):
 class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
-    services: Union[str, List[str], None] = Field(default_factory=list)
     q: str
+    services: Union[str, List[str], None] = Field(default_factory=list)
+    visited: List[str] = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
