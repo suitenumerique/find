@@ -48,6 +48,9 @@ def test_api_documents_search_query_title():
     assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
     assert fox_data["_id"] == str(document["id"])
     assert fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": document["path"],
         "size": document["size"],
         "created_at": document["created_at"].isoformat(),
         "updated_at": document["updated_at"].isoformat(),
@@ -66,6 +69,9 @@ def test_api_documents_search_query_title():
     ]
     assert other_fox_data["_id"] == str(other_fox_document["id"])
     assert other_fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": other_fox_document["path"],
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
@@ -104,6 +110,9 @@ def test_api_documents_search_query_content():
     assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
     assert fox_data["_id"] == str(document["id"])
     assert fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": document["path"],
         "size": document["size"],
         "created_at": document["created_at"].isoformat(),
         "updated_at": document["updated_at"].isoformat(),
@@ -122,6 +131,9 @@ def test_api_documents_search_query_content():
     ]
     assert other_fox_data["_id"] == str(other_fox_document["id"])
     assert other_fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": other_fox_document["path"],
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),

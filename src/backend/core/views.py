@@ -225,17 +225,8 @@ class DocumentView(views.APIView):
                 {"term": {enums.REACH: params.reach}}
             )
 
-        # Filter by users and groups based on authentication$
-        # user = request.user
-        # groups = user.get_teams()
-
-        # search_body['query']['bool']['filter'].append({
-        #     "terms": {"users": [user.sub]}
-        # })
-
-        # search_body['query']['bool']['filter'].append({
-        #     "terms": {"groups": list(groups)}
-        # })
+        # Always filter out inactive documents
+        search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
 
         response = client.search(index=",".join(params.services), body=search_body)
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

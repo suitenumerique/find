@@ -25,14 +25,21 @@ def ensure_index_exists(index_name):
                 "mappings": {
                     "dynamic": "strict",
                     "properties": {
+                        "id": {"type": "keyword"},
                         "title": {
                             "type": "keyword",  # Primary field for exact matches and sorting
                             "fields": {
                                 "text": {
-                                    "type": "text"  # Sub-field for full-text search
-                                }
+                                    "type": "text"
+                                }  # Sub-field for full-text search
                             },
                         },
+                        "depth": {"type": "integer"},
+                        "path": {
+                            "type": "keyword",
+                            "fields": {"text": {"type": "text"}},
+                        },
+                        "numchild": {"type": "integer"},
                         "content": {"type": "text"},
                         "created_at": {"type": "date"},
                         "updated_at": {"type": "date"},
@@ -40,6 +47,7 @@ def ensure_index_exists(index_name):
                         "users": {"type": "keyword"},
                         "groups": {"type": "keyword"},
                         "reach": {"type": "keyword"},
+                        "is_active": {"type": "boolean"},
                     },
                 }
             },
