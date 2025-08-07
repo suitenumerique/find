@@ -24,6 +24,9 @@ class DocumentSchema(BaseModel):
 
     id: UUID4
     title: Annotated[str, Field(max_length=300)]
+    depth: Annotated[int, Field(ge=0)]
+    path: Annotated[str, Field(max_length=300)]
+    numchild: Annotated[int, Field(ge=0)]
     content: str
     created_at: AwareDatetime
     updated_at: AwareDatetime
@@ -33,6 +36,7 @@ class DocumentSchema(BaseModel):
         default_factory=list
     )
     reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
+    is_active: bool
 
     model_config = ConfigDict(
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True

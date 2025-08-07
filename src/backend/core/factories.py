@@ -21,6 +21,7 @@ class DocumentSchemaFactory(factory.DictFactory):
 
     id = factory.LazyFunction(uuid4)
     title = factory.Sequence(lambda n: f"Test title {n!s}")
+    path = factory.Sequence(lambda n: f"000{n}")
     content = factory.Sequence(lambda n: f"Test content {n!s}")
     created_at = factory.LazyFunction(
         lambda: fake.date_time_this_decade(tzinfo=timezone.get_current_timezone())
@@ -29,6 +30,9 @@ class DocumentSchemaFactory(factory.DictFactory):
     users = factory.LazyFunction(lambda: [uuid4() for _ in range(3)])
     groups = factory.LazyFunction(lambda: [slugify(fake.word()) for _ in range(3)])
     reach = factory.Iterator(list(enums.ReachEnum))
+    depth = 1
+    numchild = 0
+    is_active = True
 
     @factory.lazy_attribute
     def updated_at(self):

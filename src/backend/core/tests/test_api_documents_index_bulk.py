@@ -77,6 +77,36 @@ def test_api_documents_index_bulk_success():
             "string_too_long",
             "String should have at most 300 characters",
         ),
+        (
+            "depth",
+            -1,
+            "greater_than_equal",
+            "Input should be greater than or equal to 0",
+        ),
+        (
+            "depth",
+            "a",
+            "int_parsing",
+            "Input should be a valid integer, unable to parse string as an integer",
+        ),
+        (
+            "path",
+            "a" * 301,
+            "string_too_long",
+            "String should have at most 300 characters",
+        ),
+        (
+            "numchild",
+            -1,
+            "greater_than_equal",
+            "Input should be greater than or equal to 0",
+        ),
+        (
+            "numchild",
+            "a",
+            "int_parsing",
+            "Input should be a valid integer, unable to parse string as an integer",
+        ),
         ("content", 1, "string_type", "Input should be a valid string"),
         (
             "created_at",
@@ -135,6 +165,12 @@ def test_api_documents_index_bulk_success():
             "enum",
             "Input should be 'public', 'authenticated' or 'restricted'",
         ),
+        (
+            "is_active",
+            "invalid",
+            "bool_parsing",
+            "Input should be a valid boolean, unable to interpret input",
+        ),
     ],
 )
 def test_api_documents_index_bulk_invalid_document(
@@ -167,7 +203,19 @@ def test_api_documents_index_bulk_invalid_document(
 
 
 @pytest.mark.parametrize(
-    "field", ["id", "title", "content", "size", "created_at", "updated_at"]
+    "field",
+    [
+        "id",
+        "title",
+        "depth",
+        "path",
+        "numchild",
+        "content",
+        "size",
+        "created_at",
+        "updated_at",
+        "is_active",
+    ],
 )
 def test_api_documents_index_bulk_required(field):
     """Test bulk document indexing with a required field missing."""
