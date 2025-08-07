@@ -26,3 +26,34 @@ def test_api_documents_search_access_control_anonymous():
     response = APIClient().post("/api/v1.0/documents/search/?q=*")
 
     assert response.status_code == 403
+
+
+def test_api_documents_search_access_control():
+    """
+    Authenticated users should only see documents:
+    - for which they are listed in the "users" field
+    - that have a reach set to "authenticated" or "public"
+    (groups is not yet implemnted)
+    """
+    service = factories.ServiceFactory(name="test-service")
+    documents_reach = factories.DocumentSchemaFactory.build_batch(6)
+    documents_open = [
+        doc for doc in documents_reach if doc["reach"] in ["authenticated", "public"]
+    ]
+    documents_user = factories.DocumentSchemaFactory.build_batch(
+        6, users=["123456", "654321"]
+    )
+    expected_ids = [doc["id"] for doc in documents_open + documents_user]
+
+    prepare_index(service.name, documents_user + documents_reach)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*"},
+        format="json",
+        HTTP_AUTHORIZATION="Bearer 123456",
+    )
+
+    assert response.status_code == 200
+    for result in response.json():
+        assert result["_id"] in expected_ids
