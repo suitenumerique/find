@@ -31,7 +31,7 @@ class DocumentSchema(BaseModel):
     created_at: AwareDatetime
     updated_at: AwareDatetime
     size: Annotated[int, Field(ge=0, le=100 * 1024**3)]  # File size limited to 100GB
-    users: List[UUID4] = Field(default_factory=list)
+    users: List[Annotated[str, Field(max_length=50)]] = Field(default_factory=list)
     groups: List[Annotated[str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]] = Field(
         default_factory=list
     )
