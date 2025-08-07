@@ -16,7 +16,7 @@ def test_api_documents_index_single_anonymous():
     """Anonymous requests should not be allowed to index documents."""
     document = factories.DocumentSchemaFactory.build()
 
-    response = APIClient().post("/api/v1.0/documents/", document, format="json")
+    response = APIClient().post("/api/v1.0/documents/index/", document, format="json")
 
     assert response.status_code == 403
     assert response.json() == {
@@ -29,7 +29,7 @@ def test_api_documents_index_single_invalid_token():
     document = factories.DocumentSchemaFactory.build()
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION="Bearer invalid",
         format="json",
@@ -45,7 +45,7 @@ def test_api_documents_index_single_success():
     document = factories.DocumentSchemaFactory.build()
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -181,7 +181,7 @@ def test_api_documents_index_single_invalid_document(
     document[field] = invalid_value
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -215,7 +215,7 @@ def test_api_documents_index_single_required(field):
     del document[field]
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -242,7 +242,7 @@ def test_api_documents_index_single_default(field, default_value):
     del document[field]
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -265,7 +265,7 @@ def test_api_documents_index_single_udpated_at_before_created():
     document["updated_at"] = document["created_at"] - datetime.timedelta(seconds=1)
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -292,7 +292,7 @@ def test_api_documents_index_single_datetime_future(field):
     document[field] = now + datetime.timedelta(seconds=3)
 
     response = APIClient().post(
-        "/api/v1.0/documents/",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
