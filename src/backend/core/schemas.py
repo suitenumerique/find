@@ -23,11 +23,11 @@ class DocumentSchema(BaseModel):
     """Schema for validating the documents submitted to our API for indexing"""
 
     id: UUID4
-    title: Annotated[str, Field(max_length=300)]
+    title: Annotated[str, Field(max_length=300, min_length=0)]
     depth: Annotated[int, Field(ge=0)]
     path: Annotated[str, Field(max_length=300)]
     numchild: Annotated[int, Field(ge=0)]
-    content: str
+    content: Annotated[str, Field(min_length=0)]
     created_at: AwareDatetime
     updated_at: AwareDatetime
     size: Annotated[int, Field(ge=0, le=100 * 1024**3)]  # File size limited to 100GB
@@ -57,6 +57,12 @@ class DocumentSchema(BaseModel):
         return value
 
     @model_validator(mode="after")
+    def check_empty_content(self):
+        if not self.title and not self.content:
+            raise ValueError('Either title or content should have at least 1 character')
+        return self
+
+    @model_validator(mode="after")
     def check_update_at_after_created_at(self):
         """Date and time of last modification should be later than date and time of creation"""
         if self.created_at > self.updated_at:
@@ -83,7 +89,7 @@ class SearchQueryParametersSchema(BaseModel):
 
     q: str
     services: Union[str, List[str], None] = Field(default_factory=list)
-    visited: List[str] = Field(default_factory=list)
+    visited: Union[List[str], None] = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
