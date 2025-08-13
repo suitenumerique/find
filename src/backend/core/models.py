@@ -24,6 +24,12 @@ class Service(models.Model):
     token = models.CharField(max_length=TOKEN_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    client_id = models.CharField(blank=True, null=True)
+    services = models.ManyToManyField(
+        "self",
+        verbose_name=_("Allowed services for search"),
+        blank=True,
+    )
 
     class Meta:
         db_table = "find_service"
@@ -50,6 +56,8 @@ class Service(models.Model):
     @staticmethod
     def generate_secure_token():
         """Generate a secure token with with Python secret module"""
-        characters = string.ascii_letters + string.digits + string.punctuation
+        characters = (
+            string.ascii_letters + string.digits + r"""!#%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+        )
         token = "".join(secrets.choice(characters) for _ in range(TOKEN_LENGTH))
         return token

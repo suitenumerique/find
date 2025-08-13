@@ -12,3 +12,4 @@ and this project adheres to
 
 - backend application
 - helm chart
+- ✨(backend) New search api view (OIDC resource)

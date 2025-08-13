@@ -52,6 +52,7 @@ class ServiceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"test-index-{n!s}")
     created_at = factory.Faker("date_time_this_year", tzinfo=None)
     is_active = True
+    client_id = "some_client_id"
 
     class Meta:
         model = models.Service

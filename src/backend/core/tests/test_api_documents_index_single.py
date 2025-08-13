@@ -55,6 +55,31 @@ def test_api_documents_index_single_success():
     assert response.json()["_id"] == str(document["id"])
 
 
+def test_api_documents_index_bulk_ensure_index():
+    """A registered service should be create the opensearch index if need."""
+    service = factories.ServiceFactory(name="test-service")
+    document = factories.DocumentSchemaFactory.build()
+
+    # Delete the index
+    opensearch.client.indices.delete(index="*test*")
+
+    with pytest.raises(opensearch.NotFoundError):
+        opensearch.client.indices.get(index="test-service")
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["_id"] == str(document["id"])
+
+    # The index has been rebuilt
+    opensearch.client.indices.get(index="test-service")
+
+
 @pytest.mark.parametrize(
     "field, invalid_value, error_type, error_message",
     [
@@ -305,8 +330,8 @@ def test_api_documents_index_empty_content_check():
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
 
-    document['content'] = ''
-    document['title'] = ''
+    document["content"] = ""
+    document["title"] = ""
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -316,5 +341,8 @@ def test_api_documents_index_empty_content_check():
     )
 
     assert response.status_code == 400
-    assert response.data[0]["msg"] == "Value error, Either title or content should have at least 1 character"
+    assert (
+        response.data[0]["msg"]
+        == "Value error, Either title or content should have at least 1 character"
+    )
     assert response.data[0]["type"] == "value_error"
