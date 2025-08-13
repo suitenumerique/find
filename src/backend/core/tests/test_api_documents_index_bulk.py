@@ -58,6 +58,34 @@ def test_api_documents_index_bulk_success():
         assert result["status"] == "success"
 
 
+def test_api_documents_index_bulk_ensure_index():
+    """A registered service should be create the opensearch index if need."""
+    service = factories.ServiceFactory(name="test-service")
+    documents = factories.DocumentSchemaFactory.build_batch(3)
+
+    # Delete the index
+    opensearch.client.indices.delete(index="*test*")
+
+    with pytest.raises(opensearch.NotFoundError):
+        opensearch.client.indices.get(index="test-service")
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        documents,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 207
+    responses = response.json()
+    assert len(responses) == 3
+    for result in response.json():
+        assert result["status"] == "success"
+
+    # The index has been rebuilt
+    opensearch.client.indices.get(index="test-service")
+
+
 @pytest.mark.parametrize(
     "field, invalid_value, error_type, error_message",
     [
@@ -341,8 +369,8 @@ def test_api_documents_index_empty_content_check():
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    documents[0]['content'] = ''
-    documents[0]['title'] = ''
+    documents[0]["content"] = ""
+    documents[0]["title"] = ""
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",

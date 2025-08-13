@@ -296,8 +296,12 @@ class Base(Configuration):
         environ_name="OIDC_RP_CLIENT_SECRET",
         environ_prefix=None,
     )
+    OIDC_OP_URL = values.Value(None, environ_name="OIDC_OP_URL", environ_prefix=None)
     OIDC_OP_JWKS_ENDPOINT = values.Value(
         environ_name="OIDC_OP_JWKS_ENDPOINT", environ_prefix=None
+    )
+    OIDC_OP_INTROSPECTION_ENDPOINT = values.Value(
+        environ_name="OIDC_OP_INTROSPECTION_ENDPOINT", environ_prefix=None
     )
     OIDC_OP_AUTHORIZATION_ENDPOINT = values.Value(
         environ_name="OIDC_OP_AUTHORIZATION_ENDPOINT", environ_prefix=None
@@ -317,6 +321,65 @@ class Base(Configuration):
     OIDC_RP_SCOPES = values.Value(
         "openid email", environ_name="OIDC_RP_SCOPES", environ_prefix=None
     )
+
+    # OIDC - Resource server
+    OIDC_DRF_AUTH_BACKEND = values.Value(
+        "lasuite.oidc_login.backends.OIDCAuthenticationBackend",
+        environ_name="OIDC_DRF_AUTH_BACKEND",
+        environ_prefix=None,
+    )
+
+    OIDC_RS_BACKEND_CLASS = values.Value(
+        "core.authentication.FinderResourceServerBackend",
+        environ_name="OIDC_RS_BACKEND_CLASS",
+        environ_prefix=None,
+    )
+    OIDC_RS_AUDIENCE_CLAIM = values.Value(
+        "client_id",
+        environ_name="OIDC_RS_AUDIENCE_CLAIM",
+        environ_prefix=None,
+    )
+    OIDC_RS_CLIENT_ID = values.Value(
+        None, environ_name="OIDC_RS_CLIENT_ID", environ_prefix=None
+    )
+    OIDC_RS_CLIENT_SECRET = values.Value(
+        None,
+        environ_name="OIDC_RS_CLIENT_SECRET",
+        environ_prefix=None,
+    )
+    OIDC_RS_SIGNING_ALGO = values.Value(
+        default="ES256", environ_name="OIDC_RS_SIGNING_ALGO", environ_prefix=None
+    )
+    OIDC_RS_SCOPES = values.ListValue(
+        ["groups"], environ_name="OIDC_RS_SCOPES", environ_prefix=None
+    )
+    OIDC_RS_PRIVATE_KEY_STR = values.Value(
+        default=None,
+        environ_name="OIDC_RS_PRIVATE_KEY_STR",
+        environ_prefix=None,
+    )
+    OIDC_RS_ENCRYPTION_KEY_TYPE = values.Value(
+        default="RSA",
+        environ_name="OIDC_RS_ENCRYPTION_KEY_TYPE",
+        environ_prefix=None,
+    )
+    OIDC_RS_ENCRYPTION_ALGO = values.Value(
+        default="RSA-OAEP",
+        environ_name="OIDC_RS_ENCRYPTION_ALGO",
+        environ_prefix=None,
+    )
+    OIDC_RS_ENCRYPTION_ENCODING = values.Value(
+        default="A256GCM",
+        environ_name="OIDC_RS_ENCRYPTION_ENCODING",
+        environ_prefix=None,
+    )
+
+    OIDC_VERIFY_SSL = values.BooleanValue(
+        True, environ_name="OIDC_VERIFY_SSL", environ_prefix=None
+    )
+    OIDC_TIMEOUT = values.Value(None, environ_name="OIDC_TIMEOUT", environ_prefix=None)
+    OIDC_PROXY = values.Value(None, environ_name="OIDC_PROXY", environ_prefix=None)
+
     LOGIN_REDIRECT_URL = values.Value(
         None, environ_name="LOGIN_REDIRECT_URL", environ_prefix=None
     )
@@ -341,6 +404,44 @@ class Base(Configuration):
     ALLOW_LOGOUT_GET_METHOD = values.BooleanValue(
         default=True, environ_name="ALLOW_LOGOUT_GET_METHOD", environ_prefix=None
     )
+
+    # Logging
+    # We want to make it easy to log to console but by default we log production
+    # to Sentry and don't want to log to console.
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "simple": {
+                "format": "{asctime} {name} {levelname} {message}",
+                "style": "{",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "simple",
+            },
+        },
+        # Override root logger to send it to console
+        "root": {
+            "handlers": ["console"],
+            "level": values.Value(
+                "INFO", environ_name="LOGGING_LEVEL_LOGGERS_ROOT", environ_prefix=None
+            ),
+        },
+        "loggers": {
+            "find": {
+                "handlers": ["console"],
+                "level": values.Value(
+                    "INFO",
+                    environ_name="LOGGING_LEVEL_LOGGERS_APP",
+                    environ_prefix=None,
+                ),
+                "propagate": True,
+            },
+        },
+    }
 
     # pylint: disable=invalid-name
     @property
@@ -423,23 +524,6 @@ class Development(Base):
 class Test(Base):
     """Test environment settings"""
 
-    LOGGING = values.DictValue(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                },
-            },
-            "loggers": {
-                "find": {
-                    "handlers": ["console"],
-                    "level": "DEBUG",
-                },
-            },
-        }
-    )
     PASSWORD_HASHERS = [
         "django.contrib.auth.hashers.MD5PasswordHasher",
     ]
@@ -510,25 +594,6 @@ class Production(Base):
             },
         },
     }
-
-    LOGGING = values.DictValue(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                },
-            },
-            "loggers": {
-                "find": {
-                    "handlers": ["console"],
-                    "level": "INFO",
-                    "propagate": True,
-                },
-            },
-        }
-    )
 
 
 class Feature(Production):

@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, List, Literal, Optional
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -9,6 +9,7 @@ from pydantic import (
     UUID4,
     AwareDatetime,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     conint,
@@ -58,8 +59,9 @@ class DocumentSchema(BaseModel):
 
     @model_validator(mode="after")
     def check_empty_content(self):
+        """Validate that either `title` or `content` are not empty."""
         if not self.title and not self.content:
-            raise ValueError('Either title or content should have at least 1 character')
+            raise ValueError("Either title or content should have at least 1 character")
         return self
 
     @model_validator(mode="after")
@@ -84,43 +86,33 @@ class DocumentSchema(BaseModel):
         return validated_groups
 
 
+def cleanlist(value):
+    """Build a list of strings from a string, None (empty list) or a list of objects."""
+    if isinstance(value, str):
+        # Convert comma-separated strings to list
+        return [s.strip() for s in value.split(",") if s.strip()]
+
+    if isinstance(value, list):
+        # Clean up list of strings
+        return [str(s).strip() for s in value if str(s).strip()]
+
+    if value is None:
+        return []
+
+    raise ValueError()
+
+
+StringListParameter = Annotated[List[str], BeforeValidator(cleanlist)]
+
+
 class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
     q: str
-    services: Union[str, List[str], None] = Field(default_factory=list)
-    visited: Union[List[str], None] = Field(default_factory=list)
+    services: StringListParameter = Field(default_factory=list)
+    visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     page_number: Optional[conint(ge=1)] = Field(default=1)
     page_size: Optional[conint(ge=1, le=100)] = Field(default=50)
-
-    @model_validator(mode="before")
-    @staticmethod
-    def handle_lists(values):
-        """
-        Ensure 'services' is always a list of strings, even if a single string was provided.
-        Ignore multiple values for other parameters.
-        """
-        services = values.get("services")
-        if isinstance(services, str):
-            # Convert comma-separated strings to list
-            values["services"] = [s.strip() for s in services.split(",") if s.strip()]
-        elif isinstance(services, list):
-            # Clean up list of strings
-            values["services"] = [str(s).strip() for s in services if str(s).strip()]
-        elif services is None:
-            values["services"] = []
-        else:
-            # Unexpected type — convert to list of one
-            values["services"] = [str(services).strip()]
-
-        for key, value in values.items():
-            if isinstance(value, list):
-                if key == "services":
-                    continue
-                # Take the first item if it's a list
-                values[key] = value[0] if value else None
-
-        return values

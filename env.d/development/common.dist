@@ -21,6 +21,8 @@ OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/cert
 OIDC_OP_AUTHORIZATION_ENDPOINT=http://localhost:8083/realms/find/protocol/openid-connect/auth
 OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/token
 OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/userinfo
+OIDC_OP_URL=http://nginx:8083/realms/find
+OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/token/introspect
 
 OIDC_RP_CLIENT_ID=find
 OIDC_RP_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly
@@ -29,3 +31,14 @@ OIDC_RP_SCOPES="openid email"
 
 OIDC_REDIRECT_ALLOWED_HOSTS=["http://localhost:8083", "http://localhost:3000"]
 OIDC_AUTH_REQUEST_EXTRA_PARAMS={"acr_values": "eidas1"}
+
+# OIDC Resource server
+OIDC_DRF_AUTH_BACKEND="lasuite.oidc_login.backends.OIDCAuthenticationBackend"
+
+OIDC_RS_SCOPES="openid"
+OIDC_RS_CLIENT_ID=impress
+OIDC_RS_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly
+OIDC_RS_SIGN_ALGO=RS256
+
+OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
+OIDC_RS_ENCRYPTION_KEY_TYPE="RSA"

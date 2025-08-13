@@ -1,16 +1,23 @@
 """Views for find's core app."""
 
+import logging
+
+from django.core.exceptions import SuspiciousOperation
+
+from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
+from lasuite.oidc_resource_server.mixins import ResourceServerMixin
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from urllib3.exceptions import ReadTimeoutError
 
 from . import enums, schemas
 from .authentication import ServiceTokenAuthentication
+from .models import Service
 from .opensearch import client, ensure_index_exists
 from .permissions import IsAuthAuthenticated
+
+logger = logging.getLogger(__name__)
 
 
 class IndexDocumentView(views.APIView):
@@ -97,10 +104,13 @@ class IndexDocumentView(views.APIView):
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
                     results.append({"index": i, "_id": _id, "status": "valid"})
+
             if has_errors:
                 return Response(results, status=status.HTTP_400_BAD_REQUEST)
 
+            # Build index if needed.
             ensure_index_exists(index_name)
+
             response = client.bulk(index=index_name, body=actions)
             for i, item in enumerate(response["items"]):
                 if item["index"]["status"] != 201:
@@ -117,10 +127,13 @@ class IndexDocumentView(views.APIView):
         document = schemas.DocumentSchema(**request.data)
         document_dict = document.model_dump()
         _id = document_dict.pop("id")
+
+        # Build index if needed.
+        ensure_index_exists(index_name)
+
         try:
             client.index(index=index_name, body=document_dict, id=_id)
         except ReadTimeoutError:
-            ensure_index_exists(index_name)
             client.index(index=index_name, body=document_dict, id=_id)
 
         return Response(
@@ -128,7 +141,7 @@ class IndexDocumentView(views.APIView):
         )
 
 
-class SearchDocumentView(views.APIView):
+class SearchDocumentView(ResourceServerMixin, views.APIView):
     """
     API view for searching documents in OpenSearch.
         - Enables searching through indexed documents with support for various filters
@@ -136,8 +149,28 @@ class SearchDocumentView(views.APIView):
         - The search results can be sorted or filtered via querystring parameters.
     """
 
-    authentication_classes = []
-    permission_classes = [AllowAny]
+    authentication_classes = [ResourceServerAuthentication]
+    permission_classes = [IsAuthAuthenticated]
+
+    def _get_opensearch_indices(self, audience, params):
+        # Get request user service
+        try:
+            user_service = Service.objects.get(client_id=audience, is_active=True)
+        except Service.DoesNotExist as e:
+            logger.warning("Login failed: No service %s found", audience)
+            raise SuspiciousOperation("Service is not available") from e
+
+        # Find allowed sub-services for this service
+        allowed_services = set(user_service.services.values_list("name", flat=True))
+        allowed_services.add(user_service.name)
+
+        if params.services:
+            services = set(params.services).intersection(allowed_services)
+
+            if len(services) < len(params.services):
+                raise SuspiciousOperation("Some requested services are not available")
+
+        return allowed_services
 
     def post(self, request, *args, **kwargs):
         """
@@ -170,9 +203,10 @@ class SearchDocumentView(views.APIView):
             Defaults to 50 if not specified.
         services: List[str], optional
             List of services on which we intend to run the query (current service if left empty)
-        visited: List[uuid]
+        visited: List[sub], optional
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
+            Built from linkreach list of a document in docs app.
 
         Returns:
         --------
@@ -180,24 +214,10 @@ class SearchDocumentView(views.APIView):
             - 200 OK: Returns a list of search results matching the query.
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
-        # TODO resource server:
-        # - Replace authentication by resource server
-        # - Introspect access token and get user sub from access token
-        # - Get authorized index names for access token service ID
-        # - Check intersection between params.services and authorized index names
-        # - Raise 400 error if not all requested services are authorized
-        # - Implement filtering to limit response to only "visited" documents among those accessible with "public" and "authenticated" reach
-        # - V2: Get list of groups related to the user from SCIM provider (consider caching result)
-
-        # //////////////////////////////
-        # // Make it work temporarily //
-        # //////////////////////////////
-        authorization_header = request.headers.get("Authorization")
-        try:
-            user_sub = authorization_header.split(" ")[1]
-        except (IndexError, AttributeError) as err:
-            raise AuthenticationFailed("Invalid Authorization header format") from err
-
+        # pylint: disable=fixme
+        # TODO : Get list of groups related to the user from SCIM provider (consider caching result)
+        audience = self._get_service_provider_audience()
+        user_sub = self.request.user.sub
         groups = []
         # //////////////////////////////////////////////////
 
@@ -207,6 +227,12 @@ class SearchDocumentView(views.APIView):
         # Compute pagination parameters
         from_value = (params.page_number - 1) * params.page_size
         size_value = params.page_size
+
+        # Get index list for search query
+        try:
+            search_indices = self._get_opensearch_indices(audience, params)
+        except SuspiciousOperation as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Prepare the search query
         search_body = {
@@ -248,26 +274,23 @@ class SearchDocumentView(views.APIView):
             {
                 "bool": {
                     "should": [
+                        # Access control on public & authenticated reach
                         {
                             "bool": {
                                 "must_not": {
-                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED}
-                                }
-                            }
-                        },
-                        {
-                            "bool": {
-                                "must": {
-                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED}
+                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
                                 },
-                                "should": [
-                                    {"term": {enums.USERS: user_sub}},
-                                    {"terms": {enums.GROUPS: groups}},
-                                ],
-                                # At least one of the 2 optional should clauses must apply
-                                "minimum_should_match": 1,
-                            }
+                                # Limit search to already visited documents.
+                                "must": {
+                                    "terms": {
+                                        "_id": sorted(params.visited),
+                                    }
+                                },
+                            },
                         },
+                        # Access control on restricted search : either user or group should match
+                        {"term": {enums.USERS: user_sub}},
+                        {"terms": {enums.GROUPS: groups}},
                     ],
                     # At least one of the 2 optional should clauses must apply
                     "minimum_should_match": 1,
@@ -284,5 +307,12 @@ class SearchDocumentView(views.APIView):
         # Always filter out inactive documents
         search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
 
-        response = client.search(index=",".join(params.services), body=search_body)
+        response = client.search(  # pylint: disable=unexpected-keyword-arg
+            index=",".join(search_indices),
+            body=search_body,
+            # Argument added by the query_params() decorator of opensearch and
+            # not in the method declaration.
+            ignore_unavailable=True,
+        )
+
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
