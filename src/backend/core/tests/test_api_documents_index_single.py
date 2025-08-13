@@ -298,3 +298,23 @@ def test_api_documents_index_single_datetime_future(field):
     assert response.status_code == 400
     assert response.data[0]["msg"] == f"Value error, {field:s} must be earlier than now"
     assert response.data[0]["type"] == "value_error"
+
+
+def test_api_documents_index_empty_content_check():
+    """Test document indexing with both empty title & content."""
+    service = factories.ServiceFactory(name="test-service")
+    document = factories.DocumentSchemaFactory.build()
+
+    document['content'] = ''
+    document['title'] = ''
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert response.data[0]["msg"] == "Value error, Either title or content should have at least 1 character"
+    assert response.data[0]["type"] == "value_error"

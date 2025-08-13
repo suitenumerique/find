@@ -334,3 +334,32 @@ def test_api_documents_index_bulk_datetime_future(field):
 
     for i in [1, 2]:
         assert responses[i]["status"] == "valid"
+
+
+def test_api_documents_index_empty_content_check():
+    """Test bulkk document indexing with both empty title & content."""
+    service = factories.ServiceFactory(name="test-service")
+    documents = factories.DocumentSchemaFactory.build_batch(3)
+
+    documents[0]['content'] = ''
+    documents[0]['title'] = ''
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        documents,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 400
+    responses = response.json()
+    assert responses[0]["status"] == "error"
+    assert len(responses[0]["errors"]) == 1
+    assert (
+        responses[0]["errors"][0]["msg"]
+        == "Value error, Either title or content should have at least 1 character"
+    )
+    assert responses[0]["errors"][0]["type"] == "value_error"
+
+    for i in [1, 2]:
+        assert responses[i]["status"] == "valid"
