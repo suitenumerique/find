@@ -22,6 +22,12 @@ services:
     ports:
       - "9200:9200"
       - "9600:9600"
+    healthcheck:
+      test: ["CMD", "curl", "--head", "-fsS", "http://localhost:9200/"]
+      start_period: 5s
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:latest
@@ -31,7 +37,9 @@ services:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     depends_on:
-      - opensearch
+      opensearch:
+        condition: service_healthy
+        restart: true
 
   redis:
     image: redis:5
@@ -61,9 +69,12 @@ services:
       - ./src/backend:/app
       - ./data/static:/data/static
     depends_on:
-        - postgresql
-        - opensearch
-        - redis
+      postgresql:
+        condition: service_started
+      redis:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
 
   celery:
     user: ${DOCKER_USER:-1000}

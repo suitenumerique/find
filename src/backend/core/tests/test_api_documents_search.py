@@ -9,17 +9,120 @@ import operator
 import random
 
 import pytest
+import responses
 from rest_framework.test import APIClient
 
 from core import enums, factories
 
-from .utils import prepare_index
+from .utils import build_authorization_bearer, prepare_index, setup_oicd_resource_server
 
 pytestmark = pytest.mark.django_db
 
 
-def test_api_documents_search_query_title():
+@responses.activate
+def test_api_documents_search_auth_invalid_parameters(settings):
+    """Invalid service parameters should result in a 401 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+
+    settings.OIDC_RS_CLIENT_ID = None
+    settings.OIDC_RS_CLIENT_SECRET = None
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION="Bearer unknown",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Resource Server is improperly configured"}
+
+
+@responses.activate
+def test_api_documents_search_query_unknown_user(settings):
+    """Searching a document without an existing user should result in a 401 error"""
+    setup_oicd_resource_server(
+        responses,
+        settings,
+        sub="unknown",
+        introspect=lambda request, user_info: (404, {}, ""),
+    )
+
+    token = build_authorization_bearer()
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Login failed"}
+
+
+@responses.activate
+def test_api_documents_search_services_invalid_parameters(settings):
+    """Invalid pagination parameters should result in a 400 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
+    factories.ServiceFactory(name="test-service")
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox", "services": {}},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {
+            "loc": ["services"],
+            "msg": "Value error, ",
+            "type": "value_error",
+        }
+    ]
+
+
+@responses.activate
+def test_api_documents_search_reached_docs_invalid_parameters(settings):
+    """Invalid pagination parameters should result in a 400 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
+    factories.ServiceFactory(name="test-service")
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox", "visited": {}},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {
+            "loc": ["visited"],
+            "msg": "Value error, ",
+            "type": "value_error",
+        }
+    ]
+
+
+@responses.activate
+def test_api_documents_search_query_title(settings):
     """Searching a document by its title should work as expected"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build(
         title="The quick brown fox",
@@ -43,9 +146,9 @@ def test_api_documents_search_query_title():
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "a quick fox"},
+        {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -88,8 +191,12 @@ def test_api_documents_search_query_title():
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 
-def test_api_documents_search_query_content():
+@responses.activate
+def test_api_documents_search_query_content(settings):
     """Searching a document by its content should work as expected"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build(
         title="the wolf",
@@ -108,13 +215,15 @@ def test_api_documents_search_query_content():
         content="The brown goat",
         reach=random.choice(["public", "authenticated"]),
     )
-    prepare_index(service.name, [document, other_fox_document, no_fox_document])
+
+    documents = [document, other_fox_document, no_fox_document]
+    prepare_index(service.name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "a quick fox"},
+        {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -157,8 +266,12 @@ def test_api_documents_search_query_content():
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 
-def test_api_documents_search_ordering_by_fields():
+@responses.activate
+def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -181,25 +294,32 @@ def test_api_documents_search_ordering_by_fields():
     for field, direction in parameters:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "order_by": field, "order_direction": direction},
+            {
+                "q": "*",
+                "order_by": field,
+                "order_direction": direction,
+                "visited": [doc["id"] for doc in documents],
+            },
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
-        responses = response.json()
-        assert len(responses) == 4
+        data = response.json()
+        assert len(data) == 4
 
         # Check that results are sorted by the field as expected
         compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(responses) - 1):
-            assert compare(
-                responses[i]["_source"][field], responses[i + 1]["_source"][field]
-            )
+        for i in range(len(data) - 1):
+            assert compare(data[i]["_source"][field], data[i + 1]["_source"][field])
 
 
-def test_api_documents_search_ordering_by_relevance():
+@responses.activate
+def test_api_documents_search_ordering_by_relevance(settings):
     """It should be possible to order by relevance (score)"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -209,23 +329,32 @@ def test_api_documents_search_ordering_by_relevance():
     for direction in ["asc", "desc"]:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "order_by": "relevance", "order_direction": direction},
+            {
+                "q": "*",
+                "order_by": "relevance",
+                "order_direction": direction,
+                "visited": [doc["id"] for doc in documents],
+            },
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
-        responses = response.json()
-        assert len(responses) == 4
+        data = response.json()
+        assert len(data) == 4
 
         # Check that results are sorted by score as expected
         compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(responses) - 1):
-            assert compare(responses[i]["_score"], responses[i + 1]["_score"])
+        for i in range(len(data) - 1):
+            assert compare(data[i]["_score"], data[i + 1]["_score"])
 
 
-def test_api_documents_search_ordering_by_unknown_field():
+@responses.activate
+def test_api_documents_search_ordering_by_unknown_field(settings):
     """Trying to sort by an unknown field should return a 400 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     # Setup: Initialize the service and documents only once
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -240,9 +369,14 @@ def test_api_documents_search_ordering_by_unknown_field():
     for direction in directions:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "order_by": "unknown", "order_direction": direction},
+            {
+                "q": "*",
+                "order_by": "unknown",
+                "order_direction": direction,
+                "visited": [doc["id"] for doc in documents],
+            },
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -258,8 +392,12 @@ def test_api_documents_search_ordering_by_unknown_field():
         ]
 
 
-def test_api_documents_search_ordering_by_unknown_direction():
+@responses.activate
+def test_api_documents_search_ordering_by_unknown_direction(settings):
     """Trying to sort with an unknown direction should return a 400 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         2, reach=random.choice(["public", "authenticated"])
@@ -269,9 +407,14 @@ def test_api_documents_search_ordering_by_unknown_direction():
     for field in enums.ORDER_BY_OPTIONS:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "order_by": field, "order_direction": "unknown"},
+            {
+                "q": "*",
+                "order_by": field,
+                "order_direction": "unknown",
+                "visited": [doc["id"] for doc in documents],
+            },
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -284,8 +427,12 @@ def test_api_documents_search_ordering_by_unknown_direction():
         ]
 
 
-def test_api_documents_search_filtering_by_reach():
+@responses.activate
+def test_api_documents_search_filtering_by_reach(settings):
     """It should be possible to filter results by their reach"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -295,23 +442,31 @@ def test_api_documents_search_filtering_by_reach():
     for reach in enums.ReachEnum:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "reach": reach.value},
+            {
+                "q": "*",
+                "reach": reach.value,
+                "visited": [doc["id"] for doc in documents],
+            },
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
-        responses = response.json()
+        data = response.json()
 
-        for result in responses:
+        for result in data:
             assert reach == result["_source"]["reach"]
 
 
 # Pagination
 
 
-def test_api_documents_search_pagination_basic():
+@responses.activate
+def test_api_documents_search_pagination_basic(settings):
     """Pagination should correctly return documents for the specified page and page size"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
@@ -322,44 +477,63 @@ def test_api_documents_search_pagination_basic():
     # Request the first page with a page size of 3
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 1, "page_size": 3},
+        {
+            "q": "*",
+            "page_number": 1,
+            "page_size": 3,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
-    responses = response.json()
-    assert len(responses) == 3  # Page size is 3
-    assert [r["_id"] for r in responses] == ids[0:3]
+    data = response.json()
+    assert len(data) == 3  # Page size is 3
+    assert [r["_id"] for r in data] == ids[0:3]
 
     # Request the second page with a page size of 3
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 2, "page_size": 3},
+        {
+            "q": "*",
+            "page_number": 2,
+            "page_size": 3,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
-    responses = response.json()
-    assert len(responses) == 3
-    assert [r["_id"] for r in responses] == ids[3:6]
+    data = response.json()
+    assert len(data) == 3
+    assert [r["_id"] for r in data] == ids[3:6]
 
     # Request the third page with a page size of 5 (should contain the remaining 3 documents)
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 3, "page_size": 3},
+        {
+            "q": "*",
+            "page_number": 3,
+            "page_size": 3,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
-    responses = response.json()
-    assert len(responses) == 3
-    assert [r["_id"] for r in responses] == ids[6:9]
+    data = response.json()
+    assert len(data) == 3
+    assert [r["_id"] for r in data] == ids[6:9]
 
 
-def test_api_documents_search_pagination_last_page_edge_case():
+@responses.activate
+def test_api_documents_search_pagination_last_page_edge_case(settings):
     """Requesting the last page should return the correct number of remaining documents"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         8, reach=random.choice(["public", "authenticated"])
@@ -370,9 +544,14 @@ def test_api_documents_search_pagination_last_page_edge_case():
     # Request the first page with a page size of 3
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 1, "page_size": 3},
+        {
+            "q": "*",
+            "page_number": 1,
+            "page_size": 3,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -382,9 +561,14 @@ def test_api_documents_search_pagination_last_page_edge_case():
     # Request the third page with a page size of 3 (should contain the last 1 document)
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 3, "page_size": 3},
+        {
+            "q": "*",
+            "page_number": 3,
+            "page_size": 3,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -392,10 +576,14 @@ def test_api_documents_search_pagination_last_page_edge_case():
     assert [r["_id"] for r in response.json()] == ids[6:]
 
 
-def test_api_documents_search_pagination_out_of_bounds():
+@responses.activate
+def test_api_documents_search_pagination_out_of_bounds(settings):
     """
     Requesting a page number that exceeds the total number of pages should return an empty list
     """
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -405,17 +593,26 @@ def test_api_documents_search_pagination_out_of_bounds():
     # Request the fourth page with a page size of 2 (there are only 2 pages)
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "page_number": 4, "page_size": 2},
+        {
+            "q": "*",
+            "page_number": 4,
+            "page_size": 2,
+            "visited": [doc["id"] for doc in documents],
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
     assert len(response.json()) == 0  # No documents should be returned
 
 
-def test_api_documents_search_pagination_invalid_parameters():
+@responses.activate
+def test_api_documents_search_pagination_invalid_parameters(settings):
     """Invalid pagination parameters should result in a 400 error"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -446,7 +643,7 @@ def test_api_documents_search_pagination_invalid_parameters():
             "/api/v1.0/documents/search/",
             {"q": "*", "page_number": page_number, "page_size": page_size},
             format="json",
-            HTTP_AUTHORIZATION="Bearer 123456",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -454,8 +651,12 @@ def test_api_documents_search_pagination_invalid_parameters():
         assert response.data[0]["type"] == error_type
 
 
-def test_api_documents_search_pagination_with_filtering():
+@responses.activate
+def test_api_documents_search_pagination_with_filtering(settings):
     """Pagination should work correctly when combined with filtering by reach"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory(name="test-service")
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
@@ -467,9 +668,15 @@ def test_api_documents_search_pagination_with_filtering():
     # Filter by public documents, request first page
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "reach": "public", "page_number": 1, "page_size": 2},
+        {
+            "q": "*",
+            "reach": "public",
+            "page_number": 1,
+            "page_size": 2,
+            "visited": public_ids,
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
     assert len(response.json()) == 2
@@ -478,9 +685,15 @@ def test_api_documents_search_pagination_with_filtering():
     # Request second page for public documents (remaining 1 document)
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "reach": "public", "page_number": 2, "page_size": 2},
+        {
+            "q": "*",
+            "reach": "public",
+            "page_number": 2,
+            "page_size": 2,
+            "visited": public_ids,
+        },
         format="json",
-        HTTP_AUTHORIZATION="Bearer 123456",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
