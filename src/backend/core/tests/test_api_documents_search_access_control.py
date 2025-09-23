@@ -60,14 +60,13 @@ def test_api_documents_search_access_control(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*"},
+        {"q": "*", "visited": [d["id"] for d in documents_open]},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -113,8 +112,7 @@ def test_api_documents_search_access__only_visited_public(
     )
 
     assert response.status_code == 200, response.json()
-    for result in response.json():
-        assert result["_id"] in expected
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected)
 
 
 @responses.activate
@@ -130,13 +128,13 @@ def test_api_documents_search_access__any_owner_public(settings):
 
     docs = factories.DocumentSchemaFactory.build_batch(
         6,
-        reach=[enums.ReachEnum.PUBLIC, enums.ReachEnum.AUTHENTICATED],
+        reach=enums.ReachEnum.PUBLIC,
         users=["user_sub"],
     )
 
     other_docs = factories.DocumentSchemaFactory.build_batch(
         6,
-        reach=[enums.ReachEnum.PUBLIC, enums.ReachEnum.AUTHENTICATED],
+        reach=enums.ReachEnum.PUBLIC,
         users=["other_sub"],
     )
 
@@ -152,8 +150,7 @@ def test_api_documents_search_access__any_owner_public(settings):
     )
 
     assert response.status_code == 200, response.json()
-    for result in response.json():
-        assert result["_id"] in expected
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected)
 
 
 @responses.activate
@@ -169,10 +166,10 @@ def test_api_documents_search_access__services(settings):
     service_b = factories.ServiceFactory(name="test-index-b", client_id="b-client")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_b_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
 
     expected_ids = [doc["id"] for doc in service_a_docs]
@@ -188,8 +185,7 @@ def test_api_documents_search_access__services(settings):
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -231,13 +227,13 @@ def test_api_documents_search_access__related_services(settings):
     service_c.save()
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_b_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_c_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
 
     expected_ids = [doc["id"] for doc in service_a_docs + service_c_docs]
@@ -254,8 +250,7 @@ def test_api_documents_search_access__related_services(settings):
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -273,10 +268,10 @@ def test_api_documents_search_access__related_missing_index(settings):
     service_c.save()
 
     service_b_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_c_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
 
     expected_ids = [doc["id"] for doc in service_c_docs]
@@ -293,8 +288,7 @@ def test_api_documents_search_access__related_missing_index(settings):
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -312,13 +306,13 @@ def test_api_documents_search_access__request_services(settings):
     service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_b_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
     service_c_docs = factories.DocumentSchemaFactory.build_batch(
-        3, reach=[enums.ReachEnum.AUTHENTICATED], users=["user_sub"]
+        3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
     )
 
     expected_ids = [doc["id"] for doc in service_c_docs]
@@ -335,8 +329,7 @@ def test_api_documents_search_access__request_services(settings):
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -389,7 +382,7 @@ def test_api_documents_search_access__authenticated(settings):
     """
     Authenticated users should only see documents
     - for which they are listed in the "users" field
-    - that have a reach set to "authenticated" or "public"
+    - that have a reach set to "authenticated" or "public" AND in visited list
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemnted)
     """
@@ -398,17 +391,24 @@ def test_api_documents_search_access__authenticated(settings):
 
     service = factories.ServiceFactory(name="test-service", client_id="docs")
 
-    documents_reach = factories.DocumentSchemaFactory.build_batch(6)
-    documents_open = [
-        doc for doc in documents_reach if doc["reach"] in ["authenticated", "public"]
-    ]
+    documents_open = factories.DocumentSchemaFactory.build_batch(
+        2, reach=enums.ReachEnum.PUBLIC
+    ) + factories.DocumentSchemaFactory.build_batch(
+        2, reach=enums.ReachEnum.AUTHENTICATED
+    )
+
+    documents_restricted = factories.DocumentSchemaFactory.build_batch(
+        2, reach=enums.ReachEnum.RESTRICTED
+    )
+
     documents_user = factories.DocumentSchemaFactory.build_batch(
         6, users=["user_sub", "user_sub2"]
     )
-    expected_ids = [doc["id"] for doc in documents_open + documents_user]
+    documents = documents_user + documents_open + documents_restricted
 
-    prepare_index(service.name, documents_user + documents_reach)
+    prepare_index(service.name, documents_user + documents_open + documents_restricted)
 
+    # Only owned documents (reach is ignored)
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {"q": "*"},
@@ -417,5 +417,22 @@ def test_api_documents_search_access__authenticated(settings):
     )
 
     assert response.status_code == 200
-    for result in response.json():
-        assert result["_id"] in expected_ids
+
+    assert sorted([d["_id"] for d in response.json()]) == sorted(
+        [doc["id"] for doc in documents_user]
+    )
+
+    # Owned documents and visited public/authenticated ones.
+    # Restricted ones from another owner are filtered (even if given as visited ones)
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "visited": [d["id"] for d in documents]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+
+    assert sorted([d["_id"] for d in response.json()]) == sorted(
+        [doc["id"] for doc in documents_user + documents_open]
+    )

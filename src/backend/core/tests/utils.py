@@ -3,36 +3,17 @@
 import base64
 import json
 from functools import partial
+from typing import List
 
-import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
-from lasuite.oidc_resource_server.authentication import (
-    get_resource_server_backend,
-)
 from opensearchpy.helpers import bulk
 
 from core import opensearch
-
-
-@pytest.fixture(name="jwt_rs_backend")
-def jwt_resource_server_backend_fixture(settings):
-    """Fixture to switch the backend to the JWTResourceServerBackend."""
-    _original_backend = str(settings.OIDC_RS_BACKEND_CLASS)
-
-    settings.OIDC_RS_BACKEND_CLASS = (
-        "lasuite.oidc_resource_server.backend.JWTResourceServerBackend"
-    )
-    get_resource_server_backend.cache_clear()
-
-    yield
-
-    settings.OIDC_RS_BACKEND_CLASS = _original_backend
-    get_resource_server_backend.cache_clear()
 
 
 def delete_test_indices():
@@ -40,7 +21,7 @@ def delete_test_indices():
     opensearch.client.indices.delete(index="*test*")
 
 
-def prepare_index(index_name, documents, cleanup=True):
+def prepare_index(index_name, documents: List, cleanup=True):
     """Prepare the search index before testing a query on it."""
     if cleanup:
         delete_test_indices()
@@ -48,7 +29,6 @@ def prepare_index(index_name, documents, cleanup=True):
     opensearch.ensure_index_exists(index_name)
 
     # Index new documents
-    documents = documents if isinstance(documents, list) else [documents]
     actions = [
         {
             "_op_type": "index",
