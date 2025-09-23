@@ -77,7 +77,34 @@ def test_api_documents_index_bulk_ensure_index():
     assert response.json()["_id"] == str(document["id"])
 
     # The index has been rebuilt
-    opensearch.client.indices.get(index="test-service")
+    data = opensearch.client.indices.get(index="test-service")
+
+    assert data["test-service"]["mappings"] == {
+        "dynamic": "strict",
+        "properties": {
+            "id": {"type": "keyword"},
+            "title": {
+                "type": "keyword",  # Primary field for exact matches and sorting
+                "fields": {
+                    "text": {"type": "text"}  # Sub-field for full-text search
+                },
+            },
+            "depth": {"type": "integer"},
+            "path": {
+                "type": "keyword",
+                "fields": {"text": {"type": "text"}},
+            },
+            "numchild": {"type": "integer"},
+            "content": {"type": "text"},
+            "created_at": {"type": "date"},
+            "updated_at": {"type": "date"},
+            "size": {"type": "long"},
+            "users": {"type": "keyword"},
+            "groups": {"type": "keyword"},
+            "reach": {"type": "keyword"},
+            "is_active": {"type": "boolean"},
+        },
+    }
 
 
 @pytest.mark.parametrize(

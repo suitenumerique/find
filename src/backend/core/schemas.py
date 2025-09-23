@@ -94,7 +94,7 @@ def cleanlist(value):
 
     if isinstance(value, list):
         # Clean up list of strings
-        return [str(s).strip() for s in value if str(s).strip()]
+        return [str(s).strip() for s in value if s is not None and str(s).strip()]
 
     if value is None:
         return []

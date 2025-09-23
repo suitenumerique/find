@@ -12,4 +12,10 @@ and this project adheres to
 
 - backend application
 - helm chart
-- ✨(backend) New search api view (OIDC resource)
+- 🐛(backend) fix missing index creation in 'index/' view
+- ✨(backend) allow indexation of documents with either empty content or title.
+- ✨(api) new fulltext 'search/' view with OIDC resource server authentication
+- ✨(backend) limit access to documents : public & authenticated with a
+              linkreach & owned ones
+- ✨(backend) limit search to the calling app (audience) and a configured
+              list of services
