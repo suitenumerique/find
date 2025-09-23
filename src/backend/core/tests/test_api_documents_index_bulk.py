@@ -1,6 +1,7 @@
 """Tests indexing documents in OpenSearch over the API"""
 
 import datetime
+from unittest import mock
 
 from django.utils import timezone
 
@@ -53,9 +54,7 @@ def test_api_documents_index_bulk_success():
 
     assert response.status_code == 207
     responses = response.json()
-    assert len(responses) == 3
-    for result in response.json():
-        assert result["status"] == "success"
+    assert [d["status"] for d in responses] == ["success"] * 3
 
 
 def test_api_documents_index_bulk_ensure_index():
@@ -79,8 +78,7 @@ def test_api_documents_index_bulk_ensure_index():
     assert response.status_code == 207
     responses = response.json()
     assert len(responses) == 3
-    for result in response.json():
-        assert result["status"] == "success"
+    assert [d["status"] for d in responses] == ["success"] * 3
 
     # The index has been rebuilt
     opensearch.client.indices.get(index="test-service")
@@ -217,14 +215,12 @@ def test_api_documents_index_bulk_invalid_document(
 
     assert response.status_code == 400
     responses = response.json()
+    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
 
     assert responses[0]["status"] == "error"
     assert len(responses[0]["errors"]) == 1
     assert responses[0]["errors"][0]["msg"] == error_message
     assert responses[0]["errors"][0]["type"] == error_type
-
-    for i in [1, 2]:
-        assert responses[i]["status"] == "valid"
 
 
 @pytest.mark.parametrize(
@@ -258,13 +254,12 @@ def test_api_documents_index_bulk_required(field):
 
     assert response.status_code == 400
     responses = response.json()
+    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
+
     assert responses[0]["status"] == "error"
     assert len(responses[0]["errors"]) == 1
     assert responses[0]["errors"][0]["msg"] == "Field required"
     assert responses[0]["errors"][0]["type"] == "missing"
-
-    for i in [1, 2]:
-        assert responses[i]["status"] == "valid"
 
 
 @pytest.mark.parametrize(
@@ -291,9 +286,7 @@ def test_api_documents_index_bulk_default(field, default_value):
 
     assert response.status_code == 207
     responses = response.json()
-    assert len(responses) == 3
-    for result in response.json():
-        assert result["status"] == "success"
+    assert [d["status"] for d in responses] == ["success"] * 3
 
     indexed_document = opensearch.client.get(
         index=service.name, id=responses[0]["_id"]
@@ -319,6 +312,9 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
 
     assert response.status_code == 400
     responses = response.json()
+
+    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
+
     assert responses[0]["status"] == "error"
     assert len(responses[0]["errors"]) == 1
     assert (
@@ -326,9 +322,6 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
         == "Value error, updated_at must be later than created_at"
     )
     assert responses[0]["errors"][0]["type"] == "value_error"
-
-    for i in [1, 2]:
-        assert responses[i]["status"] == "valid"
 
 
 @pytest.mark.parametrize(
@@ -352,6 +345,8 @@ def test_api_documents_index_bulk_datetime_future(field):
 
     assert response.status_code == 400
     responses = response.json()
+    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
+
     assert responses[0]["status"] == "error"
     assert len(responses[0]["errors"]) == 1
     assert (
@@ -360,12 +355,9 @@ def test_api_documents_index_bulk_datetime_future(field):
     )
     assert responses[0]["errors"][0]["type"] == "value_error"
 
-    for i in [1, 2]:
-        assert responses[i]["status"] == "valid"
-
 
 def test_api_documents_index_empty_content_check():
-    """Test bulkk document indexing with both empty title & content."""
+    """Test bulk document indexing with both empty title & content."""
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
@@ -381,6 +373,8 @@ def test_api_documents_index_empty_content_check():
 
     assert response.status_code == 400
     responses = response.json()
+    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
+
     assert responses[0]["status"] == "error"
     assert len(responses[0]["errors"]) == 1
     assert (
@@ -389,5 +383,50 @@ def test_api_documents_index_empty_content_check():
     )
     assert responses[0]["errors"][0]["type"] == "value_error"
 
-    for i in [1, 2]:
-        assert responses[i]["status"] == "valid"
+
+def test_api_documents_index_opensearch_errors():
+    """Test bulk document indexing errors"""
+    service = factories.ServiceFactory(name="test-service")
+    documents = factories.DocumentSchemaFactory.build_batch(3)
+
+    with mock.patch.object(opensearch.client, "bulk") as mock_bulk:
+        mock_bulk.return_value = {
+            "items": [
+                {"index": {"status": 201}},
+                {
+                    "index": {
+                        "status": 400,
+                    }
+                },
+                {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
+            ]
+        }
+
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+
+    assert response.status_code == 207
+    responses = response.json()
+    assert responses == [
+        {
+            "_id": documents[0]["id"],
+            "index": 0,
+            "status": "success",
+        },
+        {
+            "_id": documents[1]["id"],
+            "index": 1,
+            "status": "error",
+            "message": "Unknown error",
+        },
+        {
+            "_id": documents[2]["id"],
+            "index": 2,
+            "status": "error",
+            "message": "This is forbidden",
+        },
+    ]

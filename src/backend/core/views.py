@@ -9,7 +9,6 @@ from lasuite.oidc_resource_server.mixins import ResourceServerMixin
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
-from urllib3.exceptions import ReadTimeoutError
 
 from . import enums, schemas
 from .authentication import ServiceTokenAuthentication
@@ -131,10 +130,7 @@ class IndexDocumentView(views.APIView):
         # Build index if needed.
         ensure_index_exists(index_name)
 
-        try:
-            client.index(index=index_name, body=document_dict, id=_id)
-        except ReadTimeoutError:
-            client.index(index=index_name, body=document_dict, id=_id)
+        client.index(index=index_name, body=document_dict, id=_id)
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
@@ -152,7 +148,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
     authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
 
-    def _get_opensearch_indices(self, audience, params):
+    def _get_opensearch_indices(self, audience, services):
         # Get request user service
         try:
             user_service = Service.objects.get(client_id=audience, is_active=True)
@@ -164,10 +160,10 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         allowed_services = set(user_service.services.values_list("name", flat=True))
         allowed_services.add(user_service.name)
 
-        if params.services:
-            services = set(params.services).intersection(allowed_services)
+        if services:
+            available = set(services).intersection(allowed_services)
 
-            if len(services) < len(params.services):
+            if len(available) < len(services):
                 raise SuspiciousOperation("Some requested services are not available")
 
         return allowed_services
@@ -214,8 +210,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 200 OK: Returns a list of search results matching the query.
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
-        # pylint: disable=fixme
-        # TODO : Get list of groups related to the user from SCIM provider (consider caching result)
+        # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
         groups = []
@@ -230,7 +225,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         # Get index list for search query
         try:
-            search_indices = self._get_opensearch_indices(audience, params)
+            search_indices = self._get_opensearch_indices(
+                audience, services=params.services
+            )
         except SuspiciousOperation as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

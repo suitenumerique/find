@@ -351,7 +351,7 @@ class Base(Configuration):
         default="ES256", environ_name="OIDC_RS_SIGNING_ALGO", environ_prefix=None
     )
     OIDC_RS_SCOPES = values.ListValue(
-        ["groups"], environ_name="OIDC_RS_SCOPES", environ_prefix=None
+        ["openid"], environ_name="OIDC_RS_SCOPES", environ_prefix=None
     )
     OIDC_RS_PRIVATE_KEY_STR = values.Value(
         default=None,
