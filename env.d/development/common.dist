@@ -17,12 +17,12 @@ OPENSEARCH_PASSWORD=find.PASS123
 OPENSEARCH_USE_SSL=false
 
 # OIDC
-OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/certs
-OIDC_OP_AUTHORIZATION_ENDPOINT=http://localhost:8083/realms/find/protocol/openid-connect/auth
-OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/token
-OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/userinfo
-OIDC_OP_URL=http://nginx:8083/realms/find
-OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/find/protocol/openid-connect/token/introspect
+OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/certs
+OIDC_OP_AUTHORIZATION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/auth
+OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token
+OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/userinfo
+OIDC_OP_URL=http://nginx:8083/realms/impress
+OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token/introspect
 
 OIDC_RP_CLIENT_ID=find
 OIDC_RP_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly

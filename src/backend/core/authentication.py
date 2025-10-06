@@ -67,5 +67,10 @@ class FinderResourceServerBackend(ResourceServerBackend):
     """
 
     def __init__(self):
-        super().__init__()
+        try:
+            super().__init__()
+        except Exception as e:
+            logger.error(e)
+            raise
+
         self.UserModel = ResourceUser
