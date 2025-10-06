@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "find"
-version = "1.1.0"
+version = "0.0.1"
 authors = [{ "name" = "DINUM", "email" = "dev@mail.numerique.gouv.fr" }]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -25,24 +25,24 @@ license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "celery[redis]==5.4.0",
+    "celery[redis]==5.5.3",
     "django-configurations==2.5.1",
-    "django-cors-headers==4.6.0",
+    "django-cors-headers==4.7.0",
     "redis==5.2.1",
-    "django-redis==5.4.0",
-    "django==5.1.4",
-    "django-lasuite[all]==0.0.11",
-    "djangorestframework==3.15.2",
+    "django-redis==6.0.0",
+    "django==5.2.6",
+    "django-lasuite[all]==0.0.14",
+    "djangorestframework==3.16.0",
     "drf_spectacular==0.28.0",
     "dockerflow==2024.4.2",
     "factory_boy==3.3.1",
     "gunicorn==23.0.0",
     "mozilla-django-oidc==4.0.1",
-    "psycopg[binary]==3.2.3",
+    "psycopg[binary]==3.2.9",
     "pydantic==2.10.5",
     "pyjwt==2.10.1",
-    "requests==2.32.3",
-    "sentry-sdk==2.19.2",
+    "requests==2.32.4",
+    "sentry-sdk==2.32.0",
     "url-normalize==1.4.3",
     "opensearch-py==2.8.0",
     "whitenoise==6.8.2",
@@ -56,22 +56,22 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "django-extensions==3.2.3",
-    "drf-spectacular-sidecar==2024.12.1",
+    "django-extensions==4.1",
+    "drf-spectacular-sidecar==2025.7.1",
     "faker==33.3.0",
     "ipdb==0.13.13",
     "ipython==8.31.0",
-    "pyfakefs==5.7.3",
+    "pyfakefs==5.9.1",
     "pylint-django==2.6.1",
-    "pylint==3.3.3",
-    "pytest-cov==6.0.0",
-    "pytest-django==4.9.0",
-    "pytest==8.3.4",
+    "pylint==3.3.7",
+    "pytest-cov==6.2.1",
+    "pytest-django==4.11.1",
+    "pytest==8.4.1",
     "pytest-icdiff==0.9",
-    "pytest-xdist==3.6.1",
-    "responses==0.25.3",
-    "ruff==0.9.0",
-    "types-requests==2.32.0.20241016",
+    "pytest-xdist==3.8.0",
+    "responses==0.25.7",
+    "ruff==0.12.2",
+    "types-requests==2.32.4.20250611",
 ]
 
 [tool.setuptools]

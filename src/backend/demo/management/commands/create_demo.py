@@ -1,4 +1,4 @@
-# ruff: noqa: S311, S106
+# ruff: noqa: S311
 """create_demo management command"""
 
 import logging
@@ -147,6 +147,7 @@ def create_demo(stdout):
         services = factories.ServiceFactory.create_batch(
             defaults.NB_OBJECTS["services"]
         )
+
         for service in services:
             opensearch.ensure_index_exists(service.name)
             opensearch.client.indices.refresh(index=service.name)
@@ -158,6 +159,12 @@ def create_demo(stdout):
             document = generate_document()
             actions.push(service.name, uuid4(), document)
         actions.flush()
+
+    with Timeit(stdout, "Creating dev services"):
+        for conf in defaults.DEV_SERVICES:
+            service = factories.ServiceFactory(**conf)
+            opensearch.ensure_index_exists(service.name)
+            opensearch.client.indices.refresh(index=service.name)
 
     # Check and report on indexed documents
     total_indexed = 0
