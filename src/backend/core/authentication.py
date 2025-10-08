@@ -2,6 +2,7 @@
 
 import logging
 
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -74,3 +75,26 @@ class FinderResourceServerBackend(ResourceServerBackend):
             raise
 
         self.UserModel = ResourceUser
+
+    def _verify_claims(self, token):
+        """
+        Verify the claims of the token to ensure authentication security.
+
+        By verifying these claims, we ensure that the token was issued by a
+        trusted authorization server and is intended for this specific
+        resource server. This prevents various types of attacks, such as
+        token substitution or misuse of tokens issued for different clients.
+        """
+
+        # To run Find in development mode along other projects like docs/impress
+        # we have to use OIDC endpoints on a common keycloak realm. e.g :
+        # OIDC_OP_URL = http://nginx:8083/realms/impress
+        #
+        # This will cause a conflict with the 'iss' claim validation rule because the docs realm
+        # gives {'iss': 'http://localhost:8083/realms/impress'} and it must be OIDC_OP_URL
+        #
+        # In order to make it work anyway, this flag allows to disable the claims validation.
+        if settings.OIDC_RS_VERIFY_CLAIMS:
+            return super()._verify_claims(token)
+
+        return token.claims

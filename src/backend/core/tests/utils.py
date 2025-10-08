@@ -170,13 +170,14 @@ def setup_oicd_jwt_resource_server(
     )
 
 
-def setup_oicd_resource_server(
+def setup_oicd_resource_server(  # noqa : PLR0913
     responses,
     settings,
     sub="some_sub",
     audience="some_client_id",
+    iss="https://oidc.example.com",
     introspect=None,
-):  # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
     Setup settings for a resource server.
     Simulate a token introspection.
@@ -184,7 +185,7 @@ def setup_oicd_resource_server(
     """
     token_data = {
         "sub": sub,
-        "iss": "https://oidc.example.com",
+        "iss": iss,
         "aud": audience,
         "client_id": audience,
         "scope": "docs",

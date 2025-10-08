@@ -68,6 +68,62 @@ def test_api_documents_search_query_unknown_user(settings):
 
 
 @responses.activate
+def test_api_documents_search_query_iss_not_valid(settings):
+    """Searching a document with a conflicting iss in token should result in a 401 error"""
+    settings.OIDC_RS_VERIFY_CLAIMS = True
+
+    setup_oicd_resource_server(
+        responses,
+        settings,
+        sub="user_sub",
+        iss="http://other.com",
+    )
+
+    token = build_authorization_bearer()
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Login failed"}
+
+
+@responses.activate
+def test_api_documents_search_query_iss_not_valid_ignored(settings):
+    """Searching a document with a conflicting iss in token should result in a 401 error"""
+    settings.OIDC_RS_VERIFY_CLAIMS = False
+
+    setup_oicd_resource_server(
+        responses,
+        settings,
+        sub="user_sub",
+        iss="http://other.com",
+    )
+
+    token = build_authorization_bearer()
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@responses.activate
 def test_api_documents_search_services_invalid_parameters(settings):
     """Invalid pagination parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")

@@ -39,6 +39,7 @@ OIDC_RS_SCOPES="openid"
 OIDC_RS_CLIENT_ID=impress
 OIDC_RS_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly
 OIDC_RS_SIGN_ALGO=RS256
+OIDC_RS_VERIFY_CLAIMS=False
 
 OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
 OIDC_RS_ENCRYPTION_KEY_TYPE="RSA"

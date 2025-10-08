@@ -373,6 +373,10 @@ class Base(Configuration):
         environ_name="OIDC_RS_ENCRYPTION_ENCODING",
         environ_prefix=None,
     )
+    # In production mode we must check the token claims
+    OIDC_RS_VERIFY_CLAIMS = values.BooleanValue(
+        default=True, environ_name="OIDC_RS_VERIFY_CLAIMS", environ_prefix=None
+    )
 
     OIDC_VERIFY_SSL = values.BooleanValue(
         True, environ_name="OIDC_VERIFY_SSL", environ_prefix=None
@@ -404,7 +408,6 @@ class Base(Configuration):
     ALLOW_LOGOUT_GET_METHOD = values.BooleanValue(
         default=True, environ_name="ALLOW_LOGOUT_GET_METHOD", environ_prefix=None
     )
-
     # Logging
     # We want to make it easy to log to console but by default we log production
     # to Sentry and don't want to log to console.
@@ -594,6 +597,9 @@ class Production(Base):
             },
         },
     }
+
+    # In production mode we must check the token claims
+    OIDC_RS_VERIFY_CLAIMS = True
 
 
 class Feature(Production):
