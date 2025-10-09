@@ -322,6 +322,87 @@ def test_api_documents_search_query_content(settings):
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        # Search for the start of the word "brown"
+        (
+            "bro",
+            [
+                ("doc-1", "3.00"),  # "bro" found in title & content
+                ("doc-3", "2.00"),  # "bro" found in content
+            ],
+        ),
+        # Search for the start of the word "wolf"
+        (
+            "wol",
+            [
+                ("doc-2", "2.00"),  # "wol" found in title
+                ("doc-3", "2.00"),  # "wol" found in content
+            ],
+        ),
+        # Search for the start of the word "wolf" and "brown"
+        (
+            "brown wol",
+            [
+                ("doc-1", "2.85"),  # "brown" found in title & content
+                ("doc-3", "2.45"),  # "brown wol" found in content
+                ("doc-2", "2.00"),  # "wol" found in title
+            ],
+        ),
+        # Search for the start of the words "brown" & "wolf"
+        (
+            "bro wol",
+            [
+                ("doc-2", "2.00"),  # "wolf" found in title
+                ("doc-3", "2.00"),  # "brown" found in content
+            ],
+        ),
+    ],
+)
+@responses.activate
+def test_api_documents_search_query_content_word_parts(settings, query, expected):
+    """Searching a document by its content should work as expected"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
+    service = factories.ServiceFactory(name="test-service")
+    document = factories.DocumentSchemaFactory.build(
+        id="doc-1",
+        title="the brown goat",
+        content="The quick brown fox",
+        reach=random.choice(["public", "authenticated"]),
+    )
+    other_fox_document = factories.DocumentSchemaFactory.build(
+        id="doc-2",
+        title="the wolf",
+        content="The blue fox",
+        reach=random.choice(["public", "authenticated"]),
+    )
+    no_fox_document = factories.DocumentSchemaFactory.build(
+        id="doc-3",
+        title="the fox",
+        content="The brown wolf",
+        reach=random.choice(["public", "authenticated"]),
+    )
+
+    documents = [document, other_fox_document, no_fox_document]
+    prepare_index(service.name, documents)
+
+    # Search for the start of the word "brown" in the body
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": query, "visited": [doc["id"] for doc in documents]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+
+    brown_results = [(d["_id"], f"{d['_score']:.2f}") for d in response.json()]
+    assert brown_results == expected
+
+
 @responses.activate
 def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""

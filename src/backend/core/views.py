@@ -120,7 +120,7 @@ class IndexDocumentView(views.APIView):
                 else:
                     results[i]["status"] = "success"
 
-            return Response(results, status=status.HTTP_207_MULTI_STATUS)
+            return Response(results, status=status.HTTP_201_CREATED)
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
@@ -167,6 +167,29 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
                 raise SuspiciousOperation("Some requested services are not available")
 
         return allowed_services
+
+    def _fulltext_search_query(self, text):
+        if text == "*":
+            return {"match_all": {}}
+
+        return {
+            "bool": {
+                "should": [
+                    {
+                        "multi_match": {
+                            "query": text,
+                            # Give title more importance over content by a power of 3
+                            "fields": ["title.text^3", "content"],
+                            # Add extra score when multiple keywords are in the field
+                            "tie_breaker": 0.3,
+                        },
+                    },
+                    {"match_bool_prefix": {"title.text": text}},
+                    {"match_bool_prefix": {"content": text}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
 
     def post(self, request, *args, **kwargs):
         """
@@ -245,18 +268,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         }
 
         # Adding the text query
-        if params.q == "*":
-            search_body["query"]["bool"]["must"].append({"match_all": {}})
-        else:
-            search_body["query"]["bool"]["must"].append(
-                {
-                    "multi_match": {
-                        "query": params.q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                }
-            )
+        search_body["query"]["bool"]["must"].append(
+            self._fulltext_search_query(params.q)
+        )
 
         # Add sorting logic based on relevance or specified field
         if params.order_by == enums.RELEVANCE:
