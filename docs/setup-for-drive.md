@@ -1,32 +1,36 @@
-# Setup the Find search for Impress
+# Setup the Find search for Drive
 
 This configuration will enable the fulltext search feature for Docs :
-- Each save on **core.Document** or **core.DocumentAccess** will trigger the indexer
-- The `api/v1.0/documents/search/` will work as a proxy with the Find API for fulltext search.
+- Each save on **core.Item** or **core.Item** will trigger the indexer
+- Once indexer service configured, the `api/v1.0/item/search/` will work as a proxy with the Find API for fulltext search.
 
-## Create an index service for Docs
+## Create an index service for Drive
 
 Configure a **Service** for Docs application with these settings
 
-- **Name**: `docs`<br>_request.auth.name of the Docs application._
-- **Client id**: `impress`<br>_Name of the token audience or client_id of the Docs application._
+- **Name**: `drive`<br>_request.auth.name of the Docs application._
+- **Client id**: `drive`<br>_Name of the token audience or client_id of the Docs application._
 
 See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
 
-## Configure settings of Docs
+## Configure settings of Drive
 
 Add those Django settings the Docs application to enable the feature.
 
-```shell
-SEARCH_INDEXER_CLASS="core.services.search_indexers.FindDocumentIndexer"
+```python
+SEARCH_INDEXER_CLASS="core.services.search_indexers.SearchIndexer"
 SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
-# The token from service "docs" of Find application (development).
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+# The token from service "drive" of Find application (development)
+SEARCH_INDEXER_SECRET=find-api-key-for-driv-with-exactly-50-chars-length
 SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
 
 # Search endpoint. Uses the OIDC token for authentication
 SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/documents/search/"
+
+# Limit the mimetypes and size of indexable files
+SEARCH_INDEXER_ALLOWED_MIMETYPES=["text/"]
+SEARCH_INDEXER_UPLOAD_MAX_SIZE=2 * 2**20  # 2Mb
 ```
 
 We also need to enable the **OIDC Token** refresh or the authentication will fail quickly.

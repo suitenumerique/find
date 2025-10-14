@@ -65,10 +65,16 @@ And add the key in the calling application Django settings.
 
 **Development Mode (Docs + Find)**
 
-The command `make demo` will create a working service configuration for `docs` with the following secret key
+The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
 
 ```python
+# Docs
 SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+```
+
+```python
+# Drive
+SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
 ```
 
 ## Setup search API

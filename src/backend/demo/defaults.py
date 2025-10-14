@@ -8,4 +8,9 @@ DEV_SERVICES = (
         "client_id": "impress",
         "token": "find-api-key-for-docs-with-exactly-50-chars-length",
     },
+    {
+        "name": "drive",
+        "client_id": "drive",
+        "token": "find-api-key-for-driv-with-exactly-50-chars-length",
+    },
 )
