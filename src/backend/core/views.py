@@ -120,7 +120,7 @@ class IndexDocumentView(views.APIView):
                 else:
                     results[i]["status"] = "success"
 
-            return Response(results, status=status.HTTP_207_MULTI_STATUS)
+            return Response(results, status=status.HTTP_201_CREATED)
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)

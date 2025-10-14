@@ -52,7 +52,7 @@ def test_api_documents_index_bulk_success():
         format="json",
     )
 
-    assert response.status_code == 207
+    assert response.status_code == 201
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
 
@@ -75,7 +75,7 @@ def test_api_documents_index_bulk_ensure_index():
         format="json",
     )
 
-    assert response.status_code == 207
+    assert response.status_code == 201
     responses = response.json()
     assert len(responses) == 3
     assert [d["status"] for d in responses] == ["success"] * 3
@@ -284,7 +284,7 @@ def test_api_documents_index_bulk_default(field, default_value):
         format="json",
     )
 
-    assert response.status_code == 207
+    assert response.status_code == 201
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
 
@@ -409,7 +409,7 @@ def test_api_documents_index_opensearch_errors():
             format="json",
         )
 
-    assert response.status_code == 207
+    assert response.status_code == 201
     responses = response.json()
     assert responses == [
         {
