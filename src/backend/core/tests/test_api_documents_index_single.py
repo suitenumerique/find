@@ -9,6 +9,8 @@ from rest_framework.test import APIClient
 
 from core import factories, opensearch
 
+from core.schemas import DocumentSchema
+
 pytestmark = pytest.mark.django_db
 
 
@@ -43,6 +45,8 @@ def test_api_documents_index_single_success():
     """A registered service should be able to index document with a valid token."""
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
+    
+    opensearch.client.indices.delete(index="*test*") # TODO: demove delete the index
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -53,6 +57,13 @@ def test_api_documents_index_single_success():
 
     assert response.status_code == 201
     assert response.json()["_id"] == str(document["id"])
+
+    new_indexed_document = opensearch.client.get(index=service.name, id=str(document["id"]))
+    assert new_indexed_document['_version'] == 1
+    assert new_indexed_document['_source']['title'] == document["title"].strip().lower()
+    assert new_indexed_document['_source']['content'] == document["content"]
+    assert type(new_indexed_document['_source']['embedding']) is list
+    assert len(new_indexed_document['_source']['embedding']) == 384
 
 
 def test_api_documents_index_bulk_ensure_index():
@@ -103,6 +114,10 @@ def test_api_documents_index_bulk_ensure_index():
             "groups": {"type": "keyword"},
             "reach": {"type": "keyword"},
             "is_active": {"type": "boolean"},
+            "embedding": {
+                "type": "knn_vector",
+                "dimension": 384,
+            },
         },
     }
 

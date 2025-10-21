@@ -48,7 +48,16 @@ def ensure_index_exists(index_name):
                         "groups": {"type": "keyword"},
                         "reach": {"type": "keyword"},
                         "is_active": {"type": "boolean"},
+                        "embedding": {
+                            "type": "knn_vector",
+                            "dimension": 384,
+                        }
                     },
-                }
+                },
+                "settings": {
+                    "index": {
+                        "knn": True,
+                    },
+                },
             },
         )

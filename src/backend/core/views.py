@@ -305,8 +305,17 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
 
         response = client.search(  # pylint: disable=unexpected-keyword-arg
-            index=",".join(search_indices),
-            body=search_body,
+            body={
+                "size": 2,
+                "query": {
+                    "knn": {
+                        "embedding":{
+                            "vector": [0.0]*384,
+                            "k": 2,
+                        }
+                    },
+                },
+            },
             # Argument added by the query_params() decorator of opensearch and
             # not in the method declaration.
             ignore_unavailable=True,

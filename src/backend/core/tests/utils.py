@@ -34,7 +34,7 @@ def prepare_index(index_name, documents: List, cleanup=True):
             "_op_type": "index",
             "_index": index_name,
             "_id": doc["id"],
-            "_source": {k: v for k, v in doc.items() if k != "id"},
+            "_source": {**{k: v for k, v in doc.items() if k != "id"}, 'embedding': [0.0]*384},
         }
         for doc in documents
     ]
