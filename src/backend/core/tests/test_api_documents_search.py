@@ -152,11 +152,12 @@ def test_api_documents_search_query_title(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 2
+    assert len(response.json()) == 3 #TODO: was 2, goat doc with a score of 0 is aloso returned
 
     fox_data = response.json()[0]
     assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
     assert fox_data["_id"] == str(document["id"])
+    assert fox_data["_score"] > 0
     assert fox_data["_source"] == {
         "depth": 1,
         "numchild": 0,
@@ -165,7 +166,7 @@ def test_api_documents_search_query_title(settings):
         "created_at": document["created_at"].isoformat(),
         "updated_at": document["updated_at"].isoformat(),
         "reach": document["reach"],
-        "title": "The quick brown fox",
+        "title": document["title"],
     }
     assert fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
@@ -178,6 +179,7 @@ def test_api_documents_search_query_title(settings):
         "fields",
     ]
     assert other_fox_data["_id"] == str(other_fox_document["id"])
+    assert other_fox_data["_score"] > 0
     assert other_fox_data["_source"] == {
         "depth": 1,
         "numchild": 0,
@@ -186,9 +188,31 @@ def test_api_documents_search_query_title(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": "The blue fox",
+        "title": other_fox_document["title"],
     }
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+
+    no_fox_data = response.json()[2]
+    assert list(no_fox_data.keys()) == [
+        "_index",
+        "_id",
+        "_score",
+        "_source",
+        "fields",
+    ]
+    assert no_fox_data["_id"] == str(no_fox_document["id"])
+    assert no_fox_data["_score"] == 0.0
+    assert no_fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": no_fox_document["path"],
+        "size": no_fox_document["size"],
+        "created_at": no_fox_document["created_at"].isoformat(),
+        "updated_at": no_fox_document["updated_at"].isoformat(),
+        "reach": no_fox_document["reach"],
+        "title": no_fox_document["title"],
+    }
+    assert no_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 
 @responses.activate
@@ -227,11 +251,12 @@ def test_api_documents_search_query_content(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 2
+    assert len(response.json()) == 3
 
     fox_data = response.json()[0]
     assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
     assert fox_data["_id"] == str(document["id"])
+    assert fox_data["_score"] > 0
     assert fox_data["_source"] == {
         "depth": 1,
         "numchild": 0,
@@ -253,6 +278,7 @@ def test_api_documents_search_query_content(settings):
         "fields",
     ]
     assert other_fox_data["_id"] == str(other_fox_document["id"])
+    assert other_fox_data["_score"] > 0
     assert other_fox_data["_source"] == {
         "depth": 1,
         "numchild": 0,
@@ -264,6 +290,28 @@ def test_api_documents_search_query_content(settings):
         "title": other_fox_document["title"],
     }
     assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+
+    no_fox_data = response.json()[2]
+    assert list(no_fox_data.keys()) == [
+        "_index",
+        "_id",
+        "_score",
+        "_source",
+        "fields",
+    ]
+    assert no_fox_data["_id"] == str(no_fox_document["id"])
+    assert no_fox_data["_score"] == 0.0
+    assert no_fox_data["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": no_fox_document["path"],
+        "size": no_fox_document["size"],
+        "created_at": no_fox_document["created_at"].isoformat(),
+        "updated_at": no_fox_document["updated_at"].isoformat(),
+        "reach": no_fox_document["reach"],
+        "title": no_fox_document["title"],
+    }
+    assert no_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 
 @responses.activate

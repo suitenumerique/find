@@ -303,22 +303,91 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         # Always filter out inactive documents
         search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
-
-        response = client.search(  # pylint: disable=unexpected-keyword-arg
+            
+        client.transport.perform_request(  #TODO: move this somewhere
+            method="PUT",
+            url="/_search/pipeline/nlp-search-pipeline",
             body={
-                "size": 2,
-                "query": {
-                    "knn": {
-                        "embedding":{
-                            "vector": [0.0]*384,
-                            "k": 2,
+                "description": "Post processor for hybrid search",
+                "phase_results_processors": [
+                    {
+                        "normalization-processor": {
+                            "normalization": {
+                                "technique": "min_max"
+                            },
+                            "combination": {
+                                "technique": "arithmetic_mean",
+                                "parameters": {
+                                    "weights": [1.0, 0.0]
+                                }
+                            }
                         }
-                    },
-                },
-            },
-            # Argument added by the query_params() decorator of opensearch and
-            # not in the method declaration.
-            ignore_unavailable=True,
+                    }
+                ]
+            }
         )
+        
+        response = client.search(
+            index=",".join(search_indices),
+            body={
+                **search_body,
+                "query": {
+                    "bool": {
+                        "filter": search_body["query"]["bool"]["filter"],
+                        "must": [
+                            {
+                                "hybrid": {
+                                    "queries": [
+                                        {"bool": search_body["query"]["bool"]},
+                                        {
+                                            "knn": {
+                                                "embedding": {
+                                                    "vector": [0.0] * 384,
+                                                    "k": 20,
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "filter": {
+                                        "bool":  {
+                                            "must": {
+                                                "bool": {   
+                                                    "should": [
+                                                        # Access control on public & authenticated reach
+                                                        {
+                                                            "bool": {
+                                                                "must_not": {
+                                                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
+                                                                },
+                                                                # Limit search to already visited documents.
+                                                                "must": {
+                                                                    "terms": {
+                                                                        "_id": sorted(params.visited),
+                                                                    }
+                                                                },
+                                                            },
+                                                        },
+                                                        # Access control on restricted search : either user or group should match
+                                                        {"term": {enums.USERS: user_sub}},
+                                                        {"terms": {enums.GROUPS: groups}},
+                                                    ],
+                                                    # At least one of the 2 optional should clauses must apply
+                                                    "minimum_should_match": 1,
+                                                }
+                                            },
+                                            "must_not": {
+                                                "term": {"is_active": False}
+                                            }    
+                                        },
+                                    },   
+                                }
+                            },
+                        ],
+                    }
+                }
+            },
+            params={"search_pipeline": "nlp-search-pipeline"},
+            ignore_unavailable=True,
+        )       
 
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
