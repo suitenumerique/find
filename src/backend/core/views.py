@@ -16,6 +16,8 @@ from .models import Service
 from .opensearch import client, ensure_index_exists
 from .permissions import IsAuthAuthenticated
 
+from sentence_transformers import SentenceTransformer
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +82,7 @@ class IndexDocumentView(views.APIView):
               errors.
         """
         index_name = request.auth.name
+        embedding_model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -98,7 +101,7 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = document.model_dump()
+                    document_dict = {**document.model_dump(), "embedding": embedding_model.encode(document.title + document.content)}
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -124,7 +127,8 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = document.model_dump()
+
+        document_dict = {**document.model_dump(), "embedding": embedding_model.encode(document.title + document.content)}
         _id = document_dict.pop("id")
 
         # Build index if needed.
@@ -266,35 +270,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
                 {params.order_by: {"order": params.order_direction}}
             )
 
-        # Apply access control based on documents reach
-        search_body["query"]["bool"]["must"].append(
-            {
-                "bool": {
-                    "should": [
-                        # Access control on public & authenticated reach
-                        {
-                            "bool": {
-                                "must_not": {
-                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                                },
-                                # Limit search to already visited documents.
-                                "must": {
-                                    "terms": {
-                                        "_id": sorted(params.visited),
-                                    }
-                                },
-                            },
-                        },
-                        # Access control on restricted search : either user or group should match
-                        {"term": {enums.USERS: user_sub}},
-                        {"terms": {enums.GROUPS: groups}},
-                    ],
-                    # At least one of the 2 optional should clauses must apply
-                    "minimum_should_match": 1,
-                }
-            }
-        )
-
         # Optional filter by reach if explicitly provided in the query
         if params.reach is not None:
             search_body["query"]["bool"]["filter"].append(
@@ -318,7 +293,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
                             "combination": {
                                 "technique": "arithmetic_mean",
                                 "parameters": {
-                                    "weights": [1.0, 0.0]
+                                    "weights": [0.3, 0.7]
                                 }
                             }
                         }
@@ -326,63 +301,58 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
                 ]
             }
         )
-        
+        model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
+        # breakpoint()
         response = client.search(
             index=",".join(search_indices),
             body={
                 **search_body,
                 "query": {
-                    "bool": {
-                        "filter": search_body["query"]["bool"]["filter"],
-                        "must": [
+                    "hybrid": {
+                        "queries": [
+                            {"bool": search_body["query"]["bool"]},
                             {
-                                "hybrid": {
-                                    "queries": [
-                                        {"bool": search_body["query"]["bool"]},
-                                        {
-                                            "knn": {
-                                                "embedding": {
-                                                    "vector": [0.0] * 384,
-                                                    "k": 20,
-                                                }
-                                            }
-                                        }
-                                    ],
-                                    "filter": {
-                                        "bool":  {
-                                            "must": {
-                                                "bool": {   
-                                                    "should": [
-                                                        # Access control on public & authenticated reach
-                                                        {
-                                                            "bool": {
-                                                                "must_not": {
-                                                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                                                                },
-                                                                # Limit search to already visited documents.
-                                                                "must": {
-                                                                    "terms": {
-                                                                        "_id": sorted(params.visited),
-                                                                    }
-                                                                },
-                                                            },
-                                                        },
-                                                        # Access control on restricted search : either user or group should match
-                                                        {"term": {enums.USERS: user_sub}},
-                                                        {"terms": {enums.GROUPS: groups}},
-                                                    ],
-                                                    # At least one of the 2 optional should clauses must apply
-                                                    "minimum_should_match": 1,
-                                                }
-                                            },
-                                            "must_not": {
-                                                "term": {"is_active": False}
-                                            }    
-                                        },
-                                    },   
+                                "knn": {
+                                    "embedding": {
+                                        "vector": model.encode(params.q),
+                                        "k": 20,
+                                    }
                                 }
-                            },
+                            }
                         ],
+                        "filter": {
+                            "bool":  {
+                                **search_body["query"]["bool"],
+                                "must": {
+                                    "bool": {   
+                                        "should": [
+                                            # Access control on public & authenticated reach
+                                            {
+                                                "bool": {
+                                                    "must_not": {
+                                                        "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
+                                                    },
+                                                    # Limit search to already visited documents.
+                                                    "must": {
+                                                        "terms": {
+                                                            "_id": sorted(params.visited),
+                                                        }
+                                                    },
+                                                },
+                                            },
+                                            # Access control on restricted search : either user or group should match
+                                            {"term": {enums.USERS: user_sub}},
+                                            {"terms": {enums.GROUPS: groups}},
+                                        ],
+                                        # At least one of the 2 optional should clauses must apply
+                                        "minimum_should_match": 1,
+                                    }
+                                },
+                                "must_not": {
+                                    "term": {"is_active": False}
+                                }    
+                            },
+                        },   
                     }
                 }
             },

@@ -12,6 +12,7 @@ from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
 from opensearchpy.helpers import bulk
+from sentence_transformers import SentenceTransformer
 
 from core import opensearch
 
@@ -29,12 +30,13 @@ def prepare_index(index_name, documents: List, cleanup=True):
     opensearch.ensure_index_exists(index_name)
 
     # Index new documents
+    model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
     actions = [
         {
             "_op_type": "index",
             "_index": index_name,
             "_id": doc["id"],
-            "_source": {**{k: v for k, v in doc.items() if k != "id"}, 'embedding': [0.0]*384},
+            "_source": {**{k: v for k, v in doc.items() if k != "id"}, 'embedding': model.encode(doc["content"])},
         }
         for doc in documents
     ]
