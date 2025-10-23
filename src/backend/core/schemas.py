@@ -15,7 +15,10 @@ from pydantic import (
     conint,
     field_validator,
     model_validator,
+    computed_field
 )
+
+from .opensearch import embbed_document
 
 from . import enums
 
@@ -42,6 +45,11 @@ class DocumentSchema(BaseModel):
     model_config = ConfigDict(
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True
     )
+
+    @computed_field
+    @property
+    def embedding(self) -> list:
+        return embbed_document(self)
 
     @field_validator("title")
     @staticmethod

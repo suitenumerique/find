@@ -10,13 +10,12 @@ from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
 
-from . import enums, schemas
+from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
-from .opensearch import client, ensure_index_exists
+from .opensearch import client, ensure_index_exists, ensure_search_pipeline_exists, search
 from .permissions import IsAuthAuthenticated
 
-from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +81,6 @@ class IndexDocumentView(views.APIView):
               errors.
         """
         index_name = request.auth.name
-        embedding_model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -101,7 +99,7 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = {**document.model_dump(), "embedding": embedding_model.encode(document.title + document.content)}
+                    document_dict = document.model_dump()
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -127,8 +125,7 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-
-        document_dict = {**document.model_dump(), "embedding": embedding_model.encode(document.title + document.content)}
+        document_dict =  document.model_dump()
         _id = document_dict.pop("id")
 
         # Build index if needed.
@@ -223,10 +220,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         # Extract and validate query parameters using Pydantic schema
         params = schemas.SearchQueryParametersSchema(**request.data)
 
-        # Compute pagination parameters
-        from_value = (params.page_number - 1) * params.page_size
-        size_value = params.page_size
-
         # Get index list for search query
         try:
             search_indices = self._get_opensearch_indices(
@@ -235,124 +228,17 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        client.transport.perform_request(  #TODO: move this somewhere
-            method="PUT",
-            url="/_search/pipeline/nlp-search-pipeline",
-            body={
-                "description": "Post processor for hybrid search",
-                "phase_results_processors": [
-                    {
-                        "normalization-processor": {
-                            "normalization": {
-                                "technique": "min_max"
-                            },
-                            "combination": {
-                                "technique": "arithmetic_mean",
-                                "parameters": {
-                                    "weights": [0.3, 0.7]
-                                }
-                            }
-                        }
-                    }
-                ]
-            }
+        response = search(
+            params.q, 
+            params.page_number, 
+            params.page_size, 
+            params.order_by, 
+            params.order_direction, 
+            search_indices, 
+            params.reach,
+            params.visited,
+            user_sub, 
+            groups
         )
-        
-        response = client.search(
-            index=",".join(search_indices),
-            body={
-                "_source": enums.SOURCE_FIELDS,  # limit the fields to return
-                "script_fields": {
-                    "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                    "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-                },
-                "sort": get_sort(params),
-                "from": from_value,
-                "size": size_value,
-                "query": get_query(params, user_sub, groups),
-            },
-            params={"search_pipeline": "nlp-search-pipeline"},
-            ignore_unavailable=True,
-        )       
+              
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
-
-
-def get_query(params, user_sub, groups): 
-    if params.q == "*":
-        return {
-            "bool": {
-                "must": {"match_all": {}},
-                "filter": {"bool": {"filter": get_filter(params, user_sub, groups)}} 
-            }, 
-        }
-    else:
-        model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
-        return {
-            "hybrid": {
-                "queries": [
-                    {"bool": {
-                        "must": {
-                            "multi_match": {
-                                "query": params.q,
-                                # Give title more importance over content by a power of 3
-                                "fields": ["title.text^3", "content"],
-                            }
-                        }
-                    }
-                    },
-                    {
-                        "knn": {
-                            "embedding": {
-                                "vector": model.encode(params.q),
-                                "k": 5,
-                            }
-                        }
-                    }
-                ],
-                "filter": {"bool": {"filter": get_filter(params, user_sub, groups)}} 
-            }
-        }
-
-def get_filter(params, user_sub, groups):
-    """
-    Build and return the OpenSearch filter clause for a hybrid query.
-    """
-    filters = []
-
-    # Optional reach filter
-    if params.reach is not None:
-        filters.append({"term": {enums.REACH: params.reach}})
-
-    # Always filter out inactive documents
-    filters.append({"term": {"is_active": True}})
-
-    # Access control filters
-    filters.append( {
-        "bool": {
-            "should": [
-                # Public or authenticated (not restricted)
-                {
-                    "bool": {
-                        "must_not": {
-                            "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                        },
-                        "must": {
-                            "terms": {"_id": sorted(params.visited)},
-                        },
-                    }
-                },
-                # Restricted: either user or group must match
-                {"term": {enums.USERS: user_sub}},
-                {"terms": {enums.GROUPS: groups}},
-            ],
-            "minimum_should_match": 1,
-        }
-    })
-    return filters
-
-def get_sort(params):
-    # Add sorting logic based on relevance or specified field
-    if params.order_by == enums.RELEVANCE:
-        return {"_score": {"order": params.order_direction}}
-    else:
-        return {params.order_by: {"order": params.order_direction}}

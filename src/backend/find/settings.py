@@ -262,6 +262,8 @@ class Base(Configuration):
 
     AUTH_USER_MODEL = "core.User"
 
+    EMBEDDING_MODEL_PATH = "sentence_transformer_models/all-MiniLM-L6-v2"
+
     # CORS
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)

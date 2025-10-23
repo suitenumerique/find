@@ -8,10 +8,11 @@ from django.utils.text import slugify
 import factory
 from faker import Faker
 
+from .opensearch import embbed_document
+
 from . import enums, models
 
 fake = Faker()
-
 
 class DocumentSchemaFactory(factory.DictFactory):
     """
@@ -43,6 +44,9 @@ class DocumentSchemaFactory(factory.DictFactory):
             tzinfo=timezone.get_current_timezone(),
         )
 
+    @factory.LazyAttribute
+    def embedding(self):
+        return embbed_document(self)
 
 class ServiceFactory(factory.django.DjangoModelFactory):
     """
