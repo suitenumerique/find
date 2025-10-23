@@ -235,50 +235,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Prepare the search query
-        search_body = {
-            "_source": enums.SOURCE_FIELDS,  # limit the fields to return
-            "script_fields": {
-                "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-            },
-            "query": {"bool": {"must": [], "filter": []}},
-            "sort": [],
-            "from": from_value,
-            "size": size_value,
-        }
-
-        # Adding the text query
-        if params.q == "*":
-            search_body["query"]["bool"]["must"].append({"match_all": {}})
-        else:
-            search_body["query"]["bool"]["must"].append(
-                {
-                    "multi_match": {
-                        "query": params.q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                }
-            )
-
-        # Add sorting logic based on relevance or specified field
-        if params.order_by == enums.RELEVANCE:
-            search_body["sort"].append({"_score": {"order": params.order_direction}})
-        else:
-            search_body["sort"].append(
-                {params.order_by: {"order": params.order_direction}}
-            )
-
-        # Optional filter by reach if explicitly provided in the query
-        if params.reach is not None:
-            search_body["query"]["bool"]["filter"].append(
-                {"term": {enums.REACH: params.reach}}
-            )
-
-        # Always filter out inactive documents
-        search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
-            
         client.transport.perform_request(  #TODO: move this somewhere
             method="PUT",
             url="/_search/pipeline/nlp-search-pipeline",
@@ -301,63 +257,102 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
                 ]
             }
         )
-        model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
-        # breakpoint()
+        
         response = client.search(
             index=",".join(search_indices),
             body={
-                **search_body,
-                "query": {
-                    "hybrid": {
-                        "queries": [
-                            {"bool": search_body["query"]["bool"]},
-                            {
-                                "knn": {
-                                    "embedding": {
-                                        "vector": model.encode(params.q),
-                                        "k": 20,
-                                    }
-                                }
-                            }
-                        ],
-                        "filter": {
-                            "bool":  {
-                                **search_body["query"]["bool"],
-                                "must": {
-                                    "bool": {   
-                                        "should": [
-                                            # Access control on public & authenticated reach
-                                            {
-                                                "bool": {
-                                                    "must_not": {
-                                                        "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                                                    },
-                                                    # Limit search to already visited documents.
-                                                    "must": {
-                                                        "terms": {
-                                                            "_id": sorted(params.visited),
-                                                        }
-                                                    },
-                                                },
-                                            },
-                                            # Access control on restricted search : either user or group should match
-                                            {"term": {enums.USERS: user_sub}},
-                                            {"terms": {enums.GROUPS: groups}},
-                                        ],
-                                        # At least one of the 2 optional should clauses must apply
-                                        "minimum_should_match": 1,
-                                    }
-                                },
-                                "must_not": {
-                                    "term": {"is_active": False}
-                                }    
-                            },
-                        },   
-                    }
-                }
+                "_source": enums.SOURCE_FIELDS,  # limit the fields to return
+                "script_fields": {
+                    "number_of_users": {"script": {"source": "doc['users'].size()"}},
+                    "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
+                },
+                "sort": get_sort(params),
+                "from": from_value,
+                "size": size_value,
+                "query": get_query(params, user_sub, groups),
             },
             params={"search_pipeline": "nlp-search-pipeline"},
             ignore_unavailable=True,
         )       
-
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
+
+
+def get_query(params, user_sub, groups): 
+    if params.q == "*":
+        return {
+            "bool": {
+                "must": {"match_all": {}},
+                "filter": {"bool": {"filter": get_filter(params, user_sub, groups)}} 
+            }, 
+        }
+    else:
+        model = SentenceTransformer("sentence_transformer_models/all-MiniLM-L6-v2")
+        return {
+            "hybrid": {
+                "queries": [
+                    {"bool": {
+                        "must": {
+                            "multi_match": {
+                                "query": params.q,
+                                # Give title more importance over content by a power of 3
+                                "fields": ["title.text^3", "content"],
+                            }
+                        }
+                    }
+                    },
+                    {
+                        "knn": {
+                            "embedding": {
+                                "vector": model.encode(params.q),
+                                "k": 5,
+                            }
+                        }
+                    }
+                ],
+                "filter": {"bool": {"filter": get_filter(params, user_sub, groups)}} 
+            }
+        }
+
+def get_filter(params, user_sub, groups):
+    """
+    Build and return the OpenSearch filter clause for a hybrid query.
+    """
+    filters = []
+
+    # Optional reach filter
+    if params.reach is not None:
+        filters.append({"term": {enums.REACH: params.reach}})
+
+    # Always filter out inactive documents
+    filters.append({"term": {"is_active": True}})
+
+    # Access control filters
+    filters.append( {
+        "bool": {
+            "should": [
+                # Public or authenticated (not restricted)
+                {
+                    "bool": {
+                        "must_not": {
+                            "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
+                        },
+                        "must": {
+                            "terms": {"_id": sorted(params.visited)},
+                        },
+                    }
+                },
+                # Restricted: either user or group must match
+                {"term": {enums.USERS: user_sub}},
+                {"terms": {enums.GROUPS: groups}},
+            ],
+            "minimum_should_match": 1,
+        }
+    })
+    return filters
+
+def get_sort(params):
+    # Add sorting logic based on relevance or specified field
+    if params.order_by == enums.RELEVANCE:
+        return {"_score": {"order": params.order_direction}}
+    else:
+        return {params.order_by: {"order": params.order_direction}}

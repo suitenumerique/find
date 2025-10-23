@@ -118,6 +118,32 @@ def test_api_documents_search_reached_docs_invalid_parameters(settings):
 
 
 @responses.activate
+def test_api_documents_search_match_all(settings):
+    """Searching a document with q='*' should match all docs"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+
+    nb_documents = 12
+    service = factories.ServiceFactory(name="test-service")
+    documents = factories.DocumentSchemaFactory.build_batch(
+        nb_documents, reach=random.choice(["public", "authenticated"])
+    )
+    prepare_index(service.name, documents)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "visited": [doc["id"] for doc in documents]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == nb_documents
+
+    assert [r["_id"] for r in response.json()] == [str(doc["id"]) for doc in documents]
+
+
+@responses.activate
 def test_api_documents_search_query_title(settings):
     """Searching a document by its title should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
