@@ -263,6 +263,9 @@ class Base(Configuration):
     AUTH_USER_MODEL = "core.User"
 
     EMBEDDING_MODEL_PATH = "sentence_transformer_models/all-MiniLM-L6-v2"
+    NLP_SEARCH_PIPELINE_ID = "nlp-search-pipeline"
+    HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
+    
 
     # CORS
     CORS_ALLOW_CREDENTIALS = True

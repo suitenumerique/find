@@ -9,9 +9,6 @@ from opensearchpy.exceptions import NotFoundError
 from sentence_transformers import SentenceTransformer
 
 
-NLP_SEARCH_PIPELINE_ID = "nlp-search-pipeline"
-
-
 client = OpenSearch(
     hosts=[{"host": settings.OPENSEARCH_HOST, "port": settings.OPENSEARCH_PORT}],
     http_auth=(settings.OPENSEARCH_USER, settings.OPENSEARCH_PASSWORD),
@@ -87,7 +84,7 @@ def ensure_search_pipeline_exists(pipeline_id):
                             "combination": {
                                 "technique": "arithmetic_mean",
                                 "parameters": {
-                                    "weights": [0.3, 0.7]
+                                    "weights": settings.HYBRID_SEARCH_WEIGHTS
                                 }
                             }
                         }
@@ -108,7 +105,7 @@ def search(
     user_sub, 
     groups
 ):
-    ensure_search_pipeline_exists(NLP_SEARCH_PIPELINE_ID)
+    ensure_search_pipeline_exists(settings.NLP_SEARCH_PIPELINE_ID)
     return client.search(
         index=",".join(search_indices),
         body={
@@ -124,7 +121,7 @@ def search(
             # Compute query
             "query": get_query(q, reach, visited, user_sub, groups),
         },
-        params={"search_pipeline": NLP_SEARCH_PIPELINE_ID},
+        params={"search_pipeline": settings.NLP_SEARCH_PIPELINE_ID},
         ignore_unavailable=True,
     ) 
 
