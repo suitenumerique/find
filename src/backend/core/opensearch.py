@@ -129,11 +129,13 @@ def search(
     ) 
 
 def get_query(q, reach, visited, user_sub, groups): 
+    filter = get_filter(reach, visited, user_sub, groups)
+
     if q == "*":
         return {
             "bool": {
                 "must": {"match_all": {}},
-                "filter": {"bool": {"filter": get_filter(reach, visited, user_sub, groups)}} 
+                "filter": {"bool": {"filter": filter}} 
             }, 
         }
     else:
@@ -141,26 +143,32 @@ def get_query(q, reach, visited, user_sub, groups):
         return {
             "hybrid": {
                 "queries": [
-                    {"bool": {
-                        "must": {
-                            "multi_match": {
-                                "query": q,
-                                # Give title more importance over content by a power of 3
-                                "fields": ["title.text^3", "content"],
-                            }
+                    {
+                        "bool": {
+                            "must": {
+                                "multi_match": {
+                                    "query": q,
+                                    # Give title more importance over content by a power of 3
+                                    "fields": ["title.text^3", "content"],
+                                }
+                            },
+                            "filter": filter
                         }
-                    }
                     },
                     {
-                        "knn": {
-                            "embedding": {
-                                "vector": model.encode(q),
-                                "k": 5,
-                            }
+                        "bool": {
+                            "must": {
+                                "knn": {
+                                    "embedding": {
+                                        "vector": model.encode(q),
+                                        "k": 20  
+                                    }
+                                }
+                            },
+                            "filter": filter
                         }
                     }
-                ],
-                "filter": {"bool": {"filter": get_filter(reach, visited, user_sub, groups)}} 
+                ]
             }
         }
 
