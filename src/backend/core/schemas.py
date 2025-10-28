@@ -18,7 +18,7 @@ from pydantic import (
     computed_field
 )
 
-from .opensearch import embbed_document
+from .opensearch import embed_document
 
 from . import enums
 
@@ -49,7 +49,7 @@ class DocumentSchema(BaseModel):
     @computed_field
     @property
     def embedding(self) -> list:
-        return embbed_document(self)
+        return embed_document(self)
 
     @field_validator("title")
     @staticmethod

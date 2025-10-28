@@ -262,10 +262,22 @@ class Base(Configuration):
 
     AUTH_USER_MODEL = "core.User"
 
-    EMBEDDING_MODEL_PATH = "sentence_transformer_models/all-MiniLM-L6-v2"
     NLP_SEARCH_PIPELINE_ID = "nlp-search-pipeline"
-    HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
-    
+    HYBRID_SEARCH_WEIGHTS = values.Value(
+        default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
+    )
+    EMBEDDING_API_KEY = values.SecretValue(
+        environ_name="EMBEDDING_API_KEY", environ_prefix=None
+    )
+    EMBEDDING_API_PATH = values.Value(
+        default="https://albert.api.etalab.gouv.fr/v1/embeddings", environment_name="EMBEDDING_API_PATH", environ_prefix=None
+    )
+    EMBEDDING_MODEL_NAME = values.Value(
+        default="embeddings-small", environ_name="EMBEDDING_MODEL_NAME", environ_prefix=None
+    )
+    EMBEDDING_DIMENSION = values.Value(
+        default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
+    )
 
     # CORS
     CORS_ALLOW_CREDENTIALS = True

@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 
 from core import enums, factories
 
+from .mock import albert_embedding_response
 from .utils import build_authorization_bearer, prepare_index, setup_oicd_resource_server
 
 pytestmark = pytest.mark.django_db
@@ -68,18 +69,71 @@ def test_api_documents_search_query_unknown_user(settings):
 
 
 @responses.activate
+def test_api_documents_search_query_iss_not_valid(settings):
+    """Searching a document with a conflicting iss in token should result in a 401 error"""
+    settings.OIDC_RS_VERIFY_CLAIMS = True
+
+    setup_oicd_resource_server(
+        responses,
+        settings,
+        sub="user_sub",
+        iss="http://other.com",
+    )
+
+    token = build_authorization_bearer()
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Login failed"}
+
+
+@responses.activate
+def test_api_documents_search_query_iss_not_valid_ignored(settings):
+    """Searching a document with a conflicting iss in token should result in a 401 error"""
+    settings.OIDC_RS_VERIFY_CLAIMS = False
+    setup_oicd_resource_server(
+        responses,
+        settings,
+        sub="user_sub",
+        iss="http://other.com",
+    )
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+
+    service = factories.ServiceFactory(name="test-service")
+    prepare_index(service.name, [])
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox"},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@responses.activate
 def test_api_documents_search_services_invalid_parameters(settings):
     """Invalid pagination parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     factories.ServiceFactory(name="test-service")
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {"q": "a quick fox", "services": {}},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 400
@@ -96,15 +150,14 @@ def test_api_documents_search_services_invalid_parameters(settings):
 def test_api_documents_search_reached_docs_invalid_parameters(settings):
     """Invalid pagination parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     factories.ServiceFactory(name="test-service")
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {"q": "a quick fox", "visited": {}},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 400
@@ -122,7 +175,7 @@ def test_api_documents_search_match_all(settings):
     """Searching a document with q='*' should match all docs"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     nb_documents = 12
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -148,7 +201,7 @@ def test_api_documents_search_query_title(settings):
     """Searching a document by its title should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build(
         title="The quick brown fox",
@@ -237,106 +290,12 @@ def test_api_documents_search_query_title(settings):
     }
     assert no_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
-
-@responses.activate
-def test_api_documents_search_knn(settings):
-    """Searching a document by its title should work as expected"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-
-    service = factories.ServiceFactory(name="test-service")
-
-    document_wolf = factories.DocumentSchemaFactory.build(
-        title="The wolf",
-        content="a wolf is a canine native to Eurasia and North America",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    document_sun = factories.DocumentSchemaFactory.build(
-        title="The sun",
-        content="the sun is a star in the solar system",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    documlent_turtle = factories.DocumentSchemaFactory.build(
-        title="The turtle",
-        content="a turtle is a lizard",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    documents = [document_wolf, document_sun, documlent_turtle]
-    prepare_index(service.name, documents)
-
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {"q": "a hairy mammal", "visited": [doc["id"] for doc in documents]},
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 3 #TODO: was 2, goat doc with a score of 0 is aloso returned
-
-    wolf_data = response.json()[0]
-    assert list(wolf_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
-    assert wolf_data["_id"] == str(document_wolf["id"])
-    assert wolf_data["_source"] == {
-        "depth": 1,
-        "numchild": 0,
-        "path": document_wolf["path"],
-        "size": document_wolf["size"],
-        "created_at": document_wolf["created_at"].isoformat(),
-        "updated_at": document_wolf["updated_at"].isoformat(),
-        "reach": document_wolf["reach"],
-        "title": document_wolf["title"],
-    }
-    assert wolf_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
-
-    turtle_data = response.json()[1]
-    assert list(turtle_data.keys()) == [
-        "_index",
-        "_id",
-        "_score",
-        "_source",
-        "fields",
-    ]
-    assert turtle_data["_id"] == str(documlent_turtle["id"])
-    assert turtle_data["_source"] == {
-        "depth": 1,
-        "numchild": 0,
-        "path": documlent_turtle["path"],
-        "size": documlent_turtle["size"],
-        "created_at": documlent_turtle["created_at"].isoformat(),
-        "updated_at": documlent_turtle["updated_at"].isoformat(),
-        "reach": documlent_turtle["reach"],
-        "title": documlent_turtle["title"],
-    }
-    assert turtle_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
-
-    sun_data = response.json()[2]
-    assert list(sun_data.keys()) == [
-        "_index",
-        "_id",
-        "_score",
-        "_source",
-        "fields",
-    ]
-    assert sun_data["_id"] == str(document_sun["id"])
-    assert sun_data["_source"] == {
-        "depth": 1,
-        "numchild": 0,
-        "path": document_sun["path"],
-        "size": document_sun["size"],
-        "created_at": document_sun["created_at"].isoformat(),
-        "updated_at": document_sun["updated_at"].isoformat(),
-        "reach": document_sun["reach"],
-        "title": document_sun["title"],
-    }
-    assert sun_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
-
-
 @responses.activate
 def test_api_documents_search_query_content(settings):
     """Searching a document by its content should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
 
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build(
@@ -435,7 +394,7 @@ def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -483,7 +442,7 @@ def test_api_documents_search_ordering_by_relevance(settings):
     """It should be possible to order by relevance (score)"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -518,7 +477,7 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
     """Trying to sort by an unknown field should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     # Setup: Initialize the service and documents only once
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -561,7 +520,7 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
     """Trying to sort with an unknown direction should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         2, reach=random.choice(["public", "authenticated"])
@@ -596,7 +555,7 @@ def test_api_documents_search_filtering_by_reach(settings):
     """It should be possible to filter results by their reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -630,7 +589,7 @@ def test_api_documents_search_pagination_basic(settings):
     """Pagination should correctly return documents for the specified page and page size"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
@@ -697,7 +656,7 @@ def test_api_documents_search_pagination_last_page_edge_case(settings):
     """Requesting the last page should return the correct number of remaining documents"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         8, reach=random.choice(["public", "authenticated"])
@@ -747,7 +706,7 @@ def test_api_documents_search_pagination_out_of_bounds(settings):
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -776,7 +735,7 @@ def test_api_documents_search_pagination_invalid_parameters(settings):
     """Invalid pagination parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -820,7 +779,7 @@ def test_api_documents_search_pagination_with_filtering(settings):
     """Pagination should work correctly when combined with filtering by reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]

@@ -8,7 +8,7 @@ from django.utils.text import slugify
 import factory
 from faker import Faker
 
-from .opensearch import embbed_document
+from .opensearch import embed_document
 
 from . import enums, models
 
@@ -46,7 +46,7 @@ class DocumentSchemaFactory(factory.DictFactory):
 
     @factory.LazyAttribute
     def embedding(self):
-        return embbed_document(self)
+        return embed_document(self)
 
 class ServiceFactory(factory.django.DjangoModelFactory):
     """

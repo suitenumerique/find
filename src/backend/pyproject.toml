@@ -43,7 +43,6 @@ dependencies = [
     "pyjwt==2.10.1",
     "requests==2.32.4",
     "sentry-sdk==2.32.0",
-    "sentence-transformers==5.1.1",
     "url-normalize==1.4.3",
     "opensearch-py==2.8.0",
     "whitenoise==6.8.2",

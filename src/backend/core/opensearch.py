@@ -2,11 +2,11 @@
 
 from functools import cache
 from django.conf import settings
+import requests
 
 from . import enums
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
-from sentence_transformers import SentenceTransformer
 
 
 client = OpenSearch(
@@ -55,7 +55,7 @@ def ensure_index_exists(index_name):
                         "is_active": {"type": "boolean"},
                         "embedding": {
                             "type": "knn_vector",
-                            "dimension": 384,
+                            "dimension": settings.EMBEDDING_DIMENSSION,
                         }
                     },
                 },
@@ -114,7 +114,7 @@ def search(
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(order_by, order_direction),
+            "sort": get_sort(q, order_by, order_direction),
             # Compute pagination parameters
             "from": (page_number - 1) * page_size,
             "size":  page_size,
@@ -136,7 +136,6 @@ def get_query(q, reach, visited, user_sub, groups):
             }, 
         }
     else:
-        model = load_embedding_model()
         return {
             "hybrid": {
                 "queries": [
@@ -157,7 +156,7 @@ def get_query(q, reach, visited, user_sub, groups):
                             "must": {
                                 "knn": {
                                     "embedding": {
-                                        "vector": model.encode(q),
+                                        "vector": embed_text(q),
                                         "k": 20  
                                     }
                                 }
@@ -203,17 +202,46 @@ def get_filter(reach, visited, user_sub, groups):
     })
     return filters
 
-def get_sort(order_by, order_direction):
+def get_sort(q, order_by, order_direction):
     # Add sorting logic based on relevance or specified field
+    if q != "*":
+        # sorting by other field than "_score" is not supported in hybird search
+        # see: https://github.com/opensearch-project/neural-search/issues/866
+        return {"_score": {"order": order_direction}}
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
     else:
         return {order_by: {"order": order_direction}}
 
-def embbed_document(document):
-    model = load_embedding_model()
-    return model.encode(f"[{document.title}] [{document.content}]")
+def embed_document(document):
+    return embed_text(f"<{document.title}>:<{document.content}>")   
 
-@cache
-def load_embedding_model():
-    return SentenceTransformer(settings.EMBEDDING_MODEL_PATH)
+def embed_text(text):
+    try:
+        response = requests.post(
+            settings.EMBEDDING_API_PATH,
+            headers={
+                "Authorization": f"Bearer {settings.EMBEDDING_API_KEY}>"
+            },
+            json={  
+                "input": text,
+                "model": settings.EMBEDDING_MODEL_NAME,
+                "dimensions": settings.EMBEDDING_DIMENSION,
+                "encoding_format": "float"
+            },
+            timeout=30 
+        )
+    except requests.HTTPError as e:
+        raise Exception("Failed to request embedding") from e
+
+    if response.status_code != 200:
+        raise requests.HTTPError(
+            f"Failed to request embedding\n "
+            f"Status code: {response.status_code}\n"
+            f"Response: {response.text}"
+        )
+    
+    try:
+        return response.json()["data"][0]["embedding"]
+    except (IndexError, KeyError):
+        raise ValueError(f"Unexpected response format:\n {response.json()}")
