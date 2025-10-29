@@ -7,8 +7,8 @@ from django.test import override_settings
 
 import pytest
 
-from core import models, opensearch
-
+from core import models
+from core.services import opensearch
 from demo import defaults
 
 pytestmark = pytest.mark.django_db

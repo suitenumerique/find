@@ -8,7 +8,8 @@ from django.utils import timezone
 import pytest
 from rest_framework.test import APIClient
 
-from core import factories, opensearch
+from core import factories
+from core.services import opensearch
 
 pytestmark = pytest.mark.django_db
 

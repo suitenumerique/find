@@ -18,7 +18,7 @@ from pydantic import (
     computed_field
 )
 
-from .opensearch import embed_document
+from .services.opensearch import check_hybrid_search_enabled, embed_document
 
 from . import enums
 
@@ -49,7 +49,9 @@ class DocumentSchema(BaseModel):
     @computed_field
     @property
     def embedding(self) -> list:
-        return embed_document(self)
+        if check_hybrid_search_enabled():
+            return embed_document(self)
+        return None
 
     @field_validator("title")
     @staticmethod

@@ -8,7 +8,7 @@ from django.utils.text import slugify
 import factory
 from faker import Faker
 
-from .opensearch import embed_document
+from .services.opensearch import check_hybrid_search_enabled, embed_document
 
 from . import enums, models
 
@@ -46,7 +46,9 @@ class DocumentSchemaFactory(factory.DictFactory):
 
     @factory.LazyAttribute
     def embedding(self):
-        return embed_document(self)
+        if check_hybrid_search_enabled():
+            return embed_document(self)
+        return None
 
 class ServiceFactory(factory.django.DjangoModelFactory):
     """

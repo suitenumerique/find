@@ -13,8 +13,9 @@ from rest_framework.response import Response
 from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
-from .opensearch import client, ensure_index_exists, ensure_search_pipeline_exists, search
+from .services.opensearch import client, ensure_index_exists, search
 from .permissions import IsAuthAuthenticated
+from django.conf import settings
 
 
 logger = logging.getLogger(__name__)
@@ -148,8 +149,15 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
     authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
+    required_env_variables = [
+        "OPENSEARCH_HOST",
+        "OPENSEARCH_PORT",
+        "OPENSEARCH_USER",
+        "OPENSEARCH_PASSWORD",
+    ]
 
-    def _get_opensearch_indices(self, audience, services):
+    @staticmethod
+    def _get_opensearch_indices(audience, services):
         # Get request user service
         try:
             user_service = Service.objects.get(client_id=audience, is_active=True)
@@ -211,6 +219,14 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 200 OK: Returns a list of search results matching the query.
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
+        #  assert required OpenSearch environment variables are set
+        missing_env_variables = [variable for variable in self.required_env_variables if not getattr(settings, variable, None)]
+        if missing_env_variables:
+            return Response(
+                {"detail": f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
         # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub

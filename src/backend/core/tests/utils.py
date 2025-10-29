@@ -7,14 +7,26 @@ from typing import List
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from opensearchpy.exceptions import NotFoundError
 from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
 from opensearchpy.helpers import bulk
 
-from core import opensearch
+from core.services import opensearch
+import logging
 
+logger = logging.getLogger(__name__)
+
+def delete_search_pipeline():
+    try:
+        opensearch.client.transport.perform_request(
+            method="DELETE",
+            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+        )
+    except NotFoundError:
+        logger.info("Search pipeline not found, nothing to delete.")
 
 def delete_test_indices():
     """Drop all search index containing the 'test' word"""

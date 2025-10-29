@@ -262,20 +262,24 @@ class Base(Configuration):
 
     AUTH_USER_MODEL = "core.User"
 
-    NLP_SEARCH_PIPELINE_ID = "nlp-search-pipeline"
-    HYBRID_SEARCH_WEIGHTS = values.Value(
+    # Hybrid Search settings
+    HYBRID_SEARCH_ENABLED = values.BooleanValue(
+        default=True, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None
+    )
+    HYBRID_SEARCH_WEIGHTS = values.ListValue(
         default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
     )
+    # embedding is the vector representation of a document used for semantic search
     EMBEDDING_API_KEY = values.SecretValue(
         environ_name="EMBEDDING_API_KEY", environ_prefix=None
     )
-    EMBEDDING_API_PATH = values.Value(
+    EMBEDDING_API_PATH = values.URLValue(
         default="https://albert.api.etalab.gouv.fr/v1/embeddings", environment_name="EMBEDDING_API_PATH", environ_prefix=None
     )
-    EMBEDDING_MODEL_NAME = values.Value(
-        default="embeddings-small", environ_name="EMBEDDING_MODEL_NAME", environ_prefix=None
+    EMBEDDING_API_MODEL_NAME = values.Value(
+        default="embeddings-small", environ_name="EMBEDDING_API_MODEL_NAME", environ_prefix=None
     )
-    EMBEDDING_DIMENSION = values.Value(
+    EMBEDDING_DIMENSION = values.IntegerValue(
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
 
