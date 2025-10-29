@@ -110,7 +110,7 @@ def get_query(q, reach, visited, user_sub, groups):
                                 "knn": {
                                     "embedding": {
                                         "vector": embedding,
-                                        "k": 20  
+                                        "k": 20  # magic number to be handled. Setting variable or query params ? 
                                     }
                                 }
                             },
@@ -239,6 +239,7 @@ def build_index_body():
                 "reach": {"type": "keyword"},
                 "is_active": {"type": "boolean"},
                 "embedding": {
+                    # for simplicity, embedding is always present but is empty when hybrid search is disabled
                     "type": "knn_vector",
                     "dimension": settings.EMBEDDING_DIMENSION,
                 }

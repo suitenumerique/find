@@ -69,7 +69,6 @@ src/frontend/tsclient
 .pylint.d
 .pytest_cache
 db.sqlite3
-# TODO: why do I need this ? 
 *history.sqlite    
 .mypy_cache
 

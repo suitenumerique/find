@@ -39,7 +39,7 @@ def test_api_documents_search_access_control_anonymous(settings):
 
 
 @responses.activate
-def test_api_documents_search_access_control_(settings):
+def test_api_documents_search_access_control(settings):
     """
     Authenticated users should only see documents:
     - for which they are listed in the "users" field

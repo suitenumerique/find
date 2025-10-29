@@ -13,11 +13,17 @@ import responses
 from rest_framework.test import APIClient
 
 from core import enums, factories
+from core.services.opensearch import check_hybrid_search_enabled
 
 from .mock import albert_embedding_response
-from .utils import build_authorization_bearer, prepare_index, setup_oicd_resource_server
+from .utils import build_authorization_bearer, bulk_create_documents, prepare_index, setup_oicd_resource_server
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_caches():
+    check_hybrid_search_enabled.cache_clear()
 
 
 @responses.activate
@@ -40,6 +46,33 @@ def test_api_documents_search_auth_invalid_parameters(settings):
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Resource Server is improperly configured"}
+
+
+@responses.activate
+def test_api_documents_search_opensearch_env_variables_not_set(settings):
+    """Missing environment variables for OpenSearch client should result in a 500 internal server error"""
+    del settings.OPENSEARCH_HOST    # Remove required settings
+    del settings.OPENSEARCH_PASSWORD
+
+    service = factories.ServiceFactory(name="test-service")
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+
+    nb_documents = 12
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    documents = factories.DocumentSchemaFactory.build_batch(
+        nb_documents, reach=random.choice(["public", "authenticated"])
+    )
+    prepare_index(service.name, documents)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "visited": [doc["id"] for doc in documents]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Missing required OpenSearch environment variables: OPENSEARCH_HOST, OPENSEARCH_PASSWORD"}
 
 
 @responses.activate
@@ -197,67 +230,57 @@ def test_api_documents_search_match_all(settings):
 
 
 @responses.activate
-def test_api_documents_search_query_title(settings):
+def test_api_documents_full_text_search_query_title(settings):
     """Searching a document by its title should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     service = factories.ServiceFactory(name="test-service")
-    document = factories.DocumentSchemaFactory.build(
-        title="The quick brown fox",
-        content="the wolf",
-        reach=random.choice(["public", "authenticated"]),
-    )
+    settings.HYBRID_SEARCH_ENABLED = False # Disable hybrid search for this test
 
-    # Add other documents
-    other_fox_document = factories.DocumentSchemaFactory.build(
-        title="The blue fox",
-        content="the wolf",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    no_fox_document = factories.DocumentSchemaFactory.build(
-        title="The brown goat",
-        content="the wolf",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    documents = [document, other_fox_document, no_fox_document]
+    documents = bulk_create_documents([
+        {"title": "The quick brown fox", "content": "the wolf"},
+        {"title": "The blue fox", "content": "the wolf"},
+        {"title": "The brown goat", "content": "the wolf"},
+    ])
     prepare_index(service.name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 3 #TODO: was 2, goat doc with a score of 0 is aloso returned
+    assert len(response.json()) == 2
 
-    fox_data = response.json()[0]
-    assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
-    assert fox_data["_id"] == str(document["id"])
-    assert fox_data["_source"] == {
+    fox_response = response.json()[0]
+    fox_document = documents[0]
+    assert list(fox_response.keys()) == ["_index", "_id", "_score", "_source", "fields"]
+    assert fox_response["_id"] == str(documents[0]["id"])
+    assert fox_response["_source"] == {
         "depth": 1,
         "numchild": 0,
-        "path": document["path"],
-        "size": document["size"],
-        "created_at": document["created_at"].isoformat(),
-        "updated_at": document["updated_at"].isoformat(),
-        "reach": document["reach"],
-        "title": document["title"],
+        "path": fox_document["path"],
+        "size": fox_document["size"],
+        "created_at": fox_document["created_at"].isoformat(),
+        "updated_at": fox_document["updated_at"].isoformat(),
+        "reach": fox_document["reach"],
+        "title": fox_document["title"],
     }
-    assert fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+    assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
-    other_fox_data = response.json()[1]
-    assert list(other_fox_data.keys()) == [
+
+    other_fox_response = response.json()[1]
+    other_fox_document = documents[1]
+    assert list(other_fox_response.keys()) == [
         "_index",
         "_id",
         "_score",
         "_source",
         "fields",
     ]
-    assert other_fox_data["_id"] == str(other_fox_document["id"])
-    assert other_fox_data["_source"] == {
+    assert other_fox_response["_id"] == str(other_fox_document["id"])
+    assert other_fox_response["_source"] == {
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -267,56 +290,22 @@ def test_api_documents_search_query_title(settings):
         "reach": other_fox_document["reach"],
         "title": other_fox_document["title"],
     }
-    assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+    assert other_fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
-    no_fox_data = response.json()[2]
-    assert list(no_fox_data.keys()) == [
-        "_index",
-        "_id",
-        "_score",
-        "_source",
-        "fields",
-    ]
-    assert no_fox_data["_id"] == str(no_fox_document["id"])
-    assert no_fox_data["_source"] == {
-        "depth": 1,
-        "numchild": 0,
-        "path": no_fox_document["path"],
-        "size": no_fox_document["size"],
-        "created_at": no_fox_document["created_at"].isoformat(),
-        "updated_at": no_fox_document["updated_at"].isoformat(),
-        "reach": no_fox_document["reach"],
-        "title": no_fox_document["title"],
-    }
-    assert no_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
 
 @responses.activate
-def test_api_documents_search_query_content(settings):
+def test_api_documents_full_text_search(settings):
     """Searching a document by its content should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    settings.HYBRID_SEARCH_ENABLED = False # Disable hybrid search for this test
 
     service = factories.ServiceFactory(name="test-service")
-    document = factories.DocumentSchemaFactory.build(
-        title="the wolf",
-        content="The quick brown fox",
-        reach=random.choice(["public", "authenticated"]),
-    )
-
-    # Add other documents
-    other_fox_document = factories.DocumentSchemaFactory.build(
-        title="the wolf",
-        content="The blue fox",
-        reach=random.choice(["public", "authenticated"]),
-    )
-    no_fox_document = factories.DocumentSchemaFactory.build(
-        title="the wolf",
-        content="The brown goat",
-        reach=random.choice(["public", "authenticated"]),
-    )
-
-    documents = [document, other_fox_document, no_fox_document]
+    documents = bulk_create_documents([
+        {"title": "The quick brown fox", "content": "the wolf"},
+        {"title": "The blue fox", "content": "the wolf"},
+        {"title": "The brown goat", "content": "the wolf"},
+    ])
     prepare_index(service.name, documents)
 
     response = APIClient().post(
@@ -327,35 +316,37 @@ def test_api_documents_search_query_content(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 3
+    assert len(response.json()) == 2
 
-    fox_data = response.json()[0]
-    assert list(fox_data.keys()) == ["_index", "_id", "_score", "_source", "fields"]
-    assert fox_data["_id"] == str(document["id"])
-    assert fox_data["_score"] > 0
-    assert fox_data["_source"] == {
+    fox_response = response.json()[0]
+    fox_document = documents[0]
+    assert list(fox_response.keys()) == ["_index", "_id", "_score", "_source", "fields"]
+    assert fox_response["_id"] == str(fox_document["id"])
+    assert fox_response["_score"] > 0
+    assert fox_response["_source"] == {
         "depth": 1,
         "numchild": 0,
-        "path": document["path"],
-        "size": document["size"],
-        "created_at": document["created_at"].isoformat(),
-        "updated_at": document["updated_at"].isoformat(),
-        "reach": document["reach"],
-        "title": document["title"],
+        "path": fox_document["path"],
+        "size": fox_document["size"],
+        "created_at": fox_document["created_at"].isoformat(),
+        "updated_at": fox_document["updated_at"].isoformat(),
+        "reach": fox_document["reach"],
+        "title": fox_document["title"],
     }
-    assert fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+    assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
-    other_fox_data = response.json()[1]
-    assert list(other_fox_data.keys()) == [
+    other_fox_response = response.json()[1]
+    other_fox_document = documents[1]
+    assert list(other_fox_response.keys()) == [
         "_index",
         "_id",
         "_score",
         "_source",
         "fields",
     ]
-    assert other_fox_data["_id"] == str(other_fox_document["id"])
-    assert other_fox_data["_score"] > 0
-    assert other_fox_data["_source"] == {
+    assert other_fox_response["_id"] == str(other_fox_document["id"])
+    assert other_fox_response["_score"] > 0
+    assert other_fox_response["_source"] == {
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -365,18 +356,86 @@ def test_api_documents_search_query_content(settings):
         "reach": other_fox_document["reach"],
         "title": other_fox_document["title"],
     }
-    assert other_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+    assert other_fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
-    no_fox_data = response.json()[2]
-    assert list(no_fox_data.keys()) == [
+
+@responses.activate
+def test_api_documents_hybrid_search(settings):
+    """Searching a document by its content should work as expected"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+    # hybrid search is enabled by default
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200) # mock embedding API
+
+    service = factories.ServiceFactory(name="test-service")
+    documents = bulk_create_documents([
+        {"title": "The quick brown fox", "content": "the wolf"},
+        {"title": "The blue fox", "content": "the wolf"},
+        {"title": "The brown goat", "content": "the wolf"},
+    ])
+    prepare_index(service.name, documents)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 3 # hybrid search always returns a response of fixed sized sorted and scored by relevance
+
+    fox_response = response.json()[0]
+    fox_document = documents[0]
+    assert list(fox_response.keys()) == ["_index", "_id", "_score", "_source", "fields"]
+    assert fox_response["_id"] == str(fox_document["id"])
+    assert fox_response["_score"] > 0
+    assert fox_response["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": fox_document["path"],
+        "size": fox_document["size"],
+        "created_at": fox_document["created_at"].isoformat(),
+        "updated_at": fox_document["updated_at"].isoformat(),
+        "reach": fox_document["reach"],
+        "title": fox_document["title"],
+    }
+    assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
+
+    other_fox_response = response.json()[1]
+    other_fox_document = documents[1]
+    assert list(other_fox_response.keys()) == [
         "_index",
         "_id",
         "_score",
         "_source",
         "fields",
     ]
-    assert no_fox_data["_id"] == str(no_fox_document["id"])
-    assert no_fox_data["_source"] == {
+    assert other_fox_response["_id"] == str(other_fox_document["id"])
+    assert other_fox_response["_score"] > 0
+    assert other_fox_response["_source"] == {
+        "depth": 1,
+        "numchild": 0,
+        "path": other_fox_document["path"],
+        "size": other_fox_document["size"],
+        "created_at": other_fox_document["created_at"].isoformat(),
+        "updated_at": other_fox_document["updated_at"].isoformat(),
+        "reach": other_fox_document["reach"],
+        "title": other_fox_document["title"],
+    }
+    assert other_fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
+
+    no_fox_response = response.json()[2]
+    no_fox_document = documents[2]
+    assert list(no_fox_response.keys()) == [
+        "_index",
+        "_id",
+        "_score",
+        "_source",
+        "fields",
+    ]
+    assert no_fox_response["_id"] == str(no_fox_document["id"])
+    assert no_fox_response["_source"] == {
         "depth": 1,
         "numchild": 0,
         "path": no_fox_document["path"],
@@ -386,7 +445,7 @@ def test_api_documents_search_query_content(settings):
         "reach": no_fox_document["reach"],
         "title": no_fox_document["title"],
     }
-    assert no_fox_data["fields"] == {"number_of_users": [3], "number_of_groups": [3]}
+    assert no_fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
 
 @responses.activate

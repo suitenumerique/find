@@ -8,6 +8,7 @@ from typing import List
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from opensearchpy.exceptions import NotFoundError
+from core import factories
 from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
@@ -18,6 +19,15 @@ from core.services import opensearch
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+
+def bulk_create_documents(document_payloads):
+    return [
+        factories.DocumentSchemaFactory.build(**document_payload, users=['user_sub']) 
+        for document_payload in document_payloads
+    ]
+
 
 def delete_search_pipeline():
     try:

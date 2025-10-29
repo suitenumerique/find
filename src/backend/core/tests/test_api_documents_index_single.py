@@ -5,10 +5,12 @@ import datetime
 from django.utils import timezone
 
 import pytest
+import responses
 from rest_framework.test import APIClient
 
 from core import factories
 from core.services import opensearch
+from core.tests.mock import albert_embedding_response
 
 
 pytestmark = pytest.mark.django_db
@@ -40,14 +42,16 @@ def test_api_documents_index_single_invalid_token():
     assert response.status_code == 403
     assert response.json() == {"detail": "Invalid token."}
 
-
-def test_api_documents_index_single_success():
-    """A registered service should be able to index document with a valid token."""
+@responses.activate
+def test_api_documents_index_single_hybrid_enabled_success(settings):
+    """
+    A registered service should be able to index document with a valid token.
+    If hybrid search is enabled, the indexing should have embedding of dimension settings.EMBEDDING_DIMENSION.
+    """
     service = factories.ServiceFactory(name="test-service")
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     document = factories.DocumentSchemaFactory.build()
     
-    opensearch.client.indices.delete(index="*test*") # TODO: demove delete the index
-
     response = APIClient().post(
         "/api/v1.0/documents/index/",
         document,
@@ -62,11 +66,34 @@ def test_api_documents_index_single_success():
     assert new_indexed_document['_version'] == 1
     assert new_indexed_document['_source']['title'] == document["title"].strip().lower()
     assert new_indexed_document['_source']['content'] == document["content"]
-    assert type(new_indexed_document['_source']['embedding']) is list
-    assert len(new_indexed_document['_source']['embedding']) == 384
+    assert new_indexed_document['_source']['embedding'] == albert_embedding_response.response["data"][0]["embedding"]
 
 
-def test_api_documents_index_bulk_ensure_index():
+def test_api_documents_index_single_hybrid_disabled_success(settings):
+    """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
+    service = factories.ServiceFactory(name="test-service")
+    settings.HYBRID_SEARCH_ENABLED = False  # disable hybrid search
+    document = factories.DocumentSchemaFactory.build()
+    opensearch.check_hybrid_search_enabled.cache_clear()
+    
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["_id"] == str(document["id"])
+
+    new_indexed_document = opensearch.client.get(index=service.name, id=str(document["id"]))
+    assert new_indexed_document['_version'] == 1
+    assert new_indexed_document['_source']['title'] == document["title"].strip().lower()
+    assert new_indexed_document['_source']['content'] == document["content"]
+    assert new_indexed_document['_source']['embedding'] is None
+
+
+def test_api_documents_index_bulk_ensure_index(settings):
     """A registered service should be create the opensearch index if need."""
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
@@ -116,7 +143,8 @@ def test_api_documents_index_bulk_ensure_index():
             "is_active": {"type": "boolean"},
             "embedding": {
                 "type": "knn_vector",
-                "dimension": 384,
+                "doc_values": True,
+                "dimension": settings.EMBEDDING_DIMENSION,
             },
         },
     }
@@ -298,9 +326,10 @@ def test_api_documents_index_single_required(field):
         ("reach", "restricted"),
     ],
 )
-def test_api_documents_index_single_default(field, default_value):
+def test_api_documents_index_single_default(field, default_value, settings):
     """Test document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory(name="test-service")
+    settings.HYBRID_SEARCH_ENABLED = False  # disable hybrid search
     document = factories.DocumentSchemaFactory.build()
 
     del document[field]
