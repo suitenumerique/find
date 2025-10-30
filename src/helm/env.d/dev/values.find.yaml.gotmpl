@@ -62,10 +62,6 @@ backend:
       secretKeyRef:
         name: find-backend
         key: OPENSEARCH_PASSWORD
-    EMBEDDING_API_KEY:
-      secretKeyRef:
-        name: find-backend
-        key: EMBEDDING_API_KEY
 
   migrate:
     command:

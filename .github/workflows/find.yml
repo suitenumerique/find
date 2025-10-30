@@ -120,6 +120,7 @@ jobs:
       OPENSEARCH_HOST: localhost
       OPENSEARCH_PASSWORD: find.PASS123
       OPENSEARCH_USE_SSL: false
+      EMBEDDING_API_KEY: ThisIsAnExampleKeyForTestPurposeOnly
 
     steps:
       - name: Checkout repository
