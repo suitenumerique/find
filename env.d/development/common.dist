@@ -21,8 +21,15 @@ OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/c
 OIDC_OP_AUTHORIZATION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/auth
 OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token
 OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/userinfo
-OIDC_OP_URL=http://nginx:8083/realms/impress
 OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token/introspect
+
+# To run Find in development mode along other projects like docs/impress
+# we should to use OIDC endpoints on a common keycloak realm. e.g :
+# OIDC_OP_URL = http://nginx:8083/realms/impress
+#
+# This will cause a conflict with the 'iss' claim validation rule because the docs realm
+# gives {'iss': 'http://localhost:8083/realms/impress'} so it must be the same
+OIDC_OP_URL=http://localhost:8083/realms/impress
 
 OIDC_RP_CLIENT_ID=find
 OIDC_RP_CLIENT_SECRET=ThisIsAnExampleKeyForDevPurposeOnly
