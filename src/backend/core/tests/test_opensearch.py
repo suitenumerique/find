@@ -2,6 +2,7 @@
 Test suite for opensearch service
 """
 
+import operator
 import pytest
 from core import factories
 import responses
@@ -59,7 +60,6 @@ def test_hybrid_search_success(settings, caplog):
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
     
-    
     assert any(
         f"Performing hybrid search with embedding: {q}" in message
         for message in caplog.messages
@@ -72,11 +72,31 @@ def test_hybrid_search_success(settings, caplog):
     assert result["hits"]["max_score"] > 0.0
     # hybrid search always returns a response of fixed sized sorted and scored by relevance
     assert set([hit['_source']['title'] for hit in result['hits']['hits']]) == set([doc["title"] for doc in documents])
-    
-    compare = operator.le if direction == "asc" else operator.ge
-    for i in range(len(data) - 1):
-        assert compare(data[i]["_score"], data[i + 1]["_score"])
 
+@responses.activate
+def test_search_ordering_by_relevance(settings, caplog):
+    """Test the hybrid supports ordering by relevance asc and desc"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+
+    documents = bulk_create_documents([
+        {"title": "wolf", "content": "wolves live in packs and hunt together"},
+        {"title": "dog", "content": "dogs are loyal domestic animals"},
+        {"title": "cat", "content": "cats are curious and independent pets"},
+    ])
+    q = "canine pet"
+    prepare_index(service.name, documents)
+
+    for direction in ["asc", "desc"]:
+        with caplog.at_level(logging.INFO):
+            result = search(q=q, **{**PARAMS, "order_direction": direction})
+            breakpoint()
+        
+        # Check that results are sorted by score as expected
+        hits = result['hits']['hits']
+        compare = operator.le if direction == "asc" else operator.ge
+        for i in range(len(hits) - 1):
+            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
 
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
     """Test the full-text search is done when HYBRID_SEARCH_ENABLED=Flase"""
@@ -116,7 +136,6 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
     assert result["hits"]["max_score"] > 0.0
     assert len(result['hits']['hits']) == 1
     assert result['hits']['hits'][0]["_source"]["title"] == "wolf"
-
 
 @responses.activate
 def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
