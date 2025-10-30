@@ -4,14 +4,11 @@ Test suite for opensearch service
 
 import operator
 import pytest
-from core import factories
 import responses
 from json import dumps as json_dumps
 import logging
 from opensearchpy.exceptions import NotFoundError
 
-from core import factories
-from pprint import pprint
 from ..services.opensearch import HYBRID_SEARCH_PIPELINE_ID, embed_text, search, check_hybrid_search_enabled
 from .mock import albert_embedding_response
 
@@ -47,7 +44,6 @@ def clear_caches():
 @responses.activate
 def test_hybrid_search_success(settings, caplog):
     """Test the hybrid search is successful"""
-    service = factories.ServiceFactory(name=SERVICE_NAME)
     responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
 
     documents = bulk_create_documents([
@@ -56,7 +52,7 @@ def test_hybrid_search_success(settings, caplog):
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q = "canine pet"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
@@ -77,7 +73,6 @@ def test_hybrid_search_success(settings, caplog):
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
     """Test the full-text search is done when HYBRID_SEARCH_ENABLED=Flase"""
     settings.HYBRID_SEARCH_ENABLED = False
-    service = factories.ServiceFactory(name=SERVICE_NAME)
 
     documents = bulk_create_documents([
         {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -85,7 +80,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q = "wolf"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
@@ -116,7 +111,6 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 @responses.activate
 def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     """Test the full-text search is done when the embedding api fails"""
-    service = factories.ServiceFactory(name=SERVICE_NAME)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -129,7 +123,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q="wolf"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
@@ -162,7 +156,6 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
 def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog):
     """Test the full-text search is done when variables are missing for hybrid search"""
     del settings.HYBRID_SEARCH_WEIGHTS
-    service = factories.ServiceFactory(name=SERVICE_NAME)
     responses.add( 
         #TODO: mocking embedding api should not be necessary 
         # weirdly enough the cache of check_hybrid_search_enabled seems not be cleared properly
@@ -177,7 +170,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q="wolf"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
@@ -208,7 +201,6 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
 @responses.activate
 def test_match_all(settings, caplog):
     """Test match all when q='*' and no semantic search is needed"""
-    service = factories.ServiceFactory(name=SERVICE_NAME)
     responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
     documents = bulk_create_documents([
         {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -216,7 +208,7 @@ def test_match_all(settings, caplog):
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q="*"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
@@ -243,7 +235,6 @@ def test_match_all(settings, caplog):
 @responses.activate
 def test_search_ordering_by_relevance(settings, caplog):
     """Test the hybrid supports ordering by relevance asc and desc"""
-    service = factories.ServiceFactory(name=SERVICE_NAME)
     responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
 
     documents = bulk_create_documents([
@@ -252,7 +243,7 @@ def test_search_ordering_by_relevance(settings, caplog):
         {"title": "cat", "content": "cats are curious and independent pets"},
     ])
     q = "canine pet"
-    prepare_index(service.name, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     for direction in ["asc", "desc"]:
         with caplog.at_level(logging.INFO):
