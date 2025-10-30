@@ -27,6 +27,7 @@ def search(
     q, 
     page_number, 
     page_size, 
+    k,
     order_by, 
     order_direction, 
     search_indices, 
@@ -35,7 +36,14 @@ def search(
     user_sub, 
     groups
 ):
-    query = get_query(q, reach, visited, user_sub, groups)
+    query = get_query(
+        q=q,
+        k=k, 
+        reach=reach, 
+        visited=visited, 
+        user_sub=user_sub, 
+        groups=groups
+    )
     return client.search(
         index=",".join(search_indices),
         body={
@@ -44,18 +52,22 @@ def search(
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(query.keys(), order_by, order_direction),
+            "sort": get_sort(
+                query_keys=query.keys(), 
+                order_by=order_by, 
+                order_direction=order_direction
+            ),
             # Compute pagination parameters
             "from": (page_number - 1) * page_size,
             "size":  page_size,
             # Compute query
             "query": query,
         },
-        params=get_params(query.keys()),
+        params=get_params(query_keys=query.keys()),
         ignore_unavailable=True,
     ) 
 
-def get_query(q, reach, visited, user_sub, groups): 
+def get_query(q, k, reach, visited, user_sub, groups): 
     filter = get_filter(reach, visited, user_sub, groups)
 
     if q == "*":
@@ -110,7 +122,7 @@ def get_query(q, reach, visited, user_sub, groups):
                                 "knn": {
                                     "embedding": {
                                         "vector": embedding,
-                                        "k": 20  # magic number to be handled. Setting variable or query params ? 
+                                        "k": k,
                                     }
                                 }
                             },

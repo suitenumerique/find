@@ -29,6 +29,7 @@ SERVICE_NAME = "test-service"
 PARAMS = {
     "page_number": 1, 
     "page_size": 20, 
+    "k": 20, 
     "order_by": "relevance", 
     "order_direction": "desc", 
     "search_indices": {SERVICE_NAME}, 
@@ -72,31 +73,6 @@ def test_hybrid_search_success(settings, caplog):
     assert result["hits"]["max_score"] > 0.0
     # hybrid search always returns a response of fixed sized sorted and scored by relevance
     assert set([hit['_source']['title'] for hit in result['hits']['hits']]) == set([doc["title"] for doc in documents])
-
-@responses.activate
-def test_search_ordering_by_relevance(settings, caplog):
-    """Test the hybrid supports ordering by relevance asc and desc"""
-    service = factories.ServiceFactory(name=SERVICE_NAME)
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
-
-    documents = bulk_create_documents([
-        {"title": "wolf", "content": "wolves live in packs and hunt together"},
-        {"title": "dog", "content": "dogs are loyal domestic animals"},
-        {"title": "cat", "content": "cats are curious and independent pets"},
-    ])
-    q = "canine pet"
-    prepare_index(service.name, documents)
-
-    for direction in ["asc", "desc"]:
-        with caplog.at_level(logging.INFO):
-            result = search(q=q, **{**PARAMS, "order_direction": direction})
-            breakpoint()
-        
-        # Check that results are sorted by score as expected
-        hits = result['hits']['hits']
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(hits) - 1):
-            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
 
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
     """Test the full-text search is done when HYBRID_SEARCH_ENABLED=Flase"""
@@ -262,6 +238,51 @@ def test_match_all(settings, caplog):
         )
     assert result["hits"]["max_score"] > 0.0
     assert len(result['hits']['hits']) == 3
+
+
+@responses.activate
+def test_search_ordering_by_relevance(settings, caplog):
+    """Test the hybrid supports ordering by relevance asc and desc"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+
+    documents = bulk_create_documents([
+        {"title": "wolf", "content": "wolves live in packs and hunt together"},
+        {"title": "dog", "content": "dogs are loyal domestic animals"},
+        {"title": "cat", "content": "cats are curious and independent pets"},
+    ])
+    q = "canine pet"
+    prepare_index(service.name, documents)
+
+    for direction in ["asc", "desc"]:
+        with caplog.at_level(logging.INFO):
+            result = search(q=q, **{**PARAMS, "order_direction": direction})
+        
+        # Check that results are sorted by score as expected
+        hits = result['hits']['hits']
+        compare = operator.le if direction == "asc" else operator.ge
+        for i in range(len(hits) - 1):
+            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
+
+@responses.activate
+def test_hybrid_search_number_of_matches(settings):
+    """
+    In this test full-text search always return 0 documents. 
+    The test checks the number of hits returned by hybrid search with different k values.
+    """
+    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+
+    documents = bulk_create_documents([
+        {"title": "wolf", "content": "wolves live in packs and hunt together"},
+        {"title": "dog", "content": "dogs are loyal domestic animals"},
+        {"title": "cat", "content": "cats are curious and independent pets"},
+    ])
+    prepare_index(SERVICE_NAME, documents)
+
+    q = "pony"  # full-text matches 0 document
+    for k in [1, 2, 3]: # semantic should match k documents
+        result = search(q=q, **{**PARAMS, "k": k})
+        assert len(result['hits']['hits']) == k
 
 @responses.activate
 def test_embed_text_success(settings):

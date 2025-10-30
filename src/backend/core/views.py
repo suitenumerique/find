@@ -245,16 +245,17 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         response = search(
-            params.q, 
-            params.page_number, 
-            params.page_size, 
-            params.order_by, 
-            params.order_direction, 
-            search_indices, 
-            params.reach,
-            params.visited,
-            user_sub, 
-            groups
+            q=params.q, 
+            page_number=params.page_number, 
+            page_size=params.page_size, 
+            k=params.page_size, 
+            order_by=params.order_by, 
+            order_direction=params.order_direction, 
+            search_indices=search_indices, 
+            reach=params.reach,
+            visited=params.visited,
+            user_sub=user_sub, 
+            groups=groups
         )
               
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
