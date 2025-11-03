@@ -20,3 +20,4 @@ and this project adheres to
               linkreach & owned ones
 - ✨(backend) limit search to the calling app (audience) and a configured
               list of services
+- 🔧(compose) rename docker network 'lasuite-net' as 'lasuite-network'

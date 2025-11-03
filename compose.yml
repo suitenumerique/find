@@ -64,7 +64,7 @@ services:
       - "8081:8000"
     networks:
       default: {}
-      lasuite-net:
+      lasuite:
         aliases:
           - find
     volumes:
@@ -106,6 +106,6 @@ services:
     working_dir: /app
 
 networks:
-  lasuite-net:
-    name: lasuite-net
+  lasuite:
+    name: lasuite-network
     driver: bridge
