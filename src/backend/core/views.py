@@ -14,7 +14,7 @@ from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
 from .permissions import IsAuthAuthenticated
-from .services.opensearch import opensearch_client, ensure_index_exists, search
+from .services.opensearch import ensure_index_exists, opensearch_client, search
 
 logger = logging.getLogger(__name__)
 

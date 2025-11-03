@@ -4,6 +4,7 @@ import logging
 from functools import cache
 
 from django.conf import settings
+
 import requests
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
@@ -22,6 +23,7 @@ REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_PASSWORD",
     "OPENSEARCH_USE_SSL",
 ]
+
 
 @cache
 def opensearch_client():
@@ -59,11 +61,11 @@ def search(  # noqa : PLR0913
     user_sub,
     groups,
 ):
-    """Perform an OpenSearch search """
+    """Perform an OpenSearch search"""
     query = get_query(
         q=q, k=k, reach=reach, visited=visited, user_sub=user_sub, groups=groups
     )
-    return opensearch_client().search( # pylint: disable=unexpected-keyword-arg
+    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return
@@ -89,7 +91,8 @@ def search(  # noqa : PLR0913
     )
 
 
-def get_query(
+# pylint: disable=too-many-arguments, too-many-positional-arguments
+def get_query(  # noqa : PLR0913
     q, k, reach, visited, user_sub, groups
 ):
     """Build OpenSearch query body based on parameters"""
@@ -98,7 +101,10 @@ def get_query(
     if q == "*":
         logger.info("Performing match_all query")
         return {
-            "bool": {"must": {"match_all": {}}, "filter": {"bool": {"filter": filter_}}},
+            "bool": {
+                "must": {"match_all": {}},
+                "filter": {"bool": {"filter": filter_}},
+            },
         }
 
     hybrid_search_enabled = check_hybrid_search_enabled()
@@ -340,7 +346,7 @@ def check_hybrid_search_enabled():
     missing_vars = [var for var in required_vars if not getattr(settings, var, None)]
     if missing_vars:
         logger.warning(
-            "Missing variables for hybrid search: %s", {', '.join(missing_vars)}
+            "Missing variables for hybrid search: %s", {", ".join(missing_vars)}
         )
         return False
 

@@ -10,7 +10,6 @@ import responses
 from rest_framework.test import APIClient
 
 from core import enums, factories
-
 from core.services.opensearch import opensearch_client
 
 from .mock import albert_embedding_response

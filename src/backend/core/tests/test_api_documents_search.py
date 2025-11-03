@@ -55,11 +55,10 @@ def test_api_documents_search_auth_invalid_parameters(settings):
     assert response.json() == {"detail": "Resource Server is improperly configured"}
 
 
-
 @responses.activate
 def test_api_documents_search_opensearch_env_variables_not_set(settings):
     """
-    Missing environment variables for OpenSearch client should 
+    Missing environment variables for OpenSearch client should
     result in a 500 internal server error
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")

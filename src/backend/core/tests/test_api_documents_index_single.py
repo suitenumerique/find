@@ -47,7 +47,7 @@ def test_api_documents_index_single_invalid_token():
 def test_api_documents_index_single_hybrid_enabled_success(settings):
     """
     A registered service should be able to index document with a valid token.
-    If hybrid search is enabled, the indexing should have embedding of 
+    If hybrid search is enabled, the indexing should have embedding of
     dimension settings.EMBEDDING_DIMENSION.
     """
     service = factories.ServiceFactory(name="test-service")
