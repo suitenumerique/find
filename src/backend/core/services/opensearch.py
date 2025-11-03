@@ -260,46 +260,46 @@ def ensure_index_exists(index_name):
         logger.info("Creating index: %s", index_name)
         opensearch_client().indices.create(
             index=index_name,
-            body=build_index_body(),
-        )
-
-
-def build_index_body():
-    """Build the index body"""
-    body = {
-        "mappings": {
-            "dynamic": "strict",
-            "properties": {
-                "id": {"type": "keyword"},
-                "title": {
-                    "type": "keyword",
-                    "fields": {"text": {"type": "text"}},
-                },
-                "depth": {"type": "integer"},
-                "path": {"type": "keyword", "fields": {"text": {"type": "text"}}},
-                "numchild": {"type": "integer"},
-                "content": {"type": "text"},
-                "created_at": {"type": "date"},
-                "updated_at": {"type": "date"},
-                "size": {"type": "long"},
-                "users": {"type": "keyword"},
-                "groups": {"type": "keyword"},
-                "reach": {"type": "keyword"},
-                "is_active": {"type": "boolean"},
-                "embedding": {
-                    # for simplicity, embedding is always present but is empty
-                    # when hybrid search is disabled
-                    "type": "knn_vector",
-                    "dimension": settings.EMBEDDING_DIMENSION,
+            body={
+                "settings": {"index.knn": True},
+                "mappings": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "id": {"type": "keyword"},
+                        "title": {
+                            "type": "keyword",
+                            "fields": {"text": {"type": "text"}},
+                        },
+                        "depth": {"type": "integer"},
+                        "path": {
+                            "type": "keyword",
+                            "fields": {"text": {"type": "text"}},
+                        },
+                        "numchild": {"type": "integer"},
+                        "content": {"type": "text"},
+                        "created_at": {"type": "date"},
+                        "updated_at": {"type": "date"},
+                        "size": {"type": "long"},
+                        "users": {"type": "keyword"},
+                        "groups": {"type": "keyword"},
+                        "reach": {"type": "keyword"},
+                        "is_active": {"type": "boolean"},
+                        "embedding": {
+                            # for simplicity, embedding is always present but is empty
+                            # when hybrid search is disabled
+                            "type": "knn_vector",
+                            "dimension": settings.EMBEDDING_DIMENSION,
+                            "method": {
+                                "engine": "lucene",
+                                "space_type": "l2",
+                                "name": "hnsw",
+                                "parameters": {},
+                            },
+                        },
+                    },
                 },
             },
-        },
-    }
-
-    if check_hybrid_search_enabled():
-        body["settings"] = {"index": {"knn": True}}
-
-    return body
+        )
 
 
 def ensure_search_pipeline_exists(pipeline_id):
@@ -346,7 +346,7 @@ def check_hybrid_search_enabled():
     missing_vars = [var for var in required_vars if not getattr(settings, var, None)]
     if missing_vars:
         logger.warning(
-            "Missing variables for hybrid search: %s", {", ".join(missing_vars)}
+            "Missing variables for hybrid search: %s", ", ".join(missing_vars)
         )
         return False
 

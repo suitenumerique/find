@@ -275,8 +275,8 @@ class Base(Configuration):
         environment_name="EMBEDDING_API_PATH",
         environ_prefix=None,
     )
-    EMBEDDING_API_KEY = values.SecretValue(
-        environ_name="EMBEDDING_API_KEY", environ_prefix=None
+    EMBEDDING_API_KEY = values.Value(
+        default=None, environ_name="EMBEDDING_API_KEY", environ_prefix=None
     )
     EMBEDDING_API_MODEL_NAME = values.Value(
         default="embeddings-small",

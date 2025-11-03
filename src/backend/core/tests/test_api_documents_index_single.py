@@ -157,6 +157,12 @@ def test_api_documents_index_bulk_ensure_index(settings):
             "embedding": {
                 "type": "knn_vector",
                 "dimension": settings.EMBEDDING_DIMENSION,
+                "method": {
+                    "engine": "lucene",
+                    "space_type": "l2",
+                    "name": "hnsw",
+                    "parameters": {},
+                },
             },
         },
     }
