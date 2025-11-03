@@ -8,7 +8,8 @@ from django.test import override_settings
 import pytest
 
 from core import models
-from core.services import opensearch
+from core.services.opensearch import opensearch_client
+
 from demo import defaults
 
 pytestmark = pytest.mark.django_db
@@ -26,7 +27,7 @@ def test_commands_create_demo():
     call_command("create_demo")
 
     assert models.Service.objects.exclude(name="docs").count() == 2
-    assert opensearch.client.count()["count"] == 4
+    assert opensearch_client().count()["count"] == 4
 
     docs = models.Service.objects.get(name="docs")
     assert docs.client_id == "impress"

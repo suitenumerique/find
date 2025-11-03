@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from core import factories
 from core.services import opensearch
 from core.tests.mock import albert_embedding_response
-
+from core.tests.utils import delete_test_indices
 
 pytestmark = pytest.mark.django_db
 
@@ -42,16 +42,23 @@ def test_api_documents_index_single_invalid_token():
     assert response.status_code == 403
     assert response.json() == {"detail": "Invalid token."}
 
+
 @responses.activate
 def test_api_documents_index_single_hybrid_enabled_success(settings):
     """
     A registered service should be able to index document with a valid token.
-    If hybrid search is enabled, the indexing should have embedding of dimension settings.EMBEDDING_DIMENSION.
+    If hybrid search is enabled, the indexing should have embedding of 
+    dimension settings.EMBEDDING_DIMENSION.
     """
     service = factories.ServiceFactory(name="test-service")
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     document = factories.DocumentSchemaFactory.build()
-    
+
     response = APIClient().post(
         "/api/v1.0/documents/index/",
         document,
@@ -62,11 +69,16 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     assert response.status_code == 201
     assert response.json()["_id"] == str(document["id"])
 
-    new_indexed_document = opensearch.client.get(index=service.name, id=str(document["id"]))
-    assert new_indexed_document['_version'] == 1
-    assert new_indexed_document['_source']['title'] == document["title"].strip().lower()
-    assert new_indexed_document['_source']['content'] == document["content"]
-    assert new_indexed_document['_source']['embedding'] == albert_embedding_response.response["data"][0]["embedding"]
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.name, id=str(document["id"])
+    )
+    assert new_indexed_document["_version"] == 1
+    assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
+    assert new_indexed_document["_source"]["content"] == document["content"]
+    assert (
+        new_indexed_document["_source"]["embedding"]
+        == albert_embedding_response.response["data"][0]["embedding"]
+    )
 
 
 def test_api_documents_index_single_hybrid_disabled_success(settings):
@@ -75,7 +87,7 @@ def test_api_documents_index_single_hybrid_disabled_success(settings):
     settings.HYBRID_SEARCH_ENABLED = False  # disable hybrid search
     document = factories.DocumentSchemaFactory.build()
     opensearch.check_hybrid_search_enabled.cache_clear()
-    
+
     response = APIClient().post(
         "/api/v1.0/documents/index/",
         document,
@@ -86,23 +98,24 @@ def test_api_documents_index_single_hybrid_disabled_success(settings):
     assert response.status_code == 201
     assert response.json()["_id"] == str(document["id"])
 
-    new_indexed_document = opensearch.client.get(index=service.name, id=str(document["id"]))
-    assert new_indexed_document['_version'] == 1
-    assert new_indexed_document['_source']['title'] == document["title"].strip().lower()
-    assert new_indexed_document['_source']['content'] == document["content"]
-    assert new_indexed_document['_source']['embedding'] is None
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.name, id=str(document["id"])
+    )
+    assert new_indexed_document["_version"] == 1
+    assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
+    assert new_indexed_document["_source"]["content"] == document["content"]
+    assert new_indexed_document["_source"]["embedding"] is None
 
 
 def test_api_documents_index_bulk_ensure_index(settings):
     """A registered service should be create the opensearch index if need."""
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
-
-    # Delete the index
-    opensearch.client.indices.delete(index="*test*")
+    opensearch_client_ = opensearch.opensearch_client()
+    delete_test_indices()
 
     with pytest.raises(opensearch.NotFoundError):
-        opensearch.client.indices.get(index="test-service")
+        opensearch_client_.indices.get(index="test-service")
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -115,7 +128,7 @@ def test_api_documents_index_bulk_ensure_index(settings):
     assert response.json()["_id"] == str(document["id"])
 
     # The index has been rebuilt
-    data = opensearch.client.indices.get(index="test-service")
+    data = opensearch_client_.indices.get(index="test-service")
 
     assert data["test-service"]["mappings"] == {
         "dynamic": "strict",
@@ -143,7 +156,6 @@ def test_api_documents_index_bulk_ensure_index(settings):
             "is_active": {"type": "boolean"},
             "embedding": {
                 "type": "knn_vector",
-                "doc_values": True,
                 "dimension": settings.EMBEDDING_DIMENSION,
             },
         },
@@ -344,7 +356,7 @@ def test_api_documents_index_single_default(field, default_value, settings):
     assert response.status_code == 201
     assert response.json()["_id"] == str(document["id"])
 
-    indexed_document = opensearch.client.get(
+    indexed_document = opensearch.opensearch_client().get(
         index=service.name, id=str(document["id"])
     )["_source"]
     assert indexed_document[field] == default_value

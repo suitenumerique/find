@@ -80,6 +80,7 @@ db.sqlite3
 .vscode/
 *.iml
 .devcontainer
+.vscode-server
 
 #pdb
 *.pdbhistory

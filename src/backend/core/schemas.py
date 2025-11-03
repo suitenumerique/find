@@ -12,15 +12,14 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
+    computed_field,
     conint,
     field_validator,
     model_validator,
-    computed_field
 )
 
-from .services.opensearch import check_hybrid_search_enabled, embed_document
-
 from . import enums
+from .services.opensearch import check_hybrid_search_enabled, embed_document
 
 
 class DocumentSchema(BaseModel):
@@ -49,6 +48,7 @@ class DocumentSchema(BaseModel):
     @computed_field
     @property
     def embedding(self) -> list:
+        """Generate document embedding if hybrid search is enabled"""
         if check_hybrid_search_enabled():
             return embed_document(self)
         return None

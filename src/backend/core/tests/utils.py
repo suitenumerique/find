@@ -2,45 +2,47 @@
 
 import base64
 import json
+import logging
 from functools import partial
 from typing import List
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from opensearchpy.exceptions import NotFoundError
-from core import factories
 from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
+from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
+from core import factories
 from core.services import opensearch
-import logging
 
 logger = logging.getLogger(__name__)
 
 
-
 def bulk_create_documents(document_payloads):
+    """Create documents in bulk from payloads"""
     return [
-        factories.DocumentSchemaFactory.build(**document_payload, users=['user_sub']) 
+        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
         for document_payload in document_payloads
     ]
 
 
 def delete_search_pipeline():
+    """Delete the hybrid search pipeline if it exists"""
     try:
-        opensearch.client.transport.perform_request(
+        opensearch.opensearch_client().transport.perform_request(
             method="DELETE",
             url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
         )
     except NotFoundError:
         logger.info("Search pipeline not found, nothing to delete.")
 
+
 def delete_test_indices():
     """Drop all search index containing the 'test' word"""
-    opensearch.client.indices.delete(index="*test*")
+    opensearch.opensearch_client().indices.delete(index="*test*")
 
 
 def prepare_index(index_name, documents: List, cleanup=True):
@@ -60,12 +62,12 @@ def prepare_index(index_name, documents: List, cleanup=True):
         }
         for doc in documents
     ]
-    bulk(opensearch.client, actions)
+    bulk(opensearch.opensearch_client(), actions)
 
     # Force refresh again so all changes are visible to search
-    opensearch.client.indices.refresh(index=index_name)
+    opensearch.opensearch_client().indices.refresh(index=index_name)
 
-    count = opensearch.client.count(index=index_name)["count"]
+    count = opensearch.opensearch_client().count(index=index_name)["count"]
     assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 

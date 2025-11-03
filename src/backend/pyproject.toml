@@ -89,6 +89,7 @@ exclude = [
     "venv",
     "__pycache__",
     "*/migrations/*",
+    ".vscode*"
 ]
 line-length = 88
 

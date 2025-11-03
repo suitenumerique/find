@@ -11,8 +11,9 @@ from rest_framework.test import APIClient
 
 from core import enums, factories
 
-from .mock import albert_embedding_response
+from core.services.opensearch import opensearch_client
 
+from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
     delete_test_indices,
@@ -26,7 +27,12 @@ pytestmark = pytest.mark.django_db
 @responses.activate
 def test_api_documents_search_access_control_anonymous(settings):
     """Anonymous users should not be allowed to search documents even public."""
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     service = factories.ServiceFactory(name="test-service")
     documents = []
     for reach in enums.ReachEnum:
@@ -47,7 +53,12 @@ def test_api_documents_search_access_control(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemnted)
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
 
@@ -95,7 +106,12 @@ def test_api_documents_search_access__only_visited_public(
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 
@@ -127,7 +143,12 @@ def test_api_documents_search_access__any_owner_public(settings):
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 
@@ -166,7 +187,12 @@ def test_api_documents_search_access__services(settings):
     Authenticated users should only see documents of audience
     service providers (e.g docs)
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
     token = build_authorization_bearer()
 
@@ -201,12 +227,18 @@ def test_api_documents_search_access__missing_index(settings):
     """
     When the service has no opensearch index, returns an empty list.
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
     token = build_authorization_bearer()
     factories.ServiceFactory(name="test-index-a", client_id="a-client")
 
     delete_test_indices()
+    opensearch_client.cache_clear()
 
     # a-client has no index. ignore it.
     response = APIClient().post(
@@ -226,7 +258,12 @@ def test_api_documents_search_access__related_services(settings):
     Authenticated users should only see documents of audience
     service providers and its related services (e.g drive + docs)
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
     token = build_authorization_bearer()
 
@@ -268,7 +305,12 @@ def test_api_documents_search_access__related_missing_index(settings):
     """
     When the service has no opensearch index, returns the related services data.
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
     token = build_authorization_bearer()
 
@@ -309,7 +351,12 @@ def test_api_documents_search_access__request_services(settings):
     from requested services : 'services' parameter.
     Raise 400 error if not all requested services are authorized.
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
     token = build_authorization_bearer()
 
@@ -398,7 +445,12 @@ def test_api_documents_search_access__authenticated(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemnted)
     """
-    responses.add(responses.POST, settings.EMBEDDING_API_PATH, json=albert_embedding_response.response, status=200)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 

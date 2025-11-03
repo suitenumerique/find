@@ -13,10 +13,8 @@ from rest_framework.response import Response
 from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
-from .services.opensearch import client, ensure_index_exists, search
 from .permissions import IsAuthAuthenticated
-from django.conf import settings
-
+from .services.opensearch import opensearch_client, ensure_index_exists, search
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +80,7 @@ class IndexDocumentView(views.APIView):
               errors.
         """
         index_name = request.auth.name
+        client = opensearch_client()
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -126,7 +125,7 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict =  document.model_dump()
+        document_dict = document.model_dump()
         _id = document_dict.pop("id")
 
         # Build index if needed.
@@ -149,12 +148,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
     authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
-    required_env_variables = [
-        "OPENSEARCH_HOST",
-        "OPENSEARCH_PORT",
-        "OPENSEARCH_USER",
-        "OPENSEARCH_PASSWORD",
-    ]
 
     @staticmethod
     def _get_opensearch_indices(audience, services):
@@ -219,14 +212,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 200 OK: Returns a list of search results matching the query.
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
-        #  assert required OpenSearch environment variables are set
-        missing_env_variables = [variable for variable in self.required_env_variables if not getattr(settings, variable, None)]
-        if missing_env_variables:
-            return Response(
-                {"detail": f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
         # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
@@ -245,17 +230,17 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         response = search(
-            q=params.q, 
-            page_number=params.page_number, 
-            page_size=params.page_size, 
-            k=params.page_size, 
-            order_by=params.order_by, 
-            order_direction=params.order_direction, 
-            search_indices=search_indices, 
+            q=params.q,
+            page_number=params.page_number,
+            page_size=params.page_size,
+            k=params.page_size,
+            order_by=params.order_by,
+            order_direction=params.order_direction,
+            search_indices=search_indices,
             reach=params.reach,
             visited=params.visited,
-            user_sub=user_sub, 
-            groups=groups
+            user_sub=user_sub,
+            groups=groups,
         )
-              
+
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

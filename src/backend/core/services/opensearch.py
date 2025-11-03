@@ -1,50 +1,69 @@
 """Opensearch related utils."""
 
-from django.conf import settings
-import requests
-
-from core import enums
-from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError
+import logging
 from functools import cache
 
-import logging
+from django.conf import settings
+import requests
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
+from rest_framework.exceptions import ValidationError
+
+from core import enums
 
 logger = logging.getLogger(__name__)
 
 
 HYBRID_SEARCH_PIPELINE_ID = "hybrid-search-pipeline"
+REQUIRED_ENV_VARIABLES = [
+    "OPENSEARCH_HOST",
+    "OPENSEARCH_PORT",
+    "OPENSEARCH_USER",
+    "OPENSEARCH_PASSWORD",
+    "OPENSEARCH_USE_SSL",
+]
 
-client = OpenSearch(
-    hosts=[{"host": settings.OPENSEARCH_HOST, "port": settings.OPENSEARCH_PORT}],
-    http_auth=(settings.OPENSEARCH_USER, settings.OPENSEARCH_PASSWORD),
-    timeout=50,
-    use_ssl=settings.OPENSEARCH_USE_SSL,
-    verify_certs=False,
-)
+@cache
+def opensearch_client():
+    """Get OpenSearch client, ensuring required env variables are set"""
+    missing_env_variables = [
+        variable
+        for variable in REQUIRED_ENV_VARIABLES
+        if getattr(settings, variable, None) is None
+    ]
+    if missing_env_variables:
+        raise ValidationError(
+            f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"
+        )
 
-def search(
-    q, 
-    page_number, 
-    page_size, 
+    return OpenSearch(
+        hosts=[{"host": settings.OPENSEARCH_HOST, "port": settings.OPENSEARCH_PORT}],
+        http_auth=(settings.OPENSEARCH_USER, settings.OPENSEARCH_PASSWORD),
+        timeout=50,
+        use_ssl=settings.OPENSEARCH_USE_SSL,
+        verify_certs=False,
+    )
+
+
+# pylint: disable=too-many-arguments, too-many-positional-arguments
+def search(  # noqa : PLR0913
+    q,
+    page_number,
+    page_size,
     k,
-    order_by, 
-    order_direction, 
-    search_indices, 
+    order_by,
+    order_direction,
+    search_indices,
     reach,
     visited,
-    user_sub, 
-    groups
+    user_sub,
+    groups,
 ):
+    """Perform an OpenSearch search """
     query = get_query(
-        q=q,
-        k=k, 
-        reach=reach, 
-        visited=visited, 
-        user_sub=user_sub, 
-        groups=groups
+        q=q, k=k, reach=reach, visited=visited, user_sub=user_sub, groups=groups
     )
-    return client.search(
+    return opensearch_client().search( # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return
@@ -53,30 +72,33 @@ def search(
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
             "sort": get_sort(
-                query_keys=query.keys(), 
-                order_by=order_by, 
-                order_direction=order_direction
+                query_keys=query.keys(),
+                order_by=order_by,
+                order_direction=order_direction,
             ),
             # Compute pagination parameters
             "from": (page_number - 1) * page_size,
-            "size":  page_size,
+            "size": page_size,
             # Compute query
             "query": query,
         },
         params=get_params(query_keys=query.keys()),
+        # disable=unexpected-keyword-arg because
+        # ignore_unavailable is not in the the method declaration
         ignore_unavailable=True,
-    ) 
+    )
 
-def get_query(q, k, reach, visited, user_sub, groups): 
-    filter = get_filter(reach, visited, user_sub, groups)
+
+def get_query(
+    q, k, reach, visited, user_sub, groups
+):
+    """Build OpenSearch query body based on parameters"""
+    filter_ = get_filter(reach, visited, user_sub, groups)
 
     if q == "*":
         logger.info("Performing match_all query")
         return {
-            "bool": {
-                "must": {"match_all": {}},
-                "filter": {"bool": {"filter": filter}} 
-            }, 
+            "bool": {"must": {"match_all": {}}, "filter": {"bool": {"filter": filter_}}},
         }
 
     hybrid_search_enabled = check_hybrid_search_enabled()
@@ -84,9 +106,9 @@ def get_query(q, k, reach, visited, user_sub, groups):
         embedding = embed_text(q)
     else:
         embedding = None
-    
+
     if not embedding:
-        logger.info(f"Performing full-text search without embedding: {q}")
+        logger.info("Performing full-text search without embedding: %s", q)
         return {
             "bool": {
                 "must": {
@@ -96,47 +118,48 @@ def get_query(q, k, reach, visited, user_sub, groups):
                         "fields": ["title.text^3", "content"],
                     }
                 },
-                "filter": filter
+                "filter": filter_,
             }
         }
-    else:
-        logger.info(f"Performing hybrid search with embedding: {q}")
-        return {
-            "hybrid": {
-                "queries": [
-                    {
-                        "bool": {
-                            "must": {
-                                "multi_match": {
-                                    "query": q,
-                                    # Give title more importance over content by a power of 3
-                                    "fields": ["title.text^3", "content"],
-                                }
-                            },
-                            "filter": filter
-                        }
-                    },
-                    {
-                        "bool": {
-                            "must": {
-                                "knn": {
-                                    "embedding": {
-                                        "vector": embedding,
-                                        "k": k,
-                                    }
-                                }
-                            },
-                            "filter": filter
-                        }
+
+    logger.info("Performing hybrid search with embedding: %s", q)
+    return {
+        "hybrid": {
+            "queries": [
+                {
+                    "bool": {
+                        "must": {
+                            "multi_match": {
+                                "query": q,
+                                # Give title more importance over content by a power of 3
+                                "fields": ["title.text^3", "content"],
+                            }
+                        },
+                        "filter": filter_,
                     }
-                ]
-            }
+                },
+                {
+                    "bool": {
+                        "must": {
+                            "knn": {
+                                "embedding": {
+                                    "vector": embedding,
+                                    "k": k,
+                                }
+                            }
+                        },
+                        "filter": filter_,
+                    }
+                },
+            ]
         }
+    }
 
 
 def get_filter(reach, visited, user_sub, groups):
+    """Build OpenSearch filter"""
     filters = [
-        {"term": {"is_active": True}}, # filter out inactive documents
+        {"term": {"is_active": True}},  # filter out inactive documents
         # Access control filters
         {
             "bool": {
@@ -158,7 +181,7 @@ def get_filter(reach, visited, user_sub, groups):
                 ],
                 "minimum_should_match": 1,
             }
-        }
+        },
     ]
 
     # Optional reach filter
@@ -167,7 +190,9 @@ def get_filter(reach, visited, user_sub, groups):
 
     return filters
 
+
 def get_sort(query_keys, order_by, order_direction):
+    """Build OpenSearch sort clause"""
     # Add sorting logic based on relevance or specified field
     if "hybrid" in query_keys:
         # sorting by other field than "_score" is not supported in hybird search
@@ -175,32 +200,35 @@ def get_sort(query_keys, order_by, order_direction):
         return {"_score": {"order": order_direction}}
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
-    else:
-        return {order_by: {"order": order_direction}}
+
+    return {order_by: {"order": order_direction}}
+
 
 def get_params(query_keys):
-    if  "hybrid" in query_keys:
+    """Build OpenSearch search parameters"""
+    if "hybrid" in query_keys:
         ensure_search_pipeline_exists(HYBRID_SEARCH_PIPELINE_ID)
         return {"search_pipeline": HYBRID_SEARCH_PIPELINE_ID}
     return {}
 
+
 def embed_document(document):
-    return embed_text(f"<{document.title}>:<{document.content}>")   
+    """Get embedding vector for the given document"""
+    return embed_text(f"<{document.title}>:<{document.content}>")
+
 
 def embed_text(text):
     """Get embedding vector for the given text from the embedding API."""
     response = requests.post(
         settings.EMBEDDING_API_PATH,
-        headers={
-            "Authorization": f"Bearer {settings.EMBEDDING_API_KEY}>"
-        },
-        json={  
+        headers={"Authorization": f"Bearer {settings.EMBEDDING_API_KEY}>"},
+        json={
             "input": text,
             "model": settings.EMBEDDING_API_MODEL_NAME,
             "dimensions": settings.EMBEDDING_DIMENSION,
-            "encoding_format": "float"
+            "encoding_format": "float",
         },
-        timeout=10, 
+        timeout=10,
     )
 
     try:
@@ -211,7 +239,7 @@ def embed_text(text):
 
     try:
         embedding = response.json()["data"][0]["embedding"]
-    except (KeyError, IndexError, TypeError) as e:
+    except (KeyError, IndexError, TypeError):
         logger.warning("unexpected embedding response format: %s", response.text)
         return None
 
@@ -221,15 +249,17 @@ def embed_text(text):
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
-        client.indices.get(index=index_name)
+        opensearch_client().indices.get(index=index_name)
     except NotFoundError:
-        logger.info(f"Creating index: {index_name}")
-        client.indices.create(
+        logger.info("Creating index: %s", index_name)
+        opensearch_client().indices.create(
             index=index_name,
             body=build_index_body(),
         )
 
+
 def build_index_body():
+    """Build the index body"""
     body = {
         "mappings": {
             "dynamic": "strict",
@@ -251,28 +281,30 @@ def build_index_body():
                 "reach": {"type": "keyword"},
                 "is_active": {"type": "boolean"},
                 "embedding": {
-                    # for simplicity, embedding is always present but is empty when hybrid search is disabled
+                    # for simplicity, embedding is always present but is empty
+                    # when hybrid search is disabled
                     "type": "knn_vector",
                     "dimension": settings.EMBEDDING_DIMENSION,
-                }
+                },
             },
         },
     }
 
     if check_hybrid_search_enabled():
-        body["settings"] =  {"index": {"knn": True}}
+        body["settings"] = {"index": {"knn": True}}
 
     return body
+
 
 def ensure_search_pipeline_exists(pipeline_id):
     """Create search pipeline for hybrid search if it does not exist"""
     try:
-        client.search_pipeline.get(pipeline_id)
+        opensearch_client().search_pipeline.get(pipeline_id)
     except NotFoundError:
-        logger.info(f"Creating search pipeline: {pipeline_id}")
-        client.transport.perform_request(
+        logger.info("Creating search pipeline: %s", pipeline_id)
+        opensearch_client().transport.perform_request(
             method="PUT",
-            url=f"/_search/pipeline/{pipeline_id}",
+            url="/_search/pipeline/" + pipeline_id,
             body={
                 "description": "Post processor for hybrid search",
                 "phase_results_processors": [
@@ -282,13 +314,14 @@ def ensure_search_pipeline_exists(pipeline_id):
                                 "technique": "arithmetic_mean",
                                 "parameters": {
                                     "weights": settings.HYBRID_SEARCH_WEIGHTS
-                                }
+                                },
                             }
                         }
                     }
-                ]
-            }
+                ],
+            },
         )
+
 
 @cache
 def check_hybrid_search_enabled():
@@ -296,7 +329,7 @@ def check_hybrid_search_enabled():
     if settings.HYBRID_SEARCH_ENABLED is not True:
         logger.info("Hybrid search is disabled via HYBRID_SEARCH_ENABLED setting")
         return False
-    
+
     required_vars = [
         "HYBRID_SEARCH_WEIGHTS",
         "EMBEDDING_API_PATH",
@@ -306,7 +339,9 @@ def check_hybrid_search_enabled():
     ]
     missing_vars = [var for var in required_vars if not getattr(settings, var, None)]
     if missing_vars:
-        logger.warning(f"Missing variables for hybrid search: {', '.join(missing_vars)}")
+        logger.warning(
+            "Missing variables for hybrid search: %s", {', '.join(missing_vars)}
+        )
         return False
-    
+
     return True
