@@ -9,7 +9,6 @@ import factory
 from faker import Faker
 
 from . import enums, models
-from .services.opensearch import check_hybrid_search_enabled, embed_document
 
 fake = Faker()
 
@@ -43,13 +42,6 @@ class DocumentSchemaFactory(factory.DictFactory):
             end_date=timezone.now(),
             tzinfo=timezone.get_current_timezone(),
         )
-
-    @factory.LazyAttribute
-    def embedding(self):
-        """Generate document embedding if hybrid search is enabled"""
-        if check_hybrid_search_enabled():
-            return embed_document(self)
-        return None
 
 
 class ServiceFactory(factory.django.DjangoModelFactory):

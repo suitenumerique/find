@@ -14,7 +14,13 @@ from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
 from .permissions import IsAuthAuthenticated
-from .services.opensearch import ensure_index_exists, opensearch_client, search
+from .services.opensearch import (
+    check_hybrid_search_enabled,
+    embed_document,
+    ensure_index_exists,
+    opensearch_client,
+    search,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +105,12 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = document.model_dump()
+                    document_dict = {
+                        **document.model_dump(),
+                        "embedding": embed_document(document)
+                        if check_hybrid_search_enabled()
+                        else None,
+                    }
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -125,7 +136,12 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = document.model_dump()
+        document_dict = {
+            **document.model_dump(),
+            "embedding": embed_document(document)
+            if check_hybrid_search_enabled()
+            else None,
+        }
         _id = document_dict.pop("id")
 
         # Build index if needed.

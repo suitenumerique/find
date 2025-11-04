@@ -14,6 +14,7 @@ from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
 from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
+from core.services.opensearch import check_hybrid_search_enabled
 
 from core import factories
 from core.services import opensearch
@@ -68,7 +69,14 @@ def prepare_index(index_name, documents: List, cleanup=True):
             "_op_type": "index",
             "_index": index_name,
             "_id": doc["id"],
-            "_source": {k: v for k, v in doc.items() if k != "id"},
+            "_source": {
+                **{k: v for k, v in doc.items() if k != "id"},
+                "embedding": opensearch.embed_text(
+                    f"<{doc['title']}:<{doc['content']}>"
+                )
+                if check_hybrid_search_enabled()
+                else None,
+            },
         }
         for doc in documents
     ]

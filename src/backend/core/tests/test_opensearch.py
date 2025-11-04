@@ -11,7 +11,6 @@ import responses
 from opensearchpy.exceptions import NotFoundError
 
 from core.services import opensearch
-from core.factories import check_hybrid_search_enabled as factory_check_hybrid_search_enabled
 
 from ..services.opensearch import (
     HYBRID_SEARCH_PIPELINE_ID,
@@ -25,6 +24,7 @@ from .utils import (
     delete_search_pipeline,
     enable_hybrid_search,
     prepare_index,
+    check_hybrid_search_enabled as check_hybrid_search_enabled_utils,
 )
 
 pytestmark = pytest.mark.django_db
@@ -56,9 +56,9 @@ def before_each():
 def clear_caches():
     """Clear caches used in opensearch service and factories"""
     check_hybrid_search_enabled.cache_clear()
-    # the instance of check_hybrid_search_enabled used in the factory 
+    # the instance of check_hybrid_search_enabled used in utils.py 
     # is different and must be cleared separately
-    factory_check_hybrid_search_enabled.cache_clear()  
+    check_hybrid_search_enabled_utils.cache_clear()
     delete_search_pipeline()
 
 
@@ -106,7 +106,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
     """Test the full-text search is done when HYBRID_SEARCH_ENABLED=False"""
     enable_hybrid_search(settings)
     settings.HYBRID_SEARCH_ENABLED = False
-    
+
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},

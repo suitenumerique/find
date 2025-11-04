@@ -45,14 +45,6 @@ class DocumentSchema(BaseModel):
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True
     )
 
-    @computed_field
-    @property
-    def embedding(self) -> list:
-        """Generate document embedding if hybrid search is enabled"""
-        if check_hybrid_search_enabled():
-            return embed_document(self)
-        return None
-
     @field_validator("title")
     @staticmethod
     def normalize_title(value):
