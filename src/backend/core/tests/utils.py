@@ -21,6 +21,16 @@ from core.services import opensearch
 logger = logging.getLogger(__name__)
 
 
+def enable_hybrid_search(settings):
+    """Enable hybrid search settings for tests."""
+    settings.HYBRID_SEARCH_ENABLED = True
+    settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
+    settings.EMBEDDING_API_KEY = "test-api-key"
+    settings.EMBEDDING_API_PATH = "https://test.embedding.api/v1/embeddings"
+    settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
+    settings.EMBEDDING_DIMENSION = 1024
+
+
 def bulk_create_documents(document_payloads):
     """Create documents in bulk from payloads"""
     return [

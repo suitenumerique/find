@@ -31,14 +31,14 @@ Find offers a semantic search feature. You can either use pure full-text search 
 # Enable flag
 HYBRID_SEARCH_ENABLED = True
 
-# weighted sum
-HYBRID_SEARCH_WEIGHTS = [full_text_weight, semantic_search_weight]
+# weighted sum: full_text_weight, semantic_search_weight
+HYBRID_SEARCH_WEIGHTS = 0.7,0.3
 
 # Embedding
-EMBEDDING_API_PATH = embedding-api-path
+EMBEDDING_API_PATH = https://embedding.api.example.com/full/path/
 EMBEDDING_API_KEY = your-embedding-api-key
 EMBEDDING_API_MODEL_NAME = embedding-api-model-name
-EMBEDDING_DIMENSION = embedding-dimension
+EMBEDDING_DIMENSION = 1024
 ```
 
 The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 

@@ -11,9 +11,15 @@ from rest_framework.test import APIClient
 from core import factories
 from core.services import opensearch
 from core.tests.mock import albert_embedding_response
-from core.tests.utils import delete_test_indices
+from core.tests.utils import delete_test_indices, enable_hybrid_search
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_caches():
+    """Clear caches and delete search pipeline before each test"""
+    opensearch.check_hybrid_search_enabled.cache_clear()
 
 
 def test_api_documents_index_single_anonymous():
@@ -51,6 +57,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     dimension settings.EMBEDDING_DIMENSION.
     """
     service = factories.ServiceFactory(name="test-service")
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -84,7 +91,6 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
 def test_api_documents_index_single_hybrid_disabled_success(settings):
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory(name="test-service")
-    settings.HYBRID_SEARCH_ENABLED = False  # disable hybrid search
     document = factories.DocumentSchemaFactory.build()
     opensearch.check_hybrid_search_enabled.cache_clear()
 
@@ -347,7 +353,6 @@ def test_api_documents_index_single_required(field):
 def test_api_documents_index_single_default(field, default_value, settings):
     """Test document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory(name="test-service")
-    settings.HYBRID_SEARCH_ENABLED = False  # disable hybrid search
     document = factories.DocumentSchemaFactory.build()
 
     del document[field]

@@ -11,6 +11,7 @@ import responses
 from opensearchpy.exceptions import NotFoundError
 
 from core.services import opensearch
+from core.factories import check_hybrid_search_enabled as factory_check_hybrid_search_enabled
 
 from ..services.opensearch import (
     HYBRID_SEARCH_PIPELINE_ID,
@@ -22,6 +23,7 @@ from .mock import albert_embedding_response
 from .utils import (
     bulk_create_documents,
     delete_search_pipeline,
+    enable_hybrid_search,
     prepare_index,
 )
 
@@ -44,15 +46,26 @@ PARAMS = {
 
 
 @pytest.fixture(autouse=True)
-def clear_caches():
+def before_each():
     """Clear caches and delete search pipeline before each test"""
+    clear_caches()
+    yield
+    clear_caches()
+
+
+def clear_caches():
+    """Clear caches used in opensearch service and factories"""
     check_hybrid_search_enabled.cache_clear()
+    # the instance of check_hybrid_search_enabled used in the factory 
+    # is different and must be cleared separately
+    factory_check_hybrid_search_enabled.cache_clear()  
     delete_search_pipeline()
 
 
 @responses.activate
 def test_hybrid_search_success(settings, caplog):
     """Test the hybrid search is successful"""
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -90,9 +103,10 @@ def test_hybrid_search_success(settings, caplog):
 
 
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
-    """Test the full-text search is done when HYBRID_SEARCH_ENABLED=Flase"""
+    """Test the full-text search is done when HYBRID_SEARCH_ENABLED=False"""
+    enable_hybrid_search(settings)
     settings.HYBRID_SEARCH_ENABLED = False
-
+    
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -133,6 +147,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 @responses.activate
 def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     """Test the full-text search is done when the embedding api fails"""
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -179,15 +194,8 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
 @responses.activate
 def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog):
     """Test the full-text search is done when variables are missing for hybrid search"""
+    enable_hybrid_search(settings)
     del settings.HYBRID_SEARCH_WEIGHTS
-    responses.add(
-        # mocking embedding api should not be necessary
-        # weirdly enough the cache of check_hybrid_search_enabled seems not be cleared properly
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -228,6 +236,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
 @responses.activate
 def test_match_all(settings, caplog):
     """Test match all when q='*' and no semantic search is needed"""
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -266,6 +275,7 @@ def test_match_all(settings, caplog):
 @responses.activate
 def test_search_ordering_by_relevance(settings, caplog):
     """Test the hybrid supports ordering by relevance asc and desc"""
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -300,6 +310,7 @@ def test_hybrid_search_number_of_matches(settings):
     In this test full-text search always return 0 documents.
     The test checks the number of hits returned by hybrid search with different k values.
     """
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -325,13 +336,14 @@ def test_hybrid_search_number_of_matches(settings):
 @responses.activate
 def test_embed_text_success(settings):
     """Test embed_text retrieval is successful"""
-    text = "canine pet"
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
         json=albert_embedding_response.response,
         status=200,
     )
+    text = "canine pet"
 
     embedding = embed_text(text)
 
@@ -341,13 +353,14 @@ def test_embed_text_success(settings):
 @responses.activate
 def test_embed_401_http_error(settings, caplog):
     """Test embed_text does not crash and returns None on 401 error"""
-    text = "canine pet"
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
         status=401,
         body=json_dumps({"message": "Authentication failed."}),
     )
+    text = "canine pet"
 
     with caplog.at_level(logging.WARNING):
         embedding = embed_text(text)
@@ -363,13 +376,14 @@ def test_embed_401_http_error(settings, caplog):
 @responses.activate
 def test_embed_500_http_error(settings, caplog):
     """Test embed_text does not crash and returns None on 500 error"""
-    text = "canine pet"
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
         status=500,
         body=json_dumps({"message": "Internal server error."}),
     )
+    text = "canine pet"
 
     with caplog.at_level(logging.WARNING):
         embedding = embed_text(text)
@@ -386,13 +400,14 @@ def test_embed_500_http_error(settings, caplog):
 @responses.activate
 def test_embed_wrong_format(settings, caplog):
     """Test embed_text does not crash and returns None if api returns a wrong format"""
-    text = "canine pet"
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
         json={"wrong": "format"},
         status=200,
     )
+    text = "canine pet"
 
     with caplog.at_level(logging.WARNING):
         embedding = embed_text(text)

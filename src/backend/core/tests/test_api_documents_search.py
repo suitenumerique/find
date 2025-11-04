@@ -19,6 +19,7 @@ from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
     bulk_create_documents,
+    enable_hybrid_search,
     prepare_index,
     setup_oicd_resource_server,
 )
@@ -27,6 +28,13 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture(autouse=True)
+def before_each():
+    """Clear cached functions before each test to avoid side effects"""
+    clear_caches()
+    yield
+    clear_caches()
+
+
 def clear_caches():
     """Clear cached functions before each test to avoid side effects"""
     opensearch_client.cache_clear()
@@ -200,7 +208,6 @@ def test_api_documents_full_text_search_query_title(settings):
     """Searching a document by its title should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory(name="test-service")
-    settings.HYBRID_SEARCH_ENABLED = False  # Disable hybrid search for this test
 
     documents = bulk_create_documents(
         [
@@ -268,7 +275,6 @@ def test_api_documents_full_text_search(settings):
     """Searching a document by its content should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
-    settings.HYBRID_SEARCH_ENABLED = False  # Disable hybrid search for this test
 
     service = factories.ServiceFactory(name="test-service")
     documents = bulk_create_documents(
@@ -340,6 +346,7 @@ def test_api_documents_hybrid_search(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
     # hybrid search is enabled by default
+    enable_hybrid_search(settings)
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,

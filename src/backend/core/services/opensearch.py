@@ -201,7 +201,7 @@ def get_sort(query_keys, order_by, order_direction):
     """Build OpenSearch sort clause"""
     # Add sorting logic based on relevance or specified field
     if "hybrid" in query_keys:
-        # sorting by other field than "_score" is not supported in hybird search
+        # sorting by other field than "_score" is not supported in hybrid search
         # see: https://github.com/opensearch-project/neural-search/issues/866
         return {"_score": {"order": order_direction}}
     if order_by == enums.RELEVANCE:
@@ -224,7 +224,9 @@ def embed_document(document):
 
 
 def embed_text(text):
-    """Get embedding vector for the given text from the embedding API."""
+    """
+    Get embedding vector for the given text from any OpenAI-compatible embedding API
+    """
     response = requests.post(
         settings.EMBEDDING_API_PATH,
         headers={"Authorization": f"Bearer {settings.EMBEDDING_API_KEY}>"},

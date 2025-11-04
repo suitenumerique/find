@@ -80,7 +80,7 @@ class IndexDocumentView(views.APIView):
               errors.
         """
         index_name = request.auth.name
-        client = opensearch_client()
+        opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -111,7 +111,7 @@ class IndexDocumentView(views.APIView):
             # Build index if needed.
             ensure_index_exists(index_name)
 
-            response = client.bulk(index=index_name, body=actions)
+            response = opensearch_client_.bulk(index=index_name, body=actions)
             for i, item in enumerate(response["items"]):
                 if item["index"]["status"] != 201:
                     results[i]["status"] = "error"
@@ -131,7 +131,7 @@ class IndexDocumentView(views.APIView):
         # Build index if needed.
         ensure_index_exists(index_name)
 
-        client.index(index=index_name, body=document_dict, id=_id)
+        opensearch_client_.index(index=index_name, body=document_dict, id=_id)
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED

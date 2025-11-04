@@ -60,15 +60,15 @@ def test_api_documents_index_bulk_success():
 
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be create the opensearch index if need."""
-    client = opensearch.opensearch_client()
+    opensearch_client_ = opensearch.opensearch_client()
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     # Delete the index
-    client.indices.delete(index="*test*")
+    opensearch_client_.indices.delete(index="*test*")
 
     with pytest.raises(opensearch.NotFoundError):
-        client.indices.get(index="test-service")
+        opensearch_client_.indices.get(index="test-service")
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -83,7 +83,7 @@ def test_api_documents_index_bulk_ensure_index():
     assert [d["status"] for d in responses] == ["success"] * 3
 
     # The index has been rebuilt
-    client.indices.get(index="test-service")
+    opensearch_client_.indices.get(index="test-service")
 
 
 @pytest.mark.parametrize(

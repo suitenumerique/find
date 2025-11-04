@@ -264,14 +264,14 @@ class Base(Configuration):
 
     # Hybrid Search settings
     HYBRID_SEARCH_ENABLED = values.BooleanValue(
-        default=True, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None
+        default=False, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None
     )
     HYBRID_SEARCH_WEIGHTS = values.ListValue(
         default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
     )
-    EMBEDDING_API_PATH = values.URLValue(
+    EMBEDDING_API_PATH = values.Value(
         # embedding is the vector representation of a document used for semantic search
-        default="https://albert.api.etalab.gouv.fr/v1/embeddings",
+        default="None",
         environment_name="EMBEDDING_API_PATH",
         environ_prefix=None,
     )
