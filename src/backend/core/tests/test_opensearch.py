@@ -24,6 +24,8 @@ from .utils import (
     delete_search_pipeline,
     enable_hybrid_search,
     prepare_index,
+)
+from .utils import (
     check_hybrid_search_enabled as check_hybrid_search_enabled_utils,
 )
 
@@ -56,7 +58,7 @@ def before_each():
 def clear_caches():
     """Clear caches used in opensearch service and factories"""
     check_hybrid_search_enabled.cache_clear()
-    # the instance of check_hybrid_search_enabled used in utils.py 
+    # the instance of check_hybrid_search_enabled used in utils.py
     # is different and must be cleared separately
     check_hybrid_search_enabled_utils.cache_clear()
     delete_search_pipeline()

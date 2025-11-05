@@ -14,10 +14,10 @@ from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
 from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
-from core.services.opensearch import check_hybrid_search_enabled
 
 from core import factories
 from core.services import opensearch
+from core.services.opensearch import check_hybrid_search_enabled
 
 logger = logging.getLogger(__name__)
 
