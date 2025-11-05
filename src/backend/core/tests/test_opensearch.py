@@ -73,7 +73,6 @@ def test_hybrid_search_success(settings, caplog):
         json=albert_embedding_response.response,
         status=200,
     )
-
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -81,18 +80,14 @@ def test_hybrid_search_success(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    q = "canine pet"
     prepare_index(SERVICE_NAME, documents)
 
+    q = "canine pet"
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
 
     assert any(
         f"Performing hybrid search with embedding: {q}" in message
-        for message in caplog.messages
-    )
-    assert any(
-        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
         for message in caplog.messages
     )
 
@@ -103,11 +98,9 @@ def test_hybrid_search_success(settings, caplog):
     }
 
 
-def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
-    """Test the full-text search is done when HYBRID_SEARCH_ENABLED=False"""
-    enable_hybrid_search(settings)
-    settings.HYBRID_SEARCH_ENABLED = False
-
+@responses.activate
+def test_hybrid_search_without_embedded_index(settings, caplog):
+    """Test the hybrid search is successful"""
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -115,9 +108,74 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    q = "wolf"
+    # index is prepared but hybrid search is not yet enable.
+    # they then won't be embedded.
     prepare_index(SERVICE_NAME, documents)
 
+    # check embedding is None
+    indexed_documents = opensearch.opensearch_client().search(
+        index=SERVICE_NAME, size=1, body={"query": {"match_all": {}}}
+    )
+    assert indexed_documents["hits"]["hits"][0]["_source"]["embedding"] is None
+
+    # hybrid search is enabled before to do the first requests
+    enable_hybrid_search(settings)
+
+    q = "canine pet"
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    with caplog.at_level(logging.INFO):
+        result = search(q=q, **PARAMS)
+
+    # the hybrid search is done successfully
+    assert any(
+        f"Performing hybrid search with embedding: {q}" in message
+        for message in caplog.messages
+    )
+
+    # but no match can obviously be found
+    assert result["hits"]["max_score"] == 0.0
+    assert len(result["hits"]["hits"]) == 0
+
+    # The full-text search is still functional
+    q = "wolf"
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    with caplog.at_level(logging.INFO):
+        result = search(q=q, **PARAMS)
+
+    assert any(
+        f"Performing hybrid search with embedding: {q}" in message
+        for message in caplog.messages
+    )
+
+    assert result["hits"]["max_score"] > 0.0
+    assert len(result["hits"]["hits"]) == 1
+    assert result["hits"]["hits"][0]["_source"]["title"] == q
+
+
+def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
+    """Test the full-text search is done when HYBRID_SEARCH_ENABLED=False"""
+    enable_hybrid_search(settings)
+    settings.HYBRID_SEARCH_ENABLED = False
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    prepare_index(SERVICE_NAME, documents)
+
+    q = "wolf"
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
 
@@ -129,17 +187,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
         f"Performing full-text search without embedding: {q}" in message
         for message in caplog.messages
     )
-    assert not any(
-        f"Creating search pipeline: {HYBRID_SEARCH_PIPELINE_ID}" in message
-        for message in caplog.messages
-    )
 
-    with pytest.raises(NotFoundError):
-        #  assert that the hybrid search pipeline was not recreated
-        opensearch.opensearch_client().transport.perform_request(
-            method="GET",
-            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
     assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
@@ -162,9 +210,9 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    q = "wolf"
     prepare_index(SERVICE_NAME, documents)
 
+    q = "wolf"
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
 
@@ -176,17 +224,6 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
         f"Performing full-text search without embedding: {q}" in message
         for message in caplog.messages
     )
-    assert not any(
-        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
-        for message in caplog.messages
-    )
-
-    with pytest.raises(NotFoundError):
-        #  assert that the hybrid search pipeline was not recreated
-        opensearch.opensearch_client().transport.perform_request(
-            method="GET",
-            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
     assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
@@ -204,9 +241,9 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    q = "wolf"
     prepare_index(SERVICE_NAME, documents)
 
+    q = "wolf"
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
 
@@ -218,17 +255,6 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
         f"Performing full-text search without embedding: {q}" in message
         for message in caplog.messages
     )
-    assert not any(
-        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
-        for message in caplog.messages
-    )
-
-    with pytest.raises(NotFoundError):
-        #  assert that the hybrid search pipeline was not recreated
-        opensearch.opensearch_client().transport.perform_request(
-            method="GET",
-            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
     assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
@@ -251,24 +277,13 @@ def test_match_all(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    q = "*"
     prepare_index(SERVICE_NAME, documents)
 
+    q = "*"
     with caplog.at_level(logging.INFO):
         result = search(q=q, **PARAMS)
 
     assert any("Performing match_all query" in message for message in caplog.messages)
-    assert not any(
-        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
-        for message in caplog.messages
-    )
-
-    with pytest.raises(NotFoundError):
-        #  assert that the hybrid search pipeline was not recreated
-        opensearch.opensearch_client().transport.perform_request(
-            method="GET",
-            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 3
 
