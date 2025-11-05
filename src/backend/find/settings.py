@@ -266,6 +266,7 @@ class Base(Configuration):
     HYBRID_SEARCH_ENABLED = values.BooleanValue(
         default=False, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None
     )
+    HYBRID_SEARCH_PIPELINE_ID = "hybrid-search-pipeline"
     HYBRID_SEARCH_WEIGHTS = values.ListValue(
         default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
     )

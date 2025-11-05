@@ -13,7 +13,6 @@ from opensearchpy.exceptions import NotFoundError
 from core.services import opensearch
 
 from ..services.opensearch import (
-    HYBRID_SEARCH_PIPELINE_ID,
     check_hybrid_search_enabled,
     embed_text,
     search,
@@ -93,7 +92,7 @@ def test_hybrid_search_success(settings, caplog):
         for message in caplog.messages
     )
     assert any(
-        f"Creating search pipeline: {HYBRID_SEARCH_PIPELINE_ID}" in message
+        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
         for message in caplog.messages
     )
 
@@ -139,7 +138,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
         #  assert that the hybrid search pipeline was not recreated
         opensearch.opensearch_client().transport.perform_request(
             method="GET",
-            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
@@ -178,7 +177,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
         for message in caplog.messages
     )
     assert not any(
-        f"Creating search pipeline: {HYBRID_SEARCH_PIPELINE_ID}" in message
+        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
         for message in caplog.messages
     )
 
@@ -186,7 +185,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
         #  assert that the hybrid search pipeline was not recreated
         opensearch.opensearch_client().transport.perform_request(
             method="GET",
-            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
@@ -220,7 +219,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
         for message in caplog.messages
     )
     assert not any(
-        f"Creating search pipeline: {HYBRID_SEARCH_PIPELINE_ID}" in message
+        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
         for message in caplog.messages
     )
 
@@ -228,7 +227,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
         #  assert that the hybrid search pipeline was not recreated
         opensearch.opensearch_client().transport.perform_request(
             method="GET",
-            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
@@ -260,7 +259,7 @@ def test_match_all(settings, caplog):
 
     assert any("Performing match_all query" in message for message in caplog.messages)
     assert not any(
-        f"Creating search pipeline: {HYBRID_SEARCH_PIPELINE_ID}" in message
+        f"Creating search pipeline: {settings.HYBRID_SEARCH_PIPELINE_ID}" in message
         for message in caplog.messages
     )
 
@@ -268,7 +267,7 @@ def test_match_all(settings, caplog):
         #  assert that the hybrid search pipeline was not recreated
         opensearch.opensearch_client().transport.perform_request(
             method="GET",
-            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+            url=f"/_search/pipeline/{settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 3

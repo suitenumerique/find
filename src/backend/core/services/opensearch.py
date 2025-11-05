@@ -15,7 +15,6 @@ from core import enums
 logger = logging.getLogger(__name__)
 
 
-HYBRID_SEARCH_PIPELINE_ID = "hybrid-search-pipeline"
 REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_HOST",
     "OPENSEARCH_PORT",
@@ -213,8 +212,7 @@ def get_sort(query_keys, order_by, order_direction):
 def get_params(query_keys):
     """Build OpenSearch search parameters"""
     if "hybrid" in query_keys:
-        ensure_search_pipeline_exists(HYBRID_SEARCH_PIPELINE_ID)
-        return {"search_pipeline": HYBRID_SEARCH_PIPELINE_ID}
+        return {"search_pipeline": settings.HYBRID_SEARCH_PIPELINE_ID}
     return {}
 
 
@@ -300,33 +298,6 @@ def ensure_index_exists(index_name):
                         },
                     },
                 },
-            },
-        )
-
-
-def ensure_search_pipeline_exists(pipeline_id):
-    """Create search pipeline for hybrid search if it does not exist"""
-    try:
-        opensearch_client().search_pipeline.get(pipeline_id)
-    except NotFoundError:
-        logger.info("Creating search pipeline: %s", pipeline_id)
-        opensearch_client().transport.perform_request(
-            method="PUT",
-            url="/_search/pipeline/" + pipeline_id,
-            body={
-                "description": "Post processor for hybrid search",
-                "phase_results_processors": [
-                    {
-                        "normalization-processor": {
-                            "combination": {
-                                "technique": "arithmetic_mean",
-                                "parameters": {
-                                    "weights": settings.HYBRID_SEARCH_WEIGHTS
-                                },
-                            }
-                        }
-                    }
-                ],
             },
         )
 

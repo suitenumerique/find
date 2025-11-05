@@ -6,6 +6,8 @@ import logging
 from functools import partial
 from typing import List
 
+from django.conf import settings as django_settings
+
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from joserfc import jwe as jose_jwe
@@ -16,6 +18,9 @@ from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
 from core import factories
+from core.management.commands.create_search_pipeline import (
+    ensure_search_pipeline_exists,
+)
 from core.services import opensearch
 from core.services.opensearch import check_hybrid_search_enabled
 
@@ -30,6 +35,7 @@ def enable_hybrid_search(settings):
     settings.EMBEDDING_API_PATH = "https://test.embedding.api/v1/embeddings"
     settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
     settings.EMBEDDING_DIMENSION = 1024
+    ensure_search_pipeline_exists()
 
 
 def bulk_create_documents(document_payloads):
@@ -45,7 +51,7 @@ def delete_search_pipeline():
     try:
         opensearch.opensearch_client().transport.perform_request(
             method="DELETE",
-            url=f"/_search/pipeline/{opensearch.HYBRID_SEARCH_PIPELINE_ID}",
+            url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
     except NotFoundError:
         logger.info("Search pipeline not found, nothing to delete.")
