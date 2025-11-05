@@ -12,14 +12,12 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
-    computed_field,
     conint,
     field_validator,
     model_validator,
 )
 
 from . import enums
-from .services.opensearch import check_hybrid_search_enabled, embed_document
 
 
 class DocumentSchema(BaseModel):

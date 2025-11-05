@@ -8,7 +8,6 @@ from json import dumps as json_dumps
 
 import pytest
 import responses
-from opensearchpy.exceptions import NotFoundError
 
 from core.services import opensearch
 
@@ -114,7 +113,7 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
 
     # check embedding is None
     indexed_documents = opensearch.opensearch_client().search(
-        index=SERVICE_NAME, size=1, body={"query": {"match_all": {}}}
+        index=SERVICE_NAME, body={"query": {"match_all": {}}}
     )
     assert indexed_documents["hits"]["hits"][0]["_source"]["embedding"] is None
 

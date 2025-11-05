@@ -88,7 +88,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
 
-def test_api_documents_index_single_hybrid_disabled_success(settings):
+def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
@@ -350,7 +350,7 @@ def test_api_documents_index_single_required(field):
         ("reach", "restricted"),
     ],
 )
-def test_api_documents_index_single_default(field, default_value, settings):
+def test_api_documents_index_single_default(field, default_value):
     """Test document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory(name="test-service")
     document = factories.DocumentSchemaFactory.build()
