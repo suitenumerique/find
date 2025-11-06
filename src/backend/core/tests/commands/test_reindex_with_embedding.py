@@ -10,9 +10,6 @@ import responses
 from core.management.commands.reindex_with_embedding import (
     check_hybrid_search_enabled as check_hybrid_search_enabled_command,
 )
-from core.management.commands.reindex_with_embedding import (
-    reindex_with_embedding,
-)
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
@@ -59,6 +56,15 @@ def test_reindex_with_embedding_command(settings):
     )
     prepare_index(SOURCE_INDEX_NAME, documents)
 
+    # the index has not been embedded in the initial state
+    initial_index = opensearch_client_.search(
+        index=SOURCE_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
+    )
+    assert len(initial_index["hits"]["hits"]) == 3
+    for embedded_hit in initial_index["hits"]["hits"]:
+        assert embedded_hit["_source"]["embedding"] == None
+        assert "embedding_model" not in embedded_hit["_source"]
+
     # enable hybrid search
     enable_hybrid_search(settings)
     check_hybrid_search_enabled_command.cache_clear()
@@ -69,20 +75,36 @@ def test_reindex_with_embedding_command(settings):
         status=200,
     )
 
+    # call the command
     call_command("reindex_with_embedding", SOURCE_INDEX_NAME)
 
     opensearch_client_.indices.refresh(index=SOURCE_INDEX_NAME)
-    source_index = opensearch_client_.search(
+    embedded_index = opensearch_client_.search(
         index=SOURCE_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
     )
 
     # the source index has been replaced with embedding version
-    assert len(source_index["hits"]["hits"]) == 3
-    for hit in source_index["hits"]["hits"]:
+    assert len(embedded_index["hits"]["hits"]) == 3
+    for embedded_hit in embedded_index["hits"]["hits"]:
+        embedded_source = embedded_hit["_source"]
+        # the index contains a embedding and embedding_model
         assert (
-            hit["_source"]["embedding"]
+            embedded_source["embedding"]
             == albert_embedding_response.response["data"][0]["embedding"]
         )
+        assert embedded_source["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
+        # assert initial value have not been effected
+        initial_hits = [
+            hit_
+            for hit_ in initial_index["hits"]["hits"]
+            if hit_["_id"] == embedded_hit["_id"]
+        ]
+        assert len(initial_hits) == 1
+        initial_source = initial_hits[0]["_source"]
+        assert initial_source["title"] == embedded_source["title"]
+        assert initial_source["content"] == embedded_source["content"]
+        assert initial_source["created_at"] == embedded_source["created_at"]
+        assert initial_source["users"] == embedded_source["users"]
 
 
 def test_reindex_command_but_hybrid_search_is_disabled():
@@ -101,54 +123,4 @@ def test_reindex_command_but_index_does_not_exist(settings):
     with pytest.raises(CommandError) as err:
         call_command("reindex_with_embedding", wrong_index)
 
-    assert str(err.value) == f"Source index {wrong_index} does not exist."
-
-
-@responses.activate
-def test_reindex_with_embedding(settings):
-    """Test command create indexes with embedding and search pipeline"""
-    # create documents and index them with hybrid search disabled
-    opensearch_client_ = opensearch_client()
-    documents = bulk_create_documents(
-        [
-            {"title": "wolf", "content": "wolves live in packs and hunt together"},
-            {"title": "dog", "content": "dogs are loyal domestic animals"},
-            {"title": "cat", "content": "cats are curious and independent pets"},
-        ]
-    )
-    prepare_index(SOURCE_INDEX_NAME, documents)
-
-    # enable hybrid search
-    enable_hybrid_search(settings)
-    check_hybrid_search_enabled_command.cache_clear()
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-
-    reindex_with_embedding(
-        opensearch_client_, SOURCE_INDEX_NAME, DESTINATION_INDEX_NAME
-    )
-    opensearch_client_.indices.refresh(index=SOURCE_INDEX_NAME)
-    opensearch_client_.indices.refresh(index=DESTINATION_INDEX_NAME)
-
-    # the source index has not been modified
-    source_index = opensearch_client_.search(
-        index=SOURCE_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
-    )
-    assert len(source_index["hits"]["hits"]) == 3
-    for hit in source_index["hits"]["hits"]:
-        assert hit["_source"]["embedding"] == None
-
-    # the destination index has been embedded
-    destination_index = opensearch_client_.search(
-        index=DESTINATION_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
-    )
-    assert len(destination_index["hits"]["hits"]) == 3
-    for hit in destination_index["hits"]["hits"]:
-        assert (
-            hit["_source"]["embedding"]
-            == albert_embedding_response.response["data"][0]["embedding"]
-        )
+    assert str(err.value) == f"Index {wrong_index} does not exist."

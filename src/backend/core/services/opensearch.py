@@ -297,6 +297,7 @@ def ensure_index_exists(index_name):
                                 "parameters": {},
                             },
                         },
+                        "embedding_model": {"type": "keyword"},
                     },
                 },
             },

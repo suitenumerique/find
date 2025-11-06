@@ -2,6 +2,7 @@
 
 import logging
 
+from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
@@ -105,15 +106,19 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = {
-                        **document.model_dump(),
-                        "embedding": embed_document(document)
-                        if check_hybrid_search_enabled()
-                        else None,
-                    }
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
-                    actions.append(document_dict)
+                    actions.append(
+                        {
+                            **document.model_dump(),
+                            "embedding": embed_document(document)
+                            if check_hybrid_search_enabled()
+                            else None,
+                            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+                            if check_hybrid_search_enabled()
+                            else None,
+                        }
+                    )
                     results.append({"index": i, "_id": _id, "status": "valid"})
 
             if has_errors:
@@ -139,6 +144,9 @@ class IndexDocumentView(views.APIView):
         document_dict = {
             **document.model_dump(),
             "embedding": embed_document(document)
+            if check_hybrid_search_enabled()
+            else None,
+            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
             if check_hybrid_search_enabled()
             else None,
         }

@@ -86,6 +86,10 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
         new_indexed_document["_source"]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
     )
+    assert (
+        new_indexed_document["_source"]["embedding_model"]
+        == settings.EMBEDDING_API_MODEL_NAME
+    )
 
 
 def test_api_documents_index_single_hybrid_disabled_success():
@@ -170,6 +174,7 @@ def test_api_documents_index_bulk_ensure_index(settings):
                     "parameters": {},
                 },
             },
+            "embedding_model": {"type": "keyword"},
         },
     }
 
