@@ -209,11 +209,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         order_direction : str, optional
             Order direction, 'asc' for ascending or 'desc' for descending.
             Defaults to 'desc'.
-        page_number : int, optional
-            The page number to retrieve.
-            Defaults to 1 if not specified.
-        page_size : int, optional
-            The number of results to return per page.
+        nb_results : int, optional
+            The number of results to return.
             Defaults to 50 if not specified.
         services: List[str], optional
             List of services on which we intend to run the query (current service if left empty)
@@ -247,9 +244,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         response = search(
             q=params.q,
-            page_number=params.page_number,
-            page_size=params.page_size,
-            k=params.page_size,
+            nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,
             search_indices=search_indices,

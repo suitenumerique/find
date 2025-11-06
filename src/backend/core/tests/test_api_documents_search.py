@@ -116,7 +116,7 @@ def test_api_documents_search_query_unknown_user(settings):
 
 @responses.activate
 def test_api_documents_search_services_invalid_parameters(settings):
-    """Invalid pagination parameters should result in a 400 error"""
+    """Invalid services parameter should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     responses.add(
         responses.POST,
@@ -128,6 +128,7 @@ def test_api_documents_search_services_invalid_parameters(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
+        # services should be a list
         {"q": "a quick fox", "services": {}},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
@@ -145,7 +146,7 @@ def test_api_documents_search_services_invalid_parameters(settings):
 
 @responses.activate
 def test_api_documents_search_reached_docs_invalid_parameters(settings):
-    """Invalid pagination parameters should result in a 400 error"""
+    """Invalid visited parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     responses.add(
         responses.POST,
@@ -157,6 +158,7 @@ def test_api_documents_search_reached_docs_invalid_parameters(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
+        # visited should be a list
         {"q": "a quick fox", "visited": {}},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
@@ -374,7 +376,7 @@ def test_api_documents_hybrid_search(settings):
     assert response.status_code == 200
     assert (
         len(response.json()) == 3
-    )  # hybrid search always returns a response of fixed sized sorted and scored by relevance
+    )  # semantic search always returns a response of size nb_results
 
     fox_response = response.json()[0]
     fox_document = documents[0]
@@ -662,12 +664,9 @@ def test_api_documents_search_filtering_by_reach(settings):
             assert reach == result["_source"]["reach"]
 
 
-# Pagination
-
-
 @responses.activate
-def test_api_documents_search_pagination_basic(settings):
-    """Pagination should correctly return documents for the specified page and page size"""
+def test_api_documents_search_with_nb_results(settings):
+    """nb_size should correctly return results of given size"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
     responses.add(
@@ -683,13 +682,12 @@ def test_api_documents_search_pagination_basic(settings):
     ids = [str(doc["id"]) for doc in documents]
     prepare_index(service.name, documents)
 
-    # Request the first page with a page size of 3
+    nb_results = 3
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
             "q": "*",
-            "page_number": 1,
-            "page_size": 3,
+            "nb_results": nb_results,
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
@@ -698,16 +696,14 @@ def test_api_documents_search_pagination_basic(settings):
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3  # Page size is 3
-    assert [r["_id"] for r in data] == ids[0:3]
+    assert [r["_id"] for r in data] == ids[0:nb_results]
 
-    # Request the second page with a page size of 3
+    nb_results = 6
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
             "q": "*",
-            "page_number": 2,
-            "page_size": 3,
+            "nb_results": nb_results,
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
@@ -715,120 +711,28 @@ def test_api_documents_search_pagination_basic(settings):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
-    assert [r["_id"] for r in data] == ids[3:6]
+    assert [r["_id"] for r in data] == ids[0:nb_results]
 
-    # Request the third page with a page size of 5 (should contain the remaining 3 documents)
+    nb_results = 10
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
             "q": "*",
-            "page_number": 3,
-            "page_size": 3,
+            "nb_results": nb_results,
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
-
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
-    assert [r["_id"] for r in data] == ids[6:9]
+    # nb_results > total number of documents => returns all documents
+    assert [r["_id"] for r in data] == ids[0:9]
 
 
 @responses.activate
-def test_api_documents_search_pagination_last_page_edge_case(settings):
-    """Requesting the last page should return the correct number of remaining documents"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory(name="test-service")
-    documents = factories.DocumentSchemaFactory.build_batch(
-        8, reach=random.choice(["public", "authenticated"])
-    )
-    ids = [str(doc["id"]) for doc in documents]
-    prepare_index(service.name, documents)
-
-    # Request the first page with a page size of 3
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "page_number": 1,
-            "page_size": 3,
-            "visited": [doc["id"] for doc in documents],
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 3
-    assert [r["_id"] for r in response.json()] == ids[0:3]
-
-    # Request the third page with a page size of 3 (should contain the last 1 document)
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "page_number": 3,
-            "page_size": 3,
-            "visited": [doc["id"] for doc in documents],
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 2  # Only 2 documents should be on the last page
-    assert [r["_id"] for r in response.json()] == ids[6:]
-
-
-@responses.activate
-def test_api_documents_search_pagination_out_of_bounds(settings):
-    """
-    Requesting a page number that exceeds the total number of pages should return an empty list
-    """
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    token = build_authorization_bearer()
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory(name="test-service")
-    documents = factories.DocumentSchemaFactory.build_batch(
-        4, reach=random.choice(["public", "authenticated"])
-    )
-    prepare_index(service.name, documents)
-
-    # Request the fourth page with a page size of 2 (there are only 2 pages)
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "page_number": 4,
-            "page_size": 2,
-            "visited": [doc["id"] for doc in documents],
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 0  # No documents should be returned
-
-
-@responses.activate
-def test_api_documents_search_pagination_invalid_parameters(settings):
-    """Invalid pagination parameters should result in a 400 error"""
+def test_api_documents_search_nb_results_invalid_parameters(settings):
+    """Invalid nb_results parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
     responses.add(
@@ -846,26 +750,18 @@ def test_api_documents_search_pagination_invalid_parameters(settings):
     parameters = [
         (
             "invalid",
-            10,
             "int_parsing",
             "Input should be a valid integer, unable to parse string as an integer",
         ),
-        (
-            1,
-            "invalid",
-            "int_parsing",
-            "Input should be a valid integer, unable to parse string as an integer",
-        ),
-        (-1, 10, "greater_than_equal", "Input should be greater than or equal to 1"),
-        (1, -10, "greater_than_equal", "Input should be greater than or equal to 1"),
-        (0, 10, "greater_than_equal", "Input should be greater than or equal to 1"),
-        (1, 0, "greater_than_equal", "Input should be greater than or equal to 1"),
+        (-1, "greater_than_equal", "Input should be greater than or equal to 1"),
+        (0, "greater_than_equal", "Input should be greater than or equal to 1"),
+        (350, "less_than_equal", "Input should be less than or equal to 300"),
     ]
 
-    for page_number, page_size, error_type, error_message in parameters:
+    for nb_results, error_type, error_message in parameters:
         response = APIClient().post(
             "/api/v1.0/documents/search/",
-            {"q": "*", "page_number": page_number, "page_size": page_size},
+            {"q": "*", "nb_results": nb_results},
             format="json",
             HTTP_AUTHORIZATION=f"Bearer {token}",
         )
@@ -876,8 +772,8 @@ def test_api_documents_search_pagination_invalid_parameters(settings):
 
 
 @responses.activate
-def test_api_documents_search_pagination_with_filtering(settings):
-    """Pagination should work correctly when combined with filtering by reach"""
+def test_api_documents_search_nb_results_with_filtering(settings):
+    """nb_results should work correctly when combined with filtering by reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
     responses.add(
@@ -894,37 +790,17 @@ def test_api_documents_search_pagination_with_filtering(settings):
     )
     prepare_index(service.name, public_documents + private_documents)
 
-    # Filter by public documents, request first page
+    nb_results = 3
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
             "q": "*",
             "reach": "public",
-            "page_number": 1,
-            "page_size": 2,
+            "nb_results": nb_results,
             "visited": public_ids,
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
-    assert len(response.json()) == 2
-    assert [r["_id"] for r in response.json()] == public_ids[0:2]
-
-    # Request second page for public documents (remaining 1 document)
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "reach": "public",
-            "page_number": 2,
-            "page_size": 2,
-            "visited": public_ids,
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert [r["_id"] for r in response.json()] == public_ids[2:]
+    assert [r["_id"] for r in response.json()] == public_ids[0:nb_results]

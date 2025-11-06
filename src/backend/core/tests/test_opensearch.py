@@ -32,9 +32,7 @@ pytestmark = pytest.mark.django_db
 
 SERVICE_NAME = "test-service"
 PARAMS = {
-    "page_number": 1,
-    "page_size": 20,
-    "k": 20,
+    "nb_results": 20,
     "order_by": "relevance",
     "order_direction": "desc",
     "search_indices": {SERVICE_NAME},
@@ -343,9 +341,9 @@ def test_hybrid_search_number_of_matches(settings):
     prepare_index(SERVICE_NAME, documents)
 
     q = "pony"  # full-text matches 0 document
-    for k in [1, 2, 3]:  # semantic should match k documents
-        result = search(q=q, **{**PARAMS, "k": k})
-        assert len(result["hits"]["hits"]) == k
+    for nb_results in [1, 2, 3]:  # semantic should match k documents
+        result = search(q=q, **{**PARAMS, "nb_results": nb_results})
+        assert len(result["hits"]["hits"]) == nb_results
 
 
 @responses.activate

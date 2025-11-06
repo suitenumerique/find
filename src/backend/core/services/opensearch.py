@@ -49,9 +49,7 @@ def opensearch_client():
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def search(  # noqa : PLR0913
     q,
-    page_number,
-    page_size,
-    k,
+    nb_results,
     order_by,
     order_direction,
     search_indices,
@@ -62,7 +60,12 @@ def search(  # noqa : PLR0913
 ):
     """Perform an OpenSearch search"""
     query = get_query(
-        q=q, k=k, reach=reach, visited=visited, user_sub=user_sub, groups=groups
+        q=q,
+        nb_results=nb_results,
+        reach=reach,
+        visited=visited,
+        user_sub=user_sub,
+        groups=groups,
     )
     return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
@@ -77,9 +80,7 @@ def search(  # noqa : PLR0913
                 order_by=order_by,
                 order_direction=order_direction,
             ),
-            # Compute pagination parameters
-            "from": (page_number - 1) * page_size,
-            "size": page_size,
+            "size": nb_results,
             # Compute query
             "query": query,
         },
@@ -92,7 +93,7 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, k, reach, visited, user_sub, groups
+    q, nb_results, reach, visited, user_sub, groups
 ):
     """Build OpenSearch query body based on parameters"""
     filter_ = get_filter(reach, visited, user_sub, groups)
@@ -149,7 +150,7 @@ def get_query(  # noqa : PLR0913
                             "knn": {
                                 "embedding": {
                                     "vector": embedding,
-                                    "k": k,
+                                    "k": nb_results,
                                 }
                             }
                         },
