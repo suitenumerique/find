@@ -106,19 +106,18 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
+                    document_dict = {
+                        **document.model_dump(),
+                        "embedding": embed_document(document)
+                        if check_hybrid_search_enabled()
+                        else None,
+                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+                        if check_hybrid_search_enabled()
+                        else None,
+                    }
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
-                    actions.append(
-                        {
-                            **document.model_dump(),
-                            "embedding": embed_document(document)
-                            if check_hybrid_search_enabled()
-                            else None,
-                            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-                            if check_hybrid_search_enabled()
-                            else None,
-                        }
-                    )
+                    actions.append(document_dict)
                     results.append({"index": i, "_id": _id, "status": "valid"})
 
             if has_errors:

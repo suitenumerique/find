@@ -48,7 +48,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"[INFO] Reindexing of {index_name} was done "
-            f"with {result['nb_failed_embedding']} embedding fails."
+            f"with {result['nb_success_embedding']} embedding successful "
+            f"and {result['nb_failed_embedding']} embedding fails."
         )
 
 
@@ -79,30 +80,35 @@ def reindex_with_embedding(index_name, batch_size=500):
             }
         },
     )
-    nb_failed_embedding = 0
 
+    nb_failed_embedding = 0
+    nb_success_embedding = 0
     while len(page["hits"]["hits"]) > 0:
         actions = []
         for hit in page["hits"]["hits"]:
-            document = hit["_source"]
-            try:
+            source = hit["_source"]
+            embedding = embed_text(
+                f"<{source.get('text')}>:<{source.get('content')}>"  # TODO: refactor
+            )
+            if embedding:
                 actions.append({"update": {"_id": hit["_id"]}})
                 actions.append(
                     {
                         "doc": {
-                            "embedding": embed_text(
-                                f"<{document.get('text')}>:<{document.get('content')}>"
-                            ),
+                            "embedding": embedding,
                             "embedding_model": settings.EMBEDDING_API_MODEL_NAME,
                         }
                     }
                 )
-            except requests.HTTPError as error:
-                logger.warning("embedding failed: %d", error)
+                nb_success_embedding += 1
+            else:
                 nb_failed_embedding += 1
 
         opensearch_client_.bulk(index=index_name, body=actions)
         page = opensearch_client_.scroll(scroll_id=page["_scroll_id"], scroll="5m")
 
     opensearch_client_.clear_scroll(scroll_id=page["_scroll_id"])
-    return {"nb_failed_embedding": nb_failed_embedding}
+    return {
+        "nb_failed_embedding": nb_failed_embedding,
+        "nb_success_embedding": nb_success_embedding,
+    }

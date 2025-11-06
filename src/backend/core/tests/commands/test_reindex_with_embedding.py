@@ -10,6 +10,9 @@ import responses
 from core.management.commands.reindex_with_embedding import (
     check_hybrid_search_enabled as check_hybrid_search_enabled_command,
 )
+from core.management.commands.reindex_with_embedding import (
+    reindex_with_embedding,
+)
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
@@ -20,8 +23,7 @@ from core.tests.utils import (
     prepare_index,
 )
 
-SOURCE_INDEX_NAME = "test-index"
-DESTINATION_INDEX_NAME = "test-index-embedded"
+SERVICE_NAME = "test-index"
 
 
 @pytest.fixture(autouse=True)
@@ -54,16 +56,16 @@ def test_reindex_with_embedding_command(settings):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SOURCE_INDEX_NAME, documents)
+    prepare_index(SERVICE_NAME, documents)
 
     # the index has not been embedded in the initial state
     initial_index = opensearch_client_.search(
-        index=SOURCE_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
+        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
     )
     assert len(initial_index["hits"]["hits"]) == 3
     for embedded_hit in initial_index["hits"]["hits"]:
         assert embedded_hit["_source"]["embedding"] == None
-        assert "embedding_model" not in embedded_hit["_source"]
+        assert embedded_hit["_source"]["embedding_model"] is None
 
     # enable hybrid search
     enable_hybrid_search(settings)
@@ -76,11 +78,11 @@ def test_reindex_with_embedding_command(settings):
     )
 
     # call the command
-    call_command("reindex_with_embedding", SOURCE_INDEX_NAME)
+    call_command("reindex_with_embedding", SERVICE_NAME)
 
-    opensearch_client_.indices.refresh(index=SOURCE_INDEX_NAME)
+    opensearch_client_.indices.refresh(index=SERVICE_NAME)
     embedded_index = opensearch_client_.search(
-        index=SOURCE_INDEX_NAME, size=3, body={"query": {"match_all": {}}}
+        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
     )
 
     # the source index has been replaced with embedding version
@@ -107,10 +109,99 @@ def test_reindex_with_embedding_command(settings):
         assert initial_source["users"] == embedded_source["users"]
 
 
+@responses.activate
+def test_reindex_can_fail_and_restart(settings):
+    """Test command handles embedding errors gracefully and continues processing."""
+    opensearch_client_ = opensearch_client()
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    prepare_index(SERVICE_NAME, documents)
+
+    # enable hybrid search after first indexing
+    enable_hybrid_search(settings)
+    check_hybrid_search_enabled_command.cache_clear()
+
+    # First call succeeds, second fails, third succeeds
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json={"error": "rate limit exceeded"},
+        status=429,
+    )
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+
+    result = reindex_with_embedding(SERVICE_NAME)
+
+    # assert results reflect 2 successes and 1 failure
+    assert result["nb_success_embedding"] == 2
+    assert result["nb_failed_embedding"] == 1
+
+    # assert the index state
+    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    embedded_index = opensearch_client_.search(
+        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+    )
+    # Should have 2 documents with embeddings, 1 without due to error
+    embedded_count = 0
+    not_embedded_count = 0
+    for hit in embedded_index["hits"]["hits"]:
+        if hit["_source"].get("embedding"):
+            embedded_count += 1
+            assert (
+                hit["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
+            )
+        else:
+            not_embedded_count += 1
+            assert hit["_source"]["embedding_model"] is None
+    assert embedded_count == 2
+    assert not_embedded_count == 1
+
+    # the command can be run again to index failed items
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    result = reindex_with_embedding(SERVICE_NAME)
+
+    # assert results
+    assert result["nb_success_embedding"] == 1
+    assert result["nb_failed_embedding"] == 0
+
+    # assert there is now 1 more success and 0 failures
+    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    embedded_index = opensearch_client_.search(
+        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+    )
+    for hit in embedded_index["hits"]["hits"]:
+        assert (
+            hit["_source"]["embedding"]
+            == albert_embedding_response.response["data"][0]["embedding"]
+        )
+        assert hit["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
+
+
 def test_reindex_command_but_hybrid_search_is_disabled():
     """Test the `reindex_with_embedding` command fails when hybrid search is disabled."""
     with pytest.raises(CommandError) as err:
-        call_command("reindex_with_embedding", SOURCE_INDEX_NAME)
+        call_command("reindex_with_embedding", SERVICE_NAME)
 
     assert str(err.value) == "Hybrid search is not enabled or properly configured."
 

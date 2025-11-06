@@ -82,6 +82,9 @@ def prepare_index(index_name, documents: List, cleanup=True):
                 )
                 if check_hybrid_search_enabled()
                 else None,
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                if check_hybrid_search_enabled()
+                else None,
             },
         }
         for doc in documents
