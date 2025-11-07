@@ -36,6 +36,9 @@ def enable_hybrid_search(settings):
     settings.EMBEDDING_REQUEST_TIMEOUT = 10
     settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
     settings.EMBEDDING_DIMENSION = 1024
+
+    # Clear the cache here or the hybrid search will remain disabled
+    check_hybrid_search_enabled.cache_clear()
     ensure_search_pipeline_exists()
 
 

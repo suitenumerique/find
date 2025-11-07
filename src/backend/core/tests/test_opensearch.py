@@ -9,14 +9,14 @@ from json import dumps as json_dumps
 import pytest
 import responses
 
+from core import factories
 from core.services import opensearch
-
-from .. import factories
-from ..services.opensearch import (
+from core.services.opensearch import (
     check_hybrid_search_enabled,
     embed_text,
     search,
 )
+
 from .mock import albert_embedding_response
 from .utils import (
     bulk_create_documents,
@@ -32,16 +32,20 @@ pytestmark = pytest.mark.django_db
 
 
 SERVICE_NAME = "test-service"
-PARAMS = {
-    "nb_results": 20,
-    "order_by": "relevance",
-    "order_direction": "desc",
-    "search_indices": {SERVICE_NAME},
-    "reach": None,
-    "user_sub": "user_sub",
-    "groups": [],
-    "visited": [],
-}
+
+
+def search_params(service):
+    """Build opensearch.search() parameters for tests using the service index name"""
+    return {
+        "nb_results": 20,
+        "order_by": "relevance",
+        "order_direction": "desc",
+        "search_indices": {service.index_name},
+        "reach": None,
+        "user_sub": "user_sub",
+        "groups": [],
+        "visited": [],
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -78,11 +82,12 @@ def test_hybrid_search_success(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "canine pet"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any(
         f"Performing hybrid search with embedding: {q}" in message
@@ -108,11 +113,12 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
     )
     # index is prepared but hybrid search is not yet enable.
     # they then won't be embedded.
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     # check embedding is None
     indexed_documents = opensearch.opensearch_client().search(
-        index=SERVICE_NAME, body={"query": {"match_all": {}}}
+        index=service.index_name, body={"query": {"match_all": {}}}
     )
     assert indexed_documents["hits"]["hits"][0]["_source"]["embedding"] is None
 
@@ -127,7 +133,7 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
         status=200,
     )
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     # the hybrid search is done successfully
     assert any(
@@ -148,7 +154,7 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
         status=200,
     )
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any(
         f"Performing hybrid search with embedding: {q}" in message
@@ -176,7 +182,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any(
         "Hybrid search is disabled via HYBRID_SEARCH_ENABLED setting" in message
@@ -214,7 +220,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any(
         "embedding API request failed: 401 Client Error: Unauthorized" in message
@@ -246,7 +252,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any(
         "Missing variables for hybrid search: HYBRID_SEARCH_WEIGHTS" in message
@@ -283,7 +289,7 @@ def test_match_all(settings, caplog):
 
     q = "*"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **PARAMS)
+        result = search(q=q, **search_params(service))
 
     assert any("Performing match_all query" in message for message in caplog.messages)
     assert result["hits"]["max_score"] > 0.0
@@ -314,7 +320,9 @@ def test_search_ordering_by_relevance(settings, caplog):
 
     for direction in ["asc", "desc"]:
         with caplog.at_level(logging.INFO):
-            result = search(q=q, **{**PARAMS, "order_direction": direction})
+            result = search(
+                q=q, **{**search_params(service), "order_direction": direction}
+            )
 
         # Check that results are sorted by score as expected
         hits = result["hits"]["hits"]
@@ -349,7 +357,7 @@ def test_hybrid_search_number_of_matches(settings):
 
     q = "pony"  # full-text matches 0 document
     for nb_results in [1, 2, 3]:  # semantic should match k documents
-        result = search(q=q, **{**PARAMS, "nb_results": nb_results})
+        result = search(q=q, **{**search_params(service), "nb_results": nb_results})
         assert len(result["hits"]["hits"]) == nb_results
 
 

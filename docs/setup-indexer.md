@@ -21,6 +21,9 @@ OPENSEARCH_PORT=9200
 
 # Enable SSL for opensearch connection (False in dev mode)
 OPENSEARCH_USE_SSL=True
+
+# Prefix for the index name of the registered services.
+OPENSEARCH_INDEX_PREFIX=find
 ```
 
 ### Semantic search

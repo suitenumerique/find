@@ -15,6 +15,7 @@ FIND_BASE_URL="http://localhost:8072"
 # Opensearch
 OPENSEARCH_PASSWORD=find.PASS123
 OPENSEARCH_USE_SSL=false
+OPENSEARCH_INDEX_PREFIX=find
 
 # OIDC
 OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/certs
