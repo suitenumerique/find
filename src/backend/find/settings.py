@@ -243,6 +243,9 @@ class Base(Configuration):
     OPENSEARCH_USE_SSL = values.BooleanValue(
         default=True, environ_name="OPENSEARCH_USE_SSL", environ_prefix=None
     )
+    OPENSEARCH_INDEX_PREFIX = values.Value(
+        default="find", environ_name="OPENSEARCH_INDEX_PREFIX", environ_prefix=None
+    )
 
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",

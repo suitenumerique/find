@@ -49,8 +49,8 @@ def test_api_documents_search_auth_invalid_parameters(settings):
     settings.OIDC_RS_CLIENT_ID = None
     settings.OIDC_RS_CLIENT_SECRET = None
 
-    service = factories.ServiceFactory(name="test-service")
-    prepare_index(service.name, [])
+    service = factories.ServiceFactory()
+    prepare_index(service.index_name, [])
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -70,7 +70,7 @@ def test_api_documents_search_opensearch_env_variables_not_set(settings):
     result in a 500 internal server error
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory(name="test-service")
+    factories.ServiceFactory()
 
     del settings.OPENSEARCH_HOST  # Remove required settings
     del settings.OPENSEARCH_PASSWORD
@@ -100,8 +100,8 @@ def test_api_documents_search_query_unknown_user(settings):
 
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service")
-    prepare_index(service.name, [])
+    service = factories.ServiceFactory()
+    prepare_index(service.index_name, [])
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -124,7 +124,7 @@ def test_api_documents_search_services_invalid_parameters(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    factories.ServiceFactory(name="test-service")
+    factories.ServiceFactory()
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -154,7 +154,7 @@ def test_api_documents_search_reached_docs_invalid_parameters(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    factories.ServiceFactory(name="test-service")
+    factories.ServiceFactory()
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -186,11 +186,11 @@ def test_api_documents_search_match_all(settings):
         status=200,
     )
     nb_documents = 12
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         nb_documents, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -209,7 +209,7 @@ def test_api_documents_search_match_all(settings):
 def test_api_documents_full_text_search_query_title(settings):
     """Searching a document by its title should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
 
     documents = bulk_create_documents(
         [
@@ -218,7 +218,8 @@ def test_api_documents_full_text_search_query_title(settings):
             {"title": "The brown goat", "content": "the wolf"},
         ]
     )
-    prepare_index(service.name, documents)
+
+    prepare_index(service.index_name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -278,7 +279,7 @@ def test_api_documents_full_text_search(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = bulk_create_documents(
         [
             {"title": "The quick brown fox", "content": "the wolf"},
@@ -286,7 +287,7 @@ def test_api_documents_full_text_search(settings):
             {"title": "The brown goat", "content": "the wolf"},
         ]
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -356,7 +357,7 @@ def test_api_documents_hybrid_search(settings):
         status=200,
     )  # mock embedding API
 
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = bulk_create_documents(
         [
             {"title": "The quick brown fox", "content": "the wolf"},
@@ -364,7 +365,7 @@ def test_api_documents_hybrid_search(settings):
             {"title": "The brown goat", "content": "the wolf"},
         ]
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -458,11 +459,11 @@ def test_api_documents_search_ordering_by_fields(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     parameters = [
         (enums.TITLE, "asc"),
@@ -511,11 +512,11 @@ def test_api_documents_search_ordering_by_relevance(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     for direction in ["asc", "desc"]:
         response = APIClient().post(
@@ -552,11 +553,11 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
         status=200,
     )
     # Setup: Initialize the service and documents only once
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         2, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     # Define the parameters manually
     directions = ["asc", "desc"]
@@ -599,11 +600,11 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         2, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     for field in enums.ORDER_BY_OPTIONS:
         response = APIClient().post(
@@ -639,11 +640,11 @@ def test_api_documents_search_filtering_by_reach(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     for reach in enums.ReachEnum:
         response = APIClient().post(
@@ -675,12 +676,12 @@ def test_api_documents_search_with_nb_results(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
     )
     ids = [str(doc["id"]) for doc in documents]
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     nb_results = 3
     response = APIClient().post(
@@ -741,11 +742,11 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
     )
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     parameters = [
         (
@@ -782,13 +783,13 @@ def test_api_documents_search_nb_results_with_filtering(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
     private_documents = factories.DocumentSchemaFactory.build_batch(
         2, reach="authenticated"
     )
-    prepare_index(service.name, public_documents + private_documents)
+    prepare_index(service.index_name, public_documents + private_documents)
 
     nb_results = 3
     response = APIClient().post(

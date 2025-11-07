@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from core import factories
 from core.services import opensearch
 from core.tests.mock import albert_embedding_response
-from core.tests.utils import delete_test_indices, enable_hybrid_search
+from core.tests.utils import enable_hybrid_search
 
 pytestmark = pytest.mark.django_db
 
@@ -56,7 +56,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     If hybrid search is enabled, the indexing should have embedding of
     dimension settings.EMBEDDING_DIMENSION.
     """
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     enable_hybrid_search(settings)
     responses.add(
         responses.POST,
@@ -64,6 +64,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
         json=albert_embedding_response.response,
         status=200,
     )
+
     document = factories.DocumentSchemaFactory.build()
 
     response = APIClient().post(
@@ -77,7 +78,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     assert response.json()["_id"] == str(document["id"])
 
     new_indexed_document = opensearch.opensearch_client().get(
-        index=service.name, id=str(document["id"])
+        index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
@@ -94,7 +95,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
 
 def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
     opensearch.check_hybrid_search_enabled.cache_clear()
 
@@ -109,7 +110,7 @@ def test_api_documents_index_single_hybrid_disabled_success():
     assert response.json()["_id"] == str(document["id"])
 
     new_indexed_document = opensearch.opensearch_client().get(
-        index=service.name, id=str(document["id"])
+        index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
@@ -117,15 +118,14 @@ def test_api_documents_index_single_hybrid_disabled_success():
     assert new_indexed_document["_source"]["embedding"] is None
 
 
-def test_api_documents_index_bulk_ensure_index(settings):
+def test_api_documents_index_single_ensure_index(settings):
     """A registered service should be create the opensearch index if need."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
     opensearch_client_ = opensearch.opensearch_client()
-    delete_test_indices()
 
     with pytest.raises(opensearch.NotFoundError):
-        opensearch_client_.indices.get(index="test-service")
+        opensearch_client_.indices.get(index=service.index_name)
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -138,9 +138,9 @@ def test_api_documents_index_bulk_ensure_index(settings):
     assert response.json()["_id"] == str(document["id"])
 
     # The index has been rebuilt
-    data = opensearch_client_.indices.get(index="test-service")
+    data = opensearch_client_.indices.get(index=service.index_name)
 
-    assert data["test-service"]["mappings"] == {
+    assert data[service.index_name]["mappings"] == {
         "dynamic": "strict",
         "properties": {
             "id": {"type": "keyword"},
@@ -295,7 +295,7 @@ def test_api_documents_index_single_invalid_document(
     field, invalid_value, error_type, error_message
 ):
     """Test document indexing with various invalid fields."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     # Modify the document with the invalid value for the specified field
@@ -330,7 +330,7 @@ def test_api_documents_index_single_invalid_document(
 )
 def test_api_documents_index_single_required(field):
     """Test document indexing with a required field missing."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     del document[field]
@@ -357,7 +357,7 @@ def test_api_documents_index_single_required(field):
 )
 def test_api_documents_index_single_default(field, default_value):
     """Test document indexing while removing optional fields that have default values."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     del document[field]
@@ -373,14 +373,14 @@ def test_api_documents_index_single_default(field, default_value):
     assert response.json()["_id"] == str(document["id"])
 
     indexed_document = opensearch.opensearch_client().get(
-        index=service.name, id=str(document["id"])
+        index=service.index_name, id=str(document["id"])
     )["_source"]
     assert indexed_document[field] == default_value
 
 
 def test_api_documents_index_single_udpated_at_before_created():
     """Test document indexing with updated_at before created_at."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     document["updated_at"] = document["created_at"] - datetime.timedelta(seconds=1)
@@ -406,7 +406,7 @@ def test_api_documents_index_single_udpated_at_before_created():
 )
 def test_api_documents_index_single_datetime_future(field):
     """Test document indexing with datetimes in the future."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     now = timezone.now()
@@ -426,7 +426,7 @@ def test_api_documents_index_single_datetime_future(field):
 
 def test_api_documents_index_empty_content_check():
     """Test document indexing with both empty title & content."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
     document["content"] = ""

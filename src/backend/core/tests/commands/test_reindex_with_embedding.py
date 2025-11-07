@@ -15,12 +15,12 @@ from core.management.commands.reindex_with_embedding import (
 from core.management.commands.reindex_with_embedding import (
     reindex_with_embedding,
 )
+from core.models import get_opensearch_index_name
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
     bulk_create_documents,
     delete_search_pipeline,
-    delete_test_indices,
     enable_hybrid_search,
     prepare_index,
 )
@@ -43,7 +43,6 @@ def clear_caches():
     # is different and must be cleared separately
     check_hybrid_search_enabled_command.cache_clear()
     delete_search_pipeline()
-    delete_test_indices()
 
 
 @responses.activate
@@ -58,11 +57,12 @@ def test_reindex_with_embedding_command(settings):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    prepare_index(index_name, documents)
 
     # the index has not been embedded in the initial state
     initial_index = opensearch_client_.search(
-        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+        index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     assert len(initial_index["hits"]["hits"]) == 3
     for embedded_hit in initial_index["hits"]["hits"]:
@@ -81,9 +81,9 @@ def test_reindex_with_embedding_command(settings):
 
     call_command("reindex_with_embedding", SERVICE_NAME)
 
-    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    opensearch_client_.indices.refresh(index=index_name)
     embedded_index = opensearch_client_.search(
-        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+        index=index_name, size=3, body={"query": {"match_all": {}}}
     )
 
     # the source index has been replaced with embedding version
@@ -121,7 +121,8 @@ def test_reindex_can_fail_and_restart(settings):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    prepare_index(index_name, documents)
 
     # enable hybrid search after first indexing
     enable_hybrid_search(settings)
@@ -147,16 +148,16 @@ def test_reindex_can_fail_and_restart(settings):
         status=200,
     )
 
-    result = reindex_with_embedding(SERVICE_NAME)
+    result = reindex_with_embedding(index_name)
 
     # assert results reflect 2 successes and 1 failure
     assert result["nb_success_embedding"] == 2
     assert result["nb_failed_embedding"] == 1
 
     # assert the index state
-    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    opensearch_client_.indices.refresh(index=index_name)
     embedded_index = opensearch_client_.search(
-        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+        index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     # Should have 2 documents with embeddings, 1 without due to error
     embedded_count = 0
@@ -180,16 +181,16 @@ def test_reindex_can_fail_and_restart(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    result = reindex_with_embedding(SERVICE_NAME)
+    result = reindex_with_embedding(index_name)
 
     # assert results
     assert result["nb_success_embedding"] == 1
     assert result["nb_failed_embedding"] == 0
 
     # assert there is now 1 more success and 0 failures
-    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    opensearch_client_.indices.refresh(index=index_name)
     embedded_index = opensearch_client_.search(
-        index=SERVICE_NAME, size=3, body={"query": {"match_all": {}}}
+        index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     for hit in embedded_index["hits"]["hits"]:
         assert (
@@ -220,7 +221,8 @@ def test_reindex_preserves_concurrent_updates(settings):
             {"title": "dog", "content": "dogs are loyal domestic animals"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    prepare_index(index_name, documents)
     enable_hybrid_search(settings)
 
     updated_title = "updated dog"
@@ -231,7 +233,7 @@ def test_reindex_preserves_concurrent_updates(settings):
     patch(
         "core.services.opensearch.opensearch_client_.search",
         side_effect=opensearch_client_.update(
-            index=SERVICE_NAME,
+            index=index_name,
             id=documents[1]["id"],
             body={
                 "doc": {
@@ -249,13 +251,13 @@ def test_reindex_preserves_concurrent_updates(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    result = reindex_with_embedding(SERVICE_NAME)
+    result = reindex_with_embedding(index_name)
     assert result["nb_success_embedding"] == 2
     assert result["nb_failed_embedding"] == 0
 
-    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    opensearch_client_.indices.refresh(index=index_name)
     embedded_index = opensearch_client_.search(
-        index=SERVICE_NAME, size=2, body={"query": {"match_all": {}}}
+        index=index_name, size=2, body={"query": {"match_all": {}}}
     )
     # Check that the latest update is preserved
     dog_doc = [
@@ -281,7 +283,9 @@ def test_reindex_command_but_index_does_not_exist(settings):
     wrong_index = "wrong-index-name"
     enable_hybrid_search(settings)
 
+    wrong_index_name = get_opensearch_index_name(wrong_index)
+
     with pytest.raises(CommandError) as err:
         call_command("reindex_with_embedding", wrong_index)
 
-    assert str(err.value) == f"Index {wrong_index} does not exist."
+    assert str(err.value) == f"Index {wrong_index_name} does not exist."

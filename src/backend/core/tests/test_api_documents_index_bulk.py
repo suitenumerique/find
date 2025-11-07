@@ -43,7 +43,7 @@ def test_api_documents_index_bulk_invalid_token():
 
 def test_api_documents_index_bulk_success():
     """A registered service should be able to index documents in bulk with a valid token."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     response = APIClient().post(
@@ -61,14 +61,11 @@ def test_api_documents_index_bulk_success():
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be create the opensearch index if need."""
     opensearch_client_ = opensearch.opensearch_client()
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    # Delete the index
-    opensearch_client_.indices.delete(index="*test*")
-
     with pytest.raises(opensearch.NotFoundError):
-        opensearch_client_.indices.get(index="test-service")
+        opensearch_client_.indices.get(index=service.index_name)
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -83,7 +80,7 @@ def test_api_documents_index_bulk_ensure_index():
     assert [d["status"] for d in responses] == ["success"] * 3
 
     # The index has been rebuilt
-    opensearch_client_.indices.get(index="test-service")
+    opensearch_client_.indices.get(index=service.index_name)
 
 
 @pytest.mark.parametrize(
@@ -202,7 +199,7 @@ def test_api_documents_index_bulk_invalid_document(
     field, invalid_value, error_type, error_message
 ):
     """Test bulk document indexing with various invalid fields."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     # Modify the first document with the invalid value for the specified field
@@ -242,7 +239,7 @@ def test_api_documents_index_bulk_invalid_document(
 )
 def test_api_documents_index_bulk_required(field):
     """Test bulk document indexing with a required field missing."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     del documents[0][field]
@@ -274,7 +271,7 @@ def test_api_documents_index_bulk_required(field):
 )
 def test_api_documents_index_bulk_default(field, default_value):
     """Test bulk document indexing while removing optional fields that have default values."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     del documents[0][field]
@@ -291,14 +288,14 @@ def test_api_documents_index_bulk_default(field, default_value):
     assert [d["status"] for d in responses] == ["success"] * 3
 
     indexed_document = opensearch.opensearch_client().get(
-        index=service.name, id=responses[0]["_id"]
+        index=service.index_name, id=responses[0]["_id"]
     )["_source"]
     assert indexed_document[field] == default_value
 
 
 def test_api_documents_index_bulk_updated_at_before_created_at():
     """Test bulk document indexing with updated_at before created_at."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     documents[0]["updated_at"] = documents[0]["created_at"] - datetime.timedelta(
@@ -332,7 +329,7 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
 )
 def test_api_documents_index_bulk_datetime_future(field):
     """Test bulk document indexing with datetimes in the future."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     now = timezone.now()
@@ -360,7 +357,7 @@ def test_api_documents_index_bulk_datetime_future(field):
 
 def test_api_documents_index_empty_content_check():
     """Test bulk document indexing with both empty title & content."""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     documents[0]["content"] = ""
@@ -388,7 +385,7 @@ def test_api_documents_index_empty_content_check():
 
 def test_api_documents_index_opensearch_errors():
     """Test bulk document indexing errors"""
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:

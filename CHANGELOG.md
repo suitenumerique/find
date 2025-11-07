@@ -22,3 +22,6 @@ and this project adheres to
               list of services
 - 🔧(compose) rename docker network 'lasuite-net' as 'lasuite-network'
 - ✨(backend) add demo service for Drive.
+- 🐛(backend) Fix parallel test execution issues
+- ✨(backend) Add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
+              issues if the opensearch database is shared between apps.

@@ -3,14 +3,21 @@
 import secrets
 import string
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Length
+from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 models.CharField.register_lookup(Length)
 TOKEN_LENGTH = 50
+
+
+def get_opensearch_index_name(name: str):
+    """Returns the opensearch index for a service name"""
+    return f"{settings.OPENSEARCH_INDEX_PREFIX}-{name}"
 
 
 class User(AbstractUser):
@@ -61,3 +68,8 @@ class Service(models.Model):
         )
         token = "".join(secrets.choice(characters) for _ in range(TOKEN_LENGTH))
         return token
+
+    @cached_property
+    def index_name(self):
+        """Returns the opensearch index for the service"""
+        return get_opensearch_index_name(self.name)

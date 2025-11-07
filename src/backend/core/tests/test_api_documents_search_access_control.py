@@ -15,7 +15,6 @@ from core.services.opensearch import opensearch_client
 from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
-    delete_test_indices,
     prepare_index,
     setup_oicd_resource_server,
 )
@@ -32,11 +31,11 @@ def test_api_documents_search_access_control_anonymous(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents = []
     for reach in enums.ReachEnum:
         documents.extend(factories.DocumentSchemaFactory.build_batch(3, reach=reach))
-    prepare_index(service.name, documents)
+    prepare_index(service.index_name, documents)
 
     response = APIClient().post("/api/v1.0/documents/search/?q=*")
 
@@ -61,7 +60,7 @@ def test_api_documents_search_access_control(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service")
+    service = factories.ServiceFactory()
     documents_reach = factories.DocumentSchemaFactory.build_batch(6)
     documents_open = [
         doc for doc in documents_reach if doc["reach"] in ["authenticated", "public"]
@@ -71,7 +70,7 @@ def test_api_documents_search_access_control(settings):
     )
     expected_ids = [doc["id"] for doc in documents_open + documents_user]
 
-    prepare_index(service.name, documents_user + documents_reach)
+    prepare_index(service.index_name, documents_user + documents_reach)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -114,7 +113,7 @@ def test_api_documents_search_access__only_visited_public(
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service", client_id="docs")
+    service = factories.ServiceFactory(client_id="docs")
 
     docs = [
         factories.DocumentSchemaFactory(
@@ -123,7 +122,7 @@ def test_api_documents_search_access__only_visited_public(
         for doc_id in doc_ids
     ]
 
-    prepare_index(service.name, docs)
+    prepare_index(service.index_name, docs)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -151,7 +150,7 @@ def test_api_documents_search_access__any_owner_public(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service", client_id="docs")
+    service = factories.ServiceFactory(client_id="docs")
 
     docs = factories.DocumentSchemaFactory.build_batch(
         6,
@@ -165,7 +164,7 @@ def test_api_documents_search_access__any_owner_public(settings):
         users=["other_sub"],
     )
 
-    prepare_index(service.name, docs + other_docs)
+    prepare_index(service.index_name, docs + other_docs)
 
     expected = [d["id"] for d in docs]
 
@@ -195,8 +194,8 @@ def test_api_documents_search_access__services(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_b = factories.ServiceFactory(name="test-index-b", client_id="b-client")
+    service_a = factories.ServiceFactory(client_id="a-client")
+    service_b = factories.ServiceFactory(client_id="b-client")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
@@ -207,8 +206,8 @@ def test_api_documents_search_access__services(settings):
 
     expected_ids = [doc["id"] for doc in service_a_docs]
 
-    prepare_index(service_a.name, service_a_docs)
-    prepare_index(service_b.name, service_b_docs, cleanup=False)
+    prepare_index(service_a.index_name, service_a_docs)
+    prepare_index(service_b.index_name, service_b_docs)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -236,7 +235,6 @@ def test_api_documents_search_access__missing_index(settings):
     token = build_authorization_bearer()
     factories.ServiceFactory(name="test-index-a", client_id="a-client")
 
-    delete_test_indices()
     opensearch_client.cache_clear()
 
     # a-client has no index. ignore it.
@@ -284,9 +282,9 @@ def test_api_documents_search_access__related_services(settings):
 
     expected_ids = [doc["id"] for doc in service_a_docs + service_c_docs]
 
-    prepare_index(service_a.name, service_a_docs)
-    prepare_index(service_b.name, service_b_docs, cleanup=False)
-    prepare_index(service_c.name, service_c_docs, cleanup=False)
+    prepare_index(service_a.index_name, service_a_docs)
+    prepare_index(service_b.index_name, service_b_docs)
+    prepare_index(service_c.index_name, service_c_docs)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -328,8 +326,8 @@ def test_api_documents_search_access__related_missing_index(settings):
 
     expected_ids = [doc["id"] for doc in service_c_docs]
 
-    prepare_index(service_b.name, service_b_docs)
-    prepare_index(service_c.name, service_c_docs, cleanup=False)
+    prepare_index(service_b.index_name, service_b_docs)
+    prepare_index(service_c.index_name, service_c_docs)
 
     # a-client has no index. ignore it.
     response = APIClient().post(
@@ -375,9 +373,9 @@ def test_api_documents_search_access__request_services(settings):
 
     expected_ids = [doc["id"] for doc in service_c_docs]
 
-    prepare_index(service_a.name, service_a_docs)
-    prepare_index(service_b.name, service_b_docs, cleanup=False)
-    prepare_index(service_c.name, service_c_docs, cleanup=False)
+    prepare_index(service_a.index_name, service_a_docs)
+    prepare_index(service_b.index_name, service_b_docs)
+    prepare_index(service_c.index_name, service_c_docs)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -453,7 +451,7 @@ def test_api_documents_search_access__authenticated(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(name="test-service", client_id="docs")
+    service = factories.ServiceFactory(client_id="docs")
 
     documents_open = factories.DocumentSchemaFactory.build_batch(
         2, reach=enums.ReachEnum.PUBLIC
@@ -470,7 +468,9 @@ def test_api_documents_search_access__authenticated(settings):
     )
     documents = documents_user + documents_open + documents_restricted
 
-    prepare_index(service.name, documents_user + documents_open + documents_restricted)
+    prepare_index(
+        service.index_name, documents_user + documents_open + documents_restricted
+    )
 
     # Only owned documents (reach is ignored)
     response = APIClient().post(

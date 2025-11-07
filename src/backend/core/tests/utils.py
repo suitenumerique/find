@@ -58,16 +58,8 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def delete_test_indices():
-    """Drop all search index containing the 'test' word"""
-    opensearch.opensearch_client().indices.delete(index="*test*")
-
-
-def prepare_index(index_name, documents: List, cleanup=True):
+def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
-    if cleanup:
-        delete_test_indices()
-
     opensearch.ensure_index_exists(index_name)
 
     # Index new documents

@@ -11,6 +11,7 @@ import responses
 
 from core.services import opensearch
 
+from .. import factories
 from ..services.opensearch import (
     check_hybrid_search_enabled,
     embed_text,
@@ -170,7 +171,8 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
@@ -207,7 +209,8 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
@@ -238,7 +241,8 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "wolf"
     with caplog.at_level(logging.INFO):
@@ -274,7 +278,8 @@ def test_match_all(settings, caplog):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "*"
     with caplog.at_level(logging.INFO):
@@ -304,7 +309,8 @@ def test_search_ordering_by_relevance(settings, caplog):
         ]
     )
     q = "canine pet"
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     for direction in ["asc", "desc"]:
         with caplog.at_level(logging.INFO):
@@ -338,7 +344,8 @@ def test_hybrid_search_number_of_matches(settings):
             {"title": "cat", "content": "cats are curious and independent pets"},
         ]
     )
-    prepare_index(SERVICE_NAME, documents)
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
 
     q = "pony"  # full-text matches 0 document
     for nb_results in [1, 2, 3]:  # semantic should match k documents

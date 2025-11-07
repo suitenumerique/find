@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from opensearchpy.exceptions import NotFoundError
 
+from core.models import get_opensearch_index_name
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     embed_text,
@@ -31,7 +32,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Launch the reindexing with embedding."""
 
-        index_name = options["index_name"]
+        index_name = get_opensearch_index_name(options["index_name"])
 
         if not check_hybrid_search_enabled():
             raise CommandError("Hybrid search is not enabled or properly configured.")

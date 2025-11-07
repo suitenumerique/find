@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
-from .models import Service
+from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
 from .services.opensearch import (
     check_hybrid_search_enabled,
@@ -86,7 +86,7 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = request.auth.name
+        index_name = request.auth.index_name
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
@@ -191,7 +191,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             if len(available) < len(services):
                 raise SuspiciousOperation("Some requested services are not available")
 
-        return allowed_services
+        return [get_opensearch_index_name(name) for name in allowed_services]
 
     def post(self, request, *args, **kwargs):
         """
