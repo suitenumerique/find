@@ -2,6 +2,8 @@
 Unit test for `reindex_with_embedding` command.
 """
 
+from unittest.mock import patch
+
 from django.core.management import CommandError, call_command
 
 import pytest
@@ -77,7 +79,6 @@ def test_reindex_with_embedding_command(settings):
         status=200,
     )
 
-    # call the command
     call_command("reindex_with_embedding", SERVICE_NAME)
 
     opensearch_client_.indices.refresh(index=SERVICE_NAME)
@@ -196,6 +197,62 @@ def test_reindex_can_fail_and_restart(settings):
             == albert_embedding_response.response["data"][0]["embedding"]
         )
         assert hit["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
+
+
+@responses.activate
+def test_reindex_preserves_concurrent_updates(settings):
+    """
+    Test that concurrent document updates don't get overwritten by reindexing.
+    As we only update embedding and embedding_model, other fields are preserved.
+    """
+    opensearch_client_ = opensearch_client()
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+        ]
+    )
+    prepare_index(SERVICE_NAME, documents)
+    enable_hybrid_search(settings)
+
+    updated_title = "updated dog"
+    # add a side_effect on the search to simulate a concurrent update
+    patch(
+        "core.services.opensearch.opensearch_client_.search",
+        side_effect=opensearch_client_.update(
+            index=SERVICE_NAME,
+            id=documents[1]["id"],
+            body={"doc": {"title": updated_title}},
+        ),
+    )
+
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    result = reindex_with_embedding(SERVICE_NAME)
+    assert result["nb_success_embedding"] == 2
+    assert result["nb_failed_embedding"] == 0
+
+    opensearch_client_.indices.refresh(index=SERVICE_NAME)
+    embedded_index = opensearch_client_.search(
+        index=SERVICE_NAME, size=2, body={"query": {"match_all": {}}}
+    )
+    # Check that the latest update is preserved
+    dog_doc = [
+        hit
+        for hit in embedded_index["hits"]["hits"]
+        if hit["_source"]["title"] == updated_title
+    ]
+    assert len(dog_doc) == 1
+    # the embedding has been done
+    assert (
+        dog_doc[0]["_source"]["embedding"]
+        == albert_embedding_response.response["data"][0]["embedding"]
+    )
+    assert dog_doc[0]["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
 
 
 def test_reindex_command_but_hybrid_search_is_disabled():
