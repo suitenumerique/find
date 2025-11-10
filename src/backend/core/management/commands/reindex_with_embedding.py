@@ -94,7 +94,17 @@ def reindex_with_embedding(index_name, batch_size=500):
                 f"<{source.get('text')}>:<{source.get('content')}>"  # TODO: refactor
             )
             if embedding:
-                actions.append({"update": {"_id": hit["_id"]}})
+                actions.append(
+                    {
+                        "update": {
+                            "_id": hit["_id"],
+                            # if_seq_no and if_primary_term ensure we only update indexes
+                            # if the document hasn't changed
+                            "if_seq_no": hit["_seq_no"],
+                            "if_primary_term": hit["_primary_term"],
+                        }
+                    }
+                )
                 actions.append(
                     {
                         "doc": {

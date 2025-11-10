@@ -203,7 +203,15 @@ def test_reindex_can_fail_and_restart(settings):
 def test_reindex_preserves_concurrent_updates(settings):
     """
     Test that concurrent document updates don't get overwritten by reindexing.
-    As we only update embedding and embedding_model, other fields are preserved.
+    This test simulates the fallowing scenario:
+    • the hybrid search is disabled
+    • documents are created and indexed without indexing
+    • the hybrid search is enabled
+    • the reindexing is triggered
+    • one document is updated while the reindexing is still running
+    Because the updated document is modified after the hybrid search is enabled,
+    it has properly been indexed with embedding, the reindexing command must
+    ignore this document to preserve this latest update.
     """
     opensearch_client_ = opensearch_client()
     documents = bulk_create_documents(
@@ -216,13 +224,22 @@ def test_reindex_preserves_concurrent_updates(settings):
     enable_hybrid_search(settings)
 
     updated_title = "updated dog"
+    updated_embedding = [
+        1.0
+    ] * settings.EMBEDDING_DIMENSION  # dummy embedding to simulate concurrent update
     # add a side_effect on the search to simulate a concurrent update
     patch(
         "core.services.opensearch.opensearch_client_.search",
         side_effect=opensearch_client_.update(
             index=SERVICE_NAME,
             id=documents[1]["id"],
-            body={"doc": {"title": updated_title}},
+            body={
+                "doc": {
+                    "title": updated_title,
+                    "embedding": updated_embedding,
+                    "embedding_model": settings.EMBEDDING_API_MODEL_NAME,
+                }
+            },
         ),
     )
 
@@ -247,11 +264,7 @@ def test_reindex_preserves_concurrent_updates(settings):
         if hit["_source"]["title"] == updated_title
     ]
     assert len(dog_doc) == 1
-    # the embedding has been done
-    assert (
-        dog_doc[0]["_source"]["embedding"]
-        == albert_embedding_response.response["data"][0]["embedding"]
-    )
+    assert dog_doc[0]["_source"]["embedding"] == updated_embedding
     assert dog_doc[0]["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
 
 
