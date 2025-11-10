@@ -37,6 +37,7 @@ HYBRID_SEARCH_WEIGHTS = 0.7,0.3
 # Embedding
 EMBEDDING_API_PATH = https://embedding.api.example.com/full/path/
 EMBEDDING_API_KEY = your-embedding-api-key
+EMBEDDING_REQUEST_TIMEOUT = 10
 EMBEDDING_API_MODEL_NAME = embedding-api-model-name
 EMBEDDING_DIMENSION = 1024
 ```

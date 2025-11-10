@@ -218,8 +218,13 @@ def get_params(query_keys):
 
 
 def embed_document(document):
-    """Get embedding vector for the given document"""
-    return embed_text(f"<{document.title}>:<{document.content}>")
+    """Get embedding vector for a given document"""
+    return embed_text(format_document(document.title, document.content))
+
+
+def format_document(title, content):
+    """Get the embedding input format for a document"""
+    return f"<{title}>:<{content}>"
 
 
 def embed_text(text):
@@ -235,7 +240,7 @@ def embed_text(text):
             "dimensions": settings.EMBEDDING_DIMENSION,
             "encoding_format": "float",
         },
-        timeout=10,
+        timeout=settings.EMBEDDING_REQUEST_TIMEOUT,
     )
 
     try:

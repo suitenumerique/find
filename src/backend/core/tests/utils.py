@@ -33,6 +33,7 @@ def enable_hybrid_search(settings):
     settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
     settings.EMBEDDING_API_KEY = "test-api-key"
     settings.EMBEDDING_API_PATH = "https://test.embedding.api/v1/embeddings"
+    settings.EMBEDDING_REQUEST_TIMEOUT = 10
     settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
     settings.EMBEDDING_DIMENSION = 1024
     ensure_search_pipeline_exists()
@@ -74,11 +75,11 @@ def prepare_index(index_name, documents: List, cleanup=True):
         {
             "_op_type": "index",
             "_index": index_name,
-            "_id": doc["id"],
+            "_id": document["id"],
             "_source": {
-                **{k: v for k, v in doc.items() if k != "id"},
+                **{k: v for k, v in document.items() if k != "id"},
                 "embedding": opensearch.embed_text(
-                    f"<{doc['title']}:<{doc['content']}>"
+                    opensearch.format_document(document["title"], document["content"])
                 )
                 if check_hybrid_search_enabled()
                 else None,
@@ -87,7 +88,7 @@ def prepare_index(index_name, documents: List, cleanup=True):
                 else None,
             },
         }
-        for doc in documents
+        for document in documents
     ]
     bulk(opensearch.opensearch_client(), actions)
 

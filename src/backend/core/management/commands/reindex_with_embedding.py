@@ -12,6 +12,7 @@ from opensearchpy.exceptions import NotFoundError
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     embed_text,
+    format_document,
     opensearch_client,
 )
 
@@ -51,7 +52,7 @@ class Command(BaseCommand):
         )
 
 
-def reindex_with_embedding(index_name, batch_size=500):
+def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
     """
     Reindex documents from source index to destination index with embeddings.
 
@@ -60,7 +61,7 @@ def reindex_with_embedding(index_name, batch_size=500):
     opensearch_client_ = opensearch_client()
     page = opensearch_client_.search(
         index=index_name,
-        scroll="10m",
+        scroll=scroll,
         size=batch_size,
         seq_no_primary_term=True,
         body={
@@ -91,7 +92,7 @@ def reindex_with_embedding(index_name, batch_size=500):
         for hit in page["hits"]["hits"]:
             source = hit["_source"]
             embedding = embed_text(
-                f"<{source.get('text')}>:<{source.get('content')}>"  # TODO: refactor
+                format_document(source.get("title", ""), source.get("content", ""))
             )
             if embedding:
                 actions.append(
@@ -118,7 +119,7 @@ def reindex_with_embedding(index_name, batch_size=500):
                 nb_failed_embedding += 1
 
         opensearch_client_.bulk(index=index_name, body=actions)
-        page = opensearch_client_.scroll(scroll_id=page["_scroll_id"], scroll="5m")
+        page = opensearch_client_.scroll(scroll_id=page["_scroll_id"], scroll=scroll)
 
     opensearch_client_.clear_scroll(scroll_id=page["_scroll_id"])
     return {
