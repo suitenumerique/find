@@ -69,6 +69,7 @@ src/frontend/tsclient
 .pylint.d
 .pytest_cache
 db.sqlite3
+*history.sqlite    
 .mypy_cache
 
 # Site media
@@ -79,3 +80,7 @@ db.sqlite3
 .vscode/
 *.iml
 .devcontainer
+.vscode-server
+
+#pdb
+*.pdbhistory

@@ -2,8 +2,11 @@
 
 import base64
 import json
+import logging
 from functools import partial
 from typing import List
+
+from django.conf import settings as django_settings
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -11,14 +14,53 @@ from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
+from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
-from core import opensearch
+from core import factories
+from core.management.commands.create_search_pipeline import (
+    ensure_search_pipeline_exists,
+)
+from core.services import opensearch
+from core.services.opensearch import check_hybrid_search_enabled
+
+logger = logging.getLogger(__name__)
+
+
+def enable_hybrid_search(settings):
+    """Enable hybrid search settings for tests."""
+    settings.HYBRID_SEARCH_ENABLED = True
+    settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
+    settings.EMBEDDING_API_KEY = "test-api-key"
+    settings.EMBEDDING_API_PATH = "https://test.embedding.api/v1/embeddings"
+    settings.EMBEDDING_REQUEST_TIMEOUT = 10
+    settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
+    settings.EMBEDDING_DIMENSION = 1024
+    ensure_search_pipeline_exists()
+
+
+def bulk_create_documents(document_payloads):
+    """Create documents in bulk from payloads"""
+    return [
+        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
+        for document_payload in document_payloads
+    ]
+
+
+def delete_search_pipeline():
+    """Delete the hybrid search pipeline if it exists"""
+    try:
+        opensearch.opensearch_client().transport.perform_request(
+            method="DELETE",
+            url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
+        )
+    except NotFoundError:
+        logger.info("Search pipeline not found, nothing to delete.")
 
 
 def delete_test_indices():
     """Drop all search index containing the 'test' word"""
-    opensearch.client.indices.delete(index="*test*")
+    opensearch.opensearch_client().indices.delete(index="*test*")
 
 
 def prepare_index(index_name, documents: List, cleanup=True):
@@ -33,17 +75,27 @@ def prepare_index(index_name, documents: List, cleanup=True):
         {
             "_op_type": "index",
             "_index": index_name,
-            "_id": doc["id"],
-            "_source": {k: v for k, v in doc.items() if k != "id"},
+            "_id": document["id"],
+            "_source": {
+                **{k: v for k, v in document.items() if k != "id"},
+                "embedding": opensearch.embed_text(
+                    opensearch.format_document(document["title"], document["content"])
+                )
+                if check_hybrid_search_enabled()
+                else None,
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                if check_hybrid_search_enabled()
+                else None,
+            },
         }
-        for doc in documents
+        for document in documents
     ]
-    bulk(opensearch.client, actions)
+    bulk(opensearch.opensearch_client(), actions)
 
     # Force refresh again so all changes are visible to search
-    opensearch.client.indices.refresh(index=index_name)
+    opensearch.opensearch_client().indices.refresh(index=index_name)
 
-    count = opensearch.client.count(index=index_name)["count"]
+    count = opensearch.opensearch_client().count(index=index_name)["count"]
     assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 

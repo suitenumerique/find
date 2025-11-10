@@ -49,3 +49,8 @@ OIDC_RS_SIGN_ALGO=RS256
 
 OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
 OIDC_RS_ENCRYPTION_KEY_TYPE="RSA"
+
+# Hybrid Search settings
+HYBRID_SEARCH_ENABLED=True
+EMBEDDING_API_KEY=ThisIsAnExampleKeyForDevPurposeOnly
+EMBEDDING_API_PATH=https://albert.api.etalab.gouv.fr/v1/embeddings

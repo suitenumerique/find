@@ -262,6 +262,35 @@ class Base(Configuration):
 
     AUTH_USER_MODEL = "core.User"
 
+    # Hybrid Search settings
+    HYBRID_SEARCH_ENABLED = values.BooleanValue(
+        default=False, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None
+    )
+    HYBRID_SEARCH_PIPELINE_ID = "hybrid-search-pipeline"
+    HYBRID_SEARCH_WEIGHTS = values.ListValue(
+        default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
+    )
+    EMBEDDING_API_PATH = values.Value(
+        # embedding is the vector representation of a document used for semantic search
+        default="None",
+        environment_name="EMBEDDING_API_PATH",
+        environ_prefix=None,
+    )
+    EMBEDDING_API_KEY = values.Value(
+        default=None, environ_name="EMBEDDING_API_KEY", environ_prefix=None
+    )
+    EMBEDDING_REQUEST_TIMEOUT = values.Value(
+        default=10, environ_name="EMBEDDING_REQUEST_TIMEOUT", environ_prefix=None
+    )
+    EMBEDDING_API_MODEL_NAME = values.Value(
+        default="embeddings-small",
+        environ_name="EMBEDDING_API_MODEL_NAME",
+        environ_prefix=None,
+    )
+    EMBEDDING_DIMENSION = values.IntegerValue(
+        default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
+    )
+
     # CORS
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)

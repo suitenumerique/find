@@ -8,7 +8,8 @@ from django.utils import timezone
 import pytest
 from rest_framework.test import APIClient
 
-from core import factories, opensearch
+from core import factories
+from core.services import opensearch
 
 pytestmark = pytest.mark.django_db
 
@@ -59,14 +60,15 @@ def test_api_documents_index_bulk_success():
 
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be create the opensearch index if need."""
+    opensearch_client_ = opensearch.opensearch_client()
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
     # Delete the index
-    opensearch.client.indices.delete(index="*test*")
+    opensearch_client_.indices.delete(index="*test*")
 
     with pytest.raises(opensearch.NotFoundError):
-        opensearch.client.indices.get(index="test-service")
+        opensearch_client_.indices.get(index="test-service")
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -81,7 +83,7 @@ def test_api_documents_index_bulk_ensure_index():
     assert [d["status"] for d in responses] == ["success"] * 3
 
     # The index has been rebuilt
-    opensearch.client.indices.get(index="test-service")
+    opensearch_client_.indices.get(index="test-service")
 
 
 @pytest.mark.parametrize(
@@ -288,7 +290,7 @@ def test_api_documents_index_bulk_default(field, default_value):
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
 
-    indexed_document = opensearch.client.get(
+    indexed_document = opensearch.opensearch_client().get(
         index=service.name, id=responses[0]["_id"]
     )["_source"]
     assert indexed_document[field] == default_value
@@ -389,7 +391,7 @@ def test_api_documents_index_opensearch_errors():
     service = factories.ServiceFactory(name="test-service")
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    with mock.patch.object(opensearch.client, "bulk") as mock_bulk:
+    with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
         mock_bulk.return_value = {
             "items": [
                 {"index": {"status": 201}},

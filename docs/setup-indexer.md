@@ -6,9 +6,11 @@ are visible.
 
 ## Setup Opensearch
 
-Add the following settings to your Django settings for the Find application.
+### General
 
-```shell
+Add the following variables to your Django settings to configure Find and enable full-text search.
+
+```python
 # Login for opensearch
 OPENSEARCH_USER=opensearch-user
 OPENSEARCH_PASSWORD=your-opensearch-password
@@ -20,6 +22,29 @@ OPENSEARCH_PORT=9200
 # Enable SSL for opensearch connection (False in dev mode)
 OPENSEARCH_USE_SSL=True
 ```
+
+### Semantic search
+
+Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the fallowing settings. 
+
+```python
+# Enable flag
+HYBRID_SEARCH_ENABLED = True
+
+# weighted sum: full_text_weight, semantic_search_weight
+HYBRID_SEARCH_WEIGHTS = 0.7,0.3
+
+# Embedding
+EMBEDDING_API_PATH = https://embedding.api.example.com/full/path/
+EMBEDDING_API_KEY = your-embedding-api-key
+EMBEDDING_REQUEST_TIMEOUT = 10
+EMBEDDING_API_MODEL_NAME = embedding-api-model-name
+EMBEDDING_DIMENSION = 1024
+```
+
+The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 
+
+You need to use an embedding api similar to https://albert.api.etalab.gouv.fr/documentation#tag/Embeddings/operation/embeddings_v1_embeddings_post. 
 
 ## Setup indexation API
 

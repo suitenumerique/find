@@ -2,6 +2,7 @@
 
 import logging
 
+from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
@@ -10,11 +11,17 @@ from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
 
-from . import enums, schemas
+from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service
-from .opensearch import client, ensure_index_exists
 from .permissions import IsAuthAuthenticated
+from .services.opensearch import (
+    check_hybrid_search_enabled,
+    embed_document,
+    ensure_index_exists,
+    opensearch_client,
+    search,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +87,7 @@ class IndexDocumentView(views.APIView):
               errors.
         """
         index_name = request.auth.name
+        opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
             # Bulk indexing several documents
@@ -98,7 +106,15 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = document.model_dump()
+                    document_dict = {
+                        **document.model_dump(),
+                        "embedding": embed_document(document)
+                        if check_hybrid_search_enabled()
+                        else None,
+                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+                        if check_hybrid_search_enabled()
+                        else None,
+                    }
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -110,7 +126,7 @@ class IndexDocumentView(views.APIView):
             # Build index if needed.
             ensure_index_exists(index_name)
 
-            response = client.bulk(index=index_name, body=actions)
+            response = opensearch_client_.bulk(index=index_name, body=actions)
             for i, item in enumerate(response["items"]):
                 if item["index"]["status"] != 201:
                     results[i]["status"] = "error"
@@ -124,13 +140,21 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = document.model_dump()
+        document_dict = {
+            **document.model_dump(),
+            "embedding": embed_document(document)
+            if check_hybrid_search_enabled()
+            else None,
+            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+            if check_hybrid_search_enabled()
+            else None,
+        }
         _id = document_dict.pop("id")
 
         # Build index if needed.
         ensure_index_exists(index_name)
 
-        client.index(index=index_name, body=document_dict, id=_id)
+        opensearch_client_.index(index=index_name, body=document_dict, id=_id)
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
@@ -148,7 +172,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
     authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
 
-    def _get_opensearch_indices(self, audience, services):
+    @staticmethod
+    def _get_opensearch_indices(audience, services):
         # Get request user service
         try:
             user_service = Service.objects.get(client_id=audience, is_active=True)
@@ -191,11 +216,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         order_direction : str, optional
             Order direction, 'asc' for ascending or 'desc' for descending.
             Defaults to 'desc'.
-        page_number : int, optional
-            The page number to retrieve.
-            Defaults to 1 if not specified.
-        page_size : int, optional
-            The number of results to return per page.
+        nb_results : int, optional
+            The number of results to return.
             Defaults to 50 if not specified.
         services: List[str], optional
             List of services on which we intend to run the query (current service if left empty)
@@ -219,10 +241,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         # Extract and validate query parameters using Pydantic schema
         params = schemas.SearchQueryParametersSchema(**request.data)
 
-        # Compute pagination parameters
-        from_value = (params.page_number - 1) * params.page_size
-        size_value = params.page_size
-
         # Get index list for search query
         try:
             search_indices = self._get_opensearch_indices(
@@ -231,85 +249,16 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Prepare the search query
-        search_body = {
-            "_source": enums.SOURCE_FIELDS,  # limit the fields to return
-            "script_fields": {
-                "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-            },
-            "query": {"bool": {"must": [], "filter": []}},
-            "sort": [],
-            "from": from_value,
-            "size": size_value,
-        }
-
-        # Adding the text query
-        if params.q == "*":
-            search_body["query"]["bool"]["must"].append({"match_all": {}})
-        else:
-            search_body["query"]["bool"]["must"].append(
-                {
-                    "multi_match": {
-                        "query": params.q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                }
-            )
-
-        # Add sorting logic based on relevance or specified field
-        if params.order_by == enums.RELEVANCE:
-            search_body["sort"].append({"_score": {"order": params.order_direction}})
-        else:
-            search_body["sort"].append(
-                {params.order_by: {"order": params.order_direction}}
-            )
-
-        # Apply access control based on documents reach
-        search_body["query"]["bool"]["must"].append(
-            {
-                "bool": {
-                    "should": [
-                        # Access control on public & authenticated reach
-                        {
-                            "bool": {
-                                "must_not": {
-                                    "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                                },
-                                # Limit search to already visited documents.
-                                "must": {
-                                    "terms": {
-                                        "_id": sorted(params.visited),
-                                    }
-                                },
-                            },
-                        },
-                        # Access control on restricted search : either user or group should match
-                        {"term": {enums.USERS: user_sub}},
-                        {"terms": {enums.GROUPS: groups}},
-                    ],
-                    # At least one of the 2 optional should clauses must apply
-                    "minimum_should_match": 1,
-                }
-            }
-        )
-
-        # Optional filter by reach if explicitly provided in the query
-        if params.reach is not None:
-            search_body["query"]["bool"]["filter"].append(
-                {"term": {enums.REACH: params.reach}}
-            )
-
-        # Always filter out inactive documents
-        search_body["query"]["bool"]["filter"].append({"term": {"is_active": True}})
-
-        response = client.search(  # pylint: disable=unexpected-keyword-arg
-            index=",".join(search_indices),
-            body=search_body,
-            # Argument added by the query_params() decorator of opensearch and
-            # not in the method declaration.
-            ignore_unavailable=True,
+        response = search(
+            q=params.q,
+            nb_results=params.nb_results,
+            order_by=params.order_by,
+            order_direction=params.order_direction,
+            search_indices=search_indices,
+            reach=params.reach,
+            visited=params.visited,
+            user_sub=user_sub,
+            groups=groups,
         )
 
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

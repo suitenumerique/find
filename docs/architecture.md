@@ -9,4 +9,5 @@ flowchart TD
     Back -- REST API --> Opensearch
     Back <--> Celery --> DB
     User -- HTTP --> Dashboard --> Opensearch
+    Back -- REST API --> Embedding Endpoint
 ```

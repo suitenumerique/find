@@ -114,5 +114,4 @@ class SearchQueryParametersSchema(BaseModel):
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
-    page_number: Optional[conint(ge=1)] = Field(default=1)
-    page_size: Optional[conint(ge=1, le=100)] = Field(default=50)
+    nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
