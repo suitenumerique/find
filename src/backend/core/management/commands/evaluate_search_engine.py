@@ -8,10 +8,21 @@ import math
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
+from core.management.commands.create_search_pipeline import (
+    ensure_search_pipeline_exists,
+)
 from core.management.commands.data.evaluation.documents import documents
 from core.management.commands.data.evaluation.queries import queries
-from core.services.opensearch import ensure_index_exists, opensearch_client, search
-from core.tests.utils import bulk_create_documents, enable_hybrid_search, prepare_index
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    opensearch_client,
+    search,
+)
+from core.tests.utils import (
+    bulk_create_documents,
+    delete_search_pipeline,
+    prepare_index,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +43,16 @@ class Command(BaseCommand):
         "groups": [],
         "visited": [],
     }
-    id_to_title_map = {}
+    id_to_title = {}
 
     def add_arguments(self, parser):
-        pass
+        parser.add_argument(
+            "--min_score",
+            dest="min_score",
+            type=float,
+            default=0.0,
+            help="hits with a score lower than min_score are ignored",
+        )
 
     def handle(self, *args, **options):
         """Launch the search engine evaluation."""
@@ -43,67 +60,79 @@ class Command(BaseCommand):
         self.stdout.write(
             f"[INFO] Starting evaluation with {len(documents)} documents and {len(queries)} queries"
         )
-        prepare_index(self.index_name, bulk_create_documents(documents))
-        self.enable_hybrid_search()
-        self.id_to_title_map = self.get_id_to_title_map(documents)
+        self.init_evaluation()
 
-        evaluations = []
-        for index, query in enumerate(queries):
-            results = search(q=query["q"], **self.search_params)
-
-            expected_titles = [
-                self.id_to_title_map[document_id]
-                for document_id in query["expected_document_ids"]
-            ]
-            retrieved_ordered_titles = [
-                result["_source"]["title"] for result in results["hits"]["hits"]
-            ]
-
-            metrics = self.calculate_metrics(expected_titles, retrieved_ordered_titles)
-
-            evaluations.append(
-                {
-                    "q": query["q"],
-                    "expected_titles": expected_titles,
-                    "retrieved_titles": retrieved_ordered_titles,
-                    "metrics": metrics,
-                }
-            )
-            self.stdout.write(
-                f"\n[QUERY EVALUATION] {index + 1}/{len(queries)}\n"
-                f"  q: {query['q']}\n"
-                f"  expect: {list(expected_titles)}\n"
-                f"  result: {list(retrieved_ordered_titles)}\n"
-                f"  NDCG: {metrics['ndcg']:.2%} \n"
-                f"  DCG: {metrics['dcg']:.2%} \n"
-                f"  PRECISION: {metrics['precision']:.2%} \n"
-                f"  RECALL: {metrics['recall']:.2%} \n"
-                f"  F1-SCORE: {metrics['f1_score']:.2%} \n"
-            )
+        evaluations = [
+            self.evaluate_query(query, options["min_score"]) for query in queries
+        ]
 
         avg_metrics = self.calculate_average_metrics(evaluations)
         self.stdout.write(
             f"\n{'=' * 60}\n"
             f"[SUMMARY] Average Performance\n"
             f"{'=' * 60}\n"
+            f"  Average NDCG: {avg_metrics['avg_ndcg']:.2%}\n"
+            f"  Average DCG: {avg_metrics['avg_dcg']:.2%}\n"
             f"  Average Precision: {avg_metrics['avg_precision']:.2%}\n"
             f"  Average Recall: {avg_metrics['avg_recall']:.2%}\n"
             f"  Average F1-Score: {avg_metrics['avg_f1_score']:.2%}\n"
         )
 
-        self.clear_index()
+        self.close_evaluation()
         self.stdout.write(self.style.SUCCESS("\n[SUCCESS] Evaluation completed"))
 
-    def get_id_to_title_map(self, documents):
+    def init_evaluation(self):
+        """Initialize evaluation by preparing index and mapping."""
+        self.overwrite_settings()
+        check_hybrid_search_enabled.cache_clear()
+        delete_search_pipeline()
+        ensure_search_pipeline_exists()
+        prepare_index(self.index_name, bulk_create_documents(documents))
+        self.id_to_title = self.get_id_to_title(documents)
+
+    def get_id_to_title(self, documents):
         """Create a mapping from document IDs to titles."""
 
         return {document["id"]: document["title"] for document in documents}
+
+    def evaluate_query(self, query, min_score=0.0):
+        """Evaluate a single query and return metrics."""
+        results = search(q=query["q"], **self.search_params)
+        expected_titles = [
+            self.id_to_title[document_id]
+            for document_id in query["expected_document_ids"]
+        ]
+        retrieved_ordered_titles = [
+            result["_source"]["title"]
+            for result in results["hits"]["hits"]
+            if result["_score"] >= min_score
+        ]
+
+        metrics = self.calculate_metrics(expected_titles, retrieved_ordered_titles)
+
+        self.stdout.write(
+            f"\n[QUERY EVALUATION]\n"
+            f"  q: {query['q']}\n"
+            f"  expect: {list(expected_titles)}\n"
+            f"  result: {list(retrieved_ordered_titles)}\n"
+            f"  NDCG: {metrics['ndcg']:.2%} \n"
+            f"  DCG: {metrics['dcg']:.2%} \n"
+            f"  PRECISION: {metrics['precision']:.2%} \n"
+            f"  RECALL: {metrics['recall']:.2%} \n"
+            f"  F1-SCORE: {metrics['f1_score']:.2%} \n"
+        )
+        return {
+            "q": query["q"],
+            "expected_titles": expected_titles,
+            "retrieved_titles": retrieved_ordered_titles,
+            "metrics": metrics,
+        }
 
     def calculate_metrics(self, expected_ordered_titles, retrieved_ordered_titles):
         """Calculate precision, recall, F1-score, DCG and NDCG."""
 
         dcg = self.calculate_dcg(expected_ordered_titles, retrieved_ordered_titles)
-        idcg = self.calculate_idcg(expected_ordered_titles)
+        idcg = self.calculate_dcg(expected_ordered_titles, expected_ordered_titles)
         ndcg = dcg / idcg if idcg > 0 else 0
         nb_true_positives = len(
             set(expected_ordered_titles) & set(retrieved_ordered_titles)
@@ -142,12 +171,6 @@ class Command(BaseCommand):
             ]
         ) / len(expected_titles)
 
-    def calculate_idcg(self, expected_ordered_titles):
-        """Calculate Ideal Discounted Cumulative Gain."""
-        return sum(
-            [1 / math.log2(rank + 2) for rank in range(len(expected_ordered_titles))]
-        ) / len(expected_ordered_titles)
-
     def calculate_average_metrics(self, evaluations):
         """Calculate average metrics across all queries."""
         if not evaluations:
@@ -168,18 +191,17 @@ class Command(BaseCommand):
             "avg_f1_score": total_f1 / nb_evaluations,
         }
 
-    def clear_index(self):
+    def close_evaluation(self):
         """Delete the evaluation index."""
         self.opensearch_client_.indices.delete(index=self.index_name)
-        self.stdout.write(f"[INFO] Cleaned up index: {self.index_name}")
+        delete_search_pipeline()
 
     @staticmethod
-    def enable_hybrid_search():
+    def overwrite_settings():
         """Set settings to enable hybrid search."""
         settings.HYBRID_SEARCH_ENABLED = True
-        settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
+        settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]  # evaluate only embedding search
         settings.EMBEDDING_API_KEY = "sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjozODIsInRva2VuX2lkIjo0MTQ0LCJleHBpcmVzX2F0IjoxNzkyNjIwMDAwfQ.sZ4c\_JHZeNNHd3nKhrCW345CarKksUrfTA4u3g9zDTE"
-        settings.HYBRID_SEARCH_ENABLED = True
         settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
         settings.EMBEDDING_REQUEST_TIMEOUT = 10
         settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
