@@ -247,6 +247,17 @@ class Base(Configuration):
         default="find", environ_name="OPENSEARCH_INDEX_PREFIX", environ_prefix=None
     )
 
+    # IndexerTaskService settings
+    INDEXER_FORCE_REFRESH = values.BooleanValue(
+        default=False, environ_name="INDEXER_FORCE_REFRESH", environ_prefix=None
+    )
+    INDEXER_DOWNLOAD_TIMEOUT = values.IntegerValue(
+        default=100, environ_name="INDEXER_DOWNLOAD_TIMEOUT", environ_prefix=None
+    )
+    INDEXER_TASK_COUNTDOWN = values.IntegerValue(
+        default=1, environ_name="INDEXER_TASK_COUNTDOWN", environ_prefix=None
+    )
+
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",
         "DESCRIPTION": "This is the find API schema.",
@@ -562,6 +573,7 @@ class Test(Base):
     USE_SWAGGER = True
 
     CELERY_TASK_ALWAYS_EAGER = values.BooleanValue(True)
+    INDEXER_FORCE_REFRESH = True
 
     def __init__(self):
         # pylint: disable=invalid-name

@@ -391,13 +391,20 @@ def test_api_documents_index_opensearch_errors():
     with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
         mock_bulk.return_value = {
             "items": [
-                {"index": {"status": 201}},
+                {"index": {"_id": documents[0]["id"], "status": 201}},
                 {
                     "index": {
+                        "_id": documents[1]["id"],
                         "status": 400,
                     }
                 },
-                {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
+                {
+                    "index": {
+                        "_id": documents[2]["id"],
+                        "status": 403,
+                        "error": {"reason": "This is forbidden"},
+                    }
+                },
             ]
         }
 

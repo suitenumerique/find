@@ -80,9 +80,13 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     new_indexed_document = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )
-    assert new_indexed_document["_version"] == 1
+
+    # already second version because the embedding as been done synchrously
+    assert new_indexed_document["_version"] == 2
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
     assert new_indexed_document["_source"]["content"] == document["content"]
+    assert new_indexed_document["_source"]["content_status"] == "ready"
+
     assert (
         new_indexed_document["_source"]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
@@ -157,6 +161,8 @@ def test_api_documents_index_single_ensure_index(settings):
             },
             "numchild": {"type": "integer"},
             "content": {"type": "text"},
+            "content_uri": {"type": "text", "index": False},
+            "content_status": {"type": "keyword", "index": False},
             "created_at": {"type": "date"},
             "updated_at": {"type": "date"},
             "size": {"type": "long"},
@@ -164,6 +170,8 @@ def test_api_documents_index_single_ensure_index(settings):
             "groups": {"type": "keyword"},
             "reach": {"type": "keyword"},
             "is_active": {"type": "boolean"},
+            "language": {"type": "keyword", "index": False},
+            "mimetype": {"type": "keyword", "index": False},
             "embedding": {
                 "type": "knn_vector",
                 "dimension": settings.EMBEDDING_DIMENSION,

@@ -25,3 +25,5 @@ and this project adheres to
 - 🐛(backend) Fix parallel test execution issues
 - ✨(backend) Add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
               issues if the opensearch database is shared between apps.
+- ✨(backend) Add IndexerTaskService to handle heavy indexation task asynchronously.
+
