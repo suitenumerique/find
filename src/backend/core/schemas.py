@@ -38,6 +38,8 @@ class DocumentSchema(BaseModel):
     )
     reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
     is_active: bool
+    mimetype: Annotated[str, Field(default="text/plain")]
+    language: Annotated[str, Field(default="en")]
 
     model_config = ConfigDict(
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True

@@ -2,8 +2,7 @@
 
 import logging
 
-from django.conf import settings
-from django.core.exceptions import SuspiciousOperation
+from django.core.exceptions import BadRequest, SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
@@ -13,15 +12,14 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
-from .models import Service, get_opensearch_index_name
+from .models import IndexDocument, Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
+from .services.indexer_services import IndexerTaskService
 from .services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_document,
-    ensure_index_exists,
     opensearch_client,
     search,
 )
+from .tasks.indexer import dispatch_indexing_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +34,22 @@ class IndexDocumentView(views.APIView):
 
     authentication_classes = [ServiceTokenAuthentication]
     permission_classes = [IsAuthAuthenticated]
+
+    def clean_document(self, data):
+        """
+        Returns a IndexDocument from request data.
+        """
+        try:
+            document = schemas.DocumentSchema(**data)
+        except PydanticValidationError as err:
+            raise BadRequest(
+                [
+                    {key: error[key] for key in ("msg", "type", "loc")}
+                    for error in err.errors()
+                ]
+            ) from err
+
+        return IndexDocument(**document.model_dump())
 
     # pylint: disable=too-many-locals
     def post(self, request, *args, **kwargs):
@@ -86,78 +100,67 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = request.auth.index_name
+        service = request.auth
         opensearch_client_ = opensearch_client()
+        indexer = IndexerTaskService(service, client=opensearch_client_)
 
+        # Bulk indexing several documents
         if isinstance(request.data, list):
-            # Bulk indexing several documents
+            is_valid = True
             results = []
-            actions = []
-            has_errors = False
+            documents = []
 
+            # Parse request data and raise on any validation error
             for i, document_data in enumerate(request.data):
                 try:
-                    document = schemas.DocumentSchema(**document_data)
-                except PydanticValidationError as excpt:
-                    errors = [
-                        {key: error[key] for key in ("msg", "type", "loc")}
-                        for error in excpt.errors()
-                    ]
-                    results.append({"index": i, "status": "error", "errors": errors})
-                    has_errors = True
-                else:
-                    document_dict = {
-                        **document.model_dump(),
-                        "embedding": embed_document(document)
-                        if check_hybrid_search_enabled()
-                        else None,
-                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-                        if check_hybrid_search_enabled()
-                        else None,
-                    }
-                    _id = document_dict.pop("id")
-                    actions.append({"index": {"_id": _id}})
-                    actions.append(document_dict)
-                    results.append({"index": i, "_id": _id, "status": "valid"})
+                    doc = self.clean_document(document_data)
+                    documents.append(doc)
+                    results.append({"index": i, "status": "valid", "_id": str(doc.id)})
+                except BadRequest as e:
+                    results.append({"index": i, "status": "error", "errors": e.args[0]})
+                    is_valid = False
 
-            if has_errors:
+            if not is_valid:
                 return Response(results, status=status.HTTP_400_BAD_REQUEST)
 
-            # Build index if needed.
-            ensure_index_exists(index_name)
+            # Indexing all documents
+            errors = indexer.index(documents)
 
-            response = opensearch_client_.bulk(index=index_name, body=actions)
-            for i, item in enumerate(response["items"]):
-                if item["index"]["status"] != 201:
-                    results[i]["status"] = "error"
-                    results[i]["message"] = (
-                        item["index"].get("error", {}).get("reason", "Unknown error")
-                    )
+            # Dispatch deferred indexation tasks for the documents
+            dispatch_indexing_tasks(service, documents)
+
+            # Update error status of documents
+            errors = {e.id: e for e in errors}
+
+            for result in results:
+                error = errors.get(result["_id"])
+
+                if error is None:
+                    result["status"] = "success"
                 else:
-                    results[i]["status"] = "success"
+                    result["status"] = "error"
+                    result["message"] = error.message
 
             return Response(results, status=status.HTTP_201_CREATED)
 
+        try:
+            document = self.clean_document(request.data)
+        except BadRequest as e:
+            return Response(e.args[0], status=status.HTTP_400_BAD_REQUEST)
+
         # Indexing a single document
-        document = schemas.DocumentSchema(**request.data)
-        document_dict = {
-            **document.model_dump(),
-            "embedding": embed_document(document)
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
-        _id = document_dict.pop("id")
+        errors = indexer.index((document,))
 
-        # Build index if needed.
-        ensure_index_exists(index_name)
+        if errors:
+            return Response(
+                {"status": "error", **errors[0]}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        opensearch_client_.index(index=index_name, body=document_dict, id=_id)
+        # Dispatch deferred indexation tasks for the document
+        dispatch_indexing_tasks(service, (document,))
 
         return Response(
-            {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
+            {"status": "created", "_id": document.id}, status=status.HTTP_201_CREATED
         )
 
 

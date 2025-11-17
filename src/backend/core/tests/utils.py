@@ -42,6 +42,11 @@ def enable_hybrid_search(settings):
     ensure_search_pipeline_exists()
 
 
+def refresh_index(index_name):
+    """Force refresh again so all changes are visible to search"""
+    opensearch.opensearch_client().indices.refresh(index=index_name)
+
+
 def bulk_create_documents(document_payloads):
     """Create documents in bulk from payloads"""
     return [
@@ -88,7 +93,7 @@ def prepare_index(index_name, documents: List):
     bulk(opensearch.opensearch_client(), actions)
 
     # Force refresh again so all changes are visible to search
-    opensearch.opensearch_client().indices.refresh(index=index_name)
+    refresh_index(index_name)
 
     count = opensearch.opensearch_client().count(index=index_name)["count"]
     assert count == len(documents), f"Expected {len(documents)}, got {count}"

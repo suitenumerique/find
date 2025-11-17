@@ -13,6 +13,14 @@ class ReachEnum(str, Enum):
     RESTRICTED = "restricted"
 
 
+class ContentStatusEnum(str, Enum):
+    """Content upload status for indexed documents"""
+
+    READY = "ready"
+    LOADED = "loaded"
+    WAIT = "wait"
+
+
 # Fields
 
 CREATED_AT = "created_at"
