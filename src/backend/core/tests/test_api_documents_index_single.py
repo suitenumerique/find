@@ -80,9 +80,13 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     new_indexed_document = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )
-    assert new_indexed_document["_version"] == 1
+
+    # already second version because the embedding as been done synchrously
+    assert new_indexed_document["_version"] == 2
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
     assert new_indexed_document["_source"]["content"] == document["content"]
+    assert new_indexed_document["_source"]["content_status"] == "ready"
+
     assert (
         new_indexed_document["_source"]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
@@ -157,6 +161,8 @@ def test_api_documents_index_single_ensure_index(settings):
             },
             "numchild": {"type": "integer"},
             "content": {"type": "text"},
+            "content_uri": {"type": "text", "index": False},
+            "content_status": {"type": "keyword", "index": False},
             "created_at": {"type": "date"},
             "updated_at": {"type": "date"},
             "size": {"type": "long"},
@@ -164,6 +170,7 @@ def test_api_documents_index_single_ensure_index(settings):
             "groups": {"type": "keyword"},
             "reach": {"type": "keyword"},
             "is_active": {"type": "boolean"},
+            "mimetype": {"type": "keyword", "index": False},
             "embedding": {
                 "type": "knn_vector",
                 "dimension": settings.EMBEDDING_DIMENSION,
@@ -288,6 +295,12 @@ def test_api_documents_index_single_ensure_index(settings):
             "invalid",
             "bool_parsing",
             "Input should be a valid boolean, unable to interpret input",
+        ),
+        (
+            "content_uri",
+            "notanurl",
+            "url_parsing",
+            "Input should be a valid URL, relative URL without a base",
         ),
     ],
 )
@@ -445,3 +458,29 @@ def test_api_documents_index_empty_content_check():
         == "Value error, Either title or content should have at least 1 character"
     )
     assert response.data[0]["type"] == "value_error"
+
+
+def test_api_documents_index_content_uri():
+    """Test document indexing with content_uri."""
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    document["content_uri"] = "http://localhost/mydoc"
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["_id"] == str(document["id"])
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+    assert new_indexed_document["_version"] == 1
+    assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
+    assert new_indexed_document["_source"]["content"] == document["content"]
+    assert new_indexed_document["_source"]["content_uri"] == "http://localhost/mydoc"

@@ -2,6 +2,10 @@
 
 import secrets
 import string
+from dataclasses import dataclass
+from dataclasses import field as datafield
+from typing import List, Optional
+from uuid import UUID
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
@@ -9,7 +13,10 @@ from django.db import models
 from django.db.models.functions import Length
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.utils.timezone import datetime
 from django.utils.translation import gettext_lazy as _
+
+from . import enums
 
 models.CharField.register_lookup(Length)
 TOKEN_LENGTH = 50
@@ -73,3 +80,58 @@ class Service(models.Model):
     def index_name(self):
         """Returns the opensearch index for the service"""
         return get_opensearch_index_name(self.name)
+
+
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class IndexDocument:
+    """Represents the _source data of opensearch entry"""
+
+    id: UUID
+    title: str = ""
+    depth: int = 0
+    path: str = ""
+    numchild: int = 0
+    content: str = ""
+    content_uri: str = ""
+    content_status: enums.ContentStatusEnum = enums.ContentStatusEnum.READY
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    size: int = 0
+    users: List[str] = datafield(default_factory=list)
+    groups: List[str] = datafield(default_factory=list)
+    reach: enums.ReachEnum = enums.ReachEnum.RESTRICTED
+    is_active: bool = True
+    mimetype: str = "text/plain"
+    embedding: Optional[str] = None
+    embedding_model: Optional[str] = None
+
+    @property
+    def is_waiting(self):
+        """Retuns true if in waiting status"""
+        return self.content_status == enums.ContentStatusEnum.WAIT
+
+    @property
+    def is_ready(self):
+        """Retuns true if in ready status"""
+        return self.content_status == enums.ContentStatusEnum.READY
+
+    @property
+    def is_loaded(self):
+        """Retuns true if in loaded status"""
+        return self.content_status == enums.ContentStatusEnum.LOADED
+
+    @staticmethod
+    def from_dict(data):
+        """Create an instance from dict data"""
+        document = IndexDocument(**data)
+        document.reach = enums.ReachEnum(document.reach)
+        document.content_status = enums.ContentStatusEnum(document.content_status)
+
+        if isinstance(document.created_at, str):
+            document.created_at = datetime.fromisoformat(document.created_at)
+
+        if isinstance(document.updated_at, str):
+            document.updated_at = datetime.fromisoformat(document.updated_at)
+
+        return document
