@@ -124,7 +124,7 @@ documents = [
     {
         "id": 25,
         "title": "L'Ours polaire",
-        "content": "L'ours polaire est le plus grand carnivore terrestre, pouvant peser jusqu'à 800 kg. Sa fourrure blanche et sa peau noire lui permettent d'absorber la chaleur du soleil. Excellent nageur, il peut parcourir 100 km sans s'arrêter et plonger jusqu'à 4 mètres. Son odorat est si développé qu'il peut détecter un phoque sous 1 mètre de glace à 1,5 km. Le réchauffement climatique menace gravement son habitat.",
+        "content": "L'ours polaire est le plus grand carnivore terrestre, pouvant peser jusqu'à 800 kg. Sa fourrure blanche et sa peau noire lui permettent d'absorber la chaleur du soleil. Son odorat est si développé qu'il peut détecter un phoque sous 1 mètre de glace à 1,5 km. Le réchauffement climatique menace gravement son habitat.",
     },
     {
         "id": 26,
@@ -199,7 +199,7 @@ documents = [
     {
         "id": 40,
         "title": "Le Paresseux",
-        "content": "Le paresseux se déplace si lentement que des algues poussent sur sa fourrure, lui donnant un camouflage verdâtre. Il descend de son arbre une fois par semaine pour déféquer, moment où il est le plus vulnérable. Son métabolisme est le plus lent de tous les mammifères non-hibernants. Il peut tourner sa tête à 270 degrés pour surveiller les prédateurs. Les paresseux passent 90% de leur vie suspendus la tête en bas et peuvent même dormir ainsi.",
+        "content": "Le paresseux se déplace si lentement que des algues poussent sur sa fourrure, lui donnant un camouflage verdâtre. Il descend de son arbre une fois par semaine pour déféquer, moment où il est le plus vulnérable. Son métabolisme est le plus lent de tous les non-hibernants. Il peut tourner sa tête à 270 degrés pour surveiller les prédateurs. Les paresseux passent 90% de leur vie suspendus la tête en bas et peuvent même dormir ainsi.",
     },
     # Recettes de cuisine
     {
@@ -368,7 +368,7 @@ documents = [
         "title": "La Gravure",
         "content": "La gravure est une technique d'impression où l'artiste incise une matrice (bois, métal, pierre) pour créer des estampes multiples. La xylogravie (bois) est la plus ancienne, utilisée par Dürer et les estampes japonaises ukiyo-e. La taille-douce (métal) comprend l'eau-forte, l'aquatinte et le burin, prisées par Rembrandt et Goya. La lithographie, inventée en 1796, permet des nuances subtiles exploitées par Toulouse-Lautrec. Chaque tirage est numéroté et signé par l'artiste.",
     },
-    # full text french analyser articles
+    # full text french analyzer articles
     {
         "id": 74,
         "title": "L'éléphant",

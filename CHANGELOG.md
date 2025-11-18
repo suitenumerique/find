@@ -11,6 +11,7 @@ and this project adheres to
 ## Added
 
 - ✨(backend) add semantic search
+- ✨(backend) add evaluation command
 - backend application
 - helm chart
 - 🐛(backend) fix missing index creation in 'index/' view
