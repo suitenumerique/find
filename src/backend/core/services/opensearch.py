@@ -159,15 +159,14 @@ def get_full_text_query(q):
                     "multi_match": {
                         "query": q,
                         "fields": ["title.text^3", "content"],
-                        "boost": 1,
                     }
                 },
                 {
                     "multi_match": {
                         "query": q,
                         "fields": ["title.text.trigrams^3", "content.trigrams"],
-                        "boost": 0.25,
-                        "minimum_should_match": "75%",
+                        "boost": settings.TRIGRAMS_BOOST,
+                        "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
                     }
                 },
             ],

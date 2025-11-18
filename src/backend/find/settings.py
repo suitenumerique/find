@@ -266,6 +266,14 @@ class Base(Configuration):
 
     AUTH_USER_MODEL = "core.User"
 
+    # Trigrams search settings
+    TRIGRAMS_BOOST = values.Value(
+        default=0.25, environ_name="TRIGRAMS_BOOST", environ_prefix=None
+    )
+    TRIGRAMS_MINIMUM_SHOULD_MATCH = values.Value(
+        default="75%", environ_name="TRIGRAMS_MINIMUM_SHOULD_MATCH", environ_prefix=None
+    )
+
     # Hybrid Search settings
     HYBRID_SEARCH_ENABLED = values.BooleanValue(
         default=False, environ_name="HYBRID_SEARCH_ENABLED", environ_prefix=None

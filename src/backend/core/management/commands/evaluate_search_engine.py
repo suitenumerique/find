@@ -177,7 +177,7 @@ class Command(BaseCommand):
                 "avg_dcg": 0,
                 "avg_precision": 0,
                 "avg_recall": 0,
-                "avg_f1_score": 0
+                "avg_f1_score": 0,
             }
 
         total_ndcg = sum(r["metrics"]["ndcg"] for r in evaluations)
