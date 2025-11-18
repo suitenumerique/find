@@ -450,7 +450,7 @@ def test_embed_wrong_format(settings, caplog):
     assert embedding is None
 
 
-def test_opensearch_analyser(settings):
+def test_opensearch_analyzer(settings):
     """Test the french_analyzer is correctly configured in OpenSearch"""
     enable_hybrid_search(settings)
     ensure_index_exists(SERVICE_NAME)
@@ -480,7 +480,7 @@ def test_opensearch_analyser(settings):
 
     # lowercase is applied ("Gens" -> "gens")
     # asciifolding is applied ("éléphant" -> "elephant")
-    # stop words are removed ('a', 'avec', 'les')
+    # stop words are removed ('avec', 'les')
     # elisions are removed ("l'")
     # stemming is applied ("gens" -> "gen")
     assert french_analyzer_tokens == ["elephant", "a", "couru", "gen"]
