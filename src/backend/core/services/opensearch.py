@@ -151,6 +151,7 @@ def get_query(  # noqa : PLR0913
 
 
 def get_full_text_query(q):
+    """Build OpenSearch full-text query"""
     return {
         "bool": {
             "should": [
