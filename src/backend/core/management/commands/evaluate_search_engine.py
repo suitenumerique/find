@@ -2,6 +2,7 @@
 Evaluate search engine performance with test documents and queries.
 """
 
+import importlib
 import logging
 import math
 
@@ -11,8 +12,6 @@ from django.core.management.base import BaseCommand
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
-from core.management.commands.data.evaluation.documents import documents
-from core.management.commands.data.evaluation.queries import queries
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
@@ -43,9 +42,16 @@ class Command(BaseCommand):
         "groups": [],
         "visited": [],
     }
+    documents = []
+    queries = []
     id_to_title = {}
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            dest="dataset_name",
+            type=str,
+            help="Name of the dataset to use for evaluation",
+        )
         parser.add_argument(
             "--min_score",
             dest="min_score",
@@ -57,13 +63,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Launch the search engine evaluation."""
 
+        self.init_evaluation(options["dataset_name"])
+
         self.stdout.write(
-            f"[INFO] Starting evaluation with {len(documents)} documents and {len(queries)} queries"
+            f"[INFO] Starting evaluation with {len(self.documents)} documents and {len(self.queries)} queries"
         )
-        self.init_evaluation()
 
         evaluations = [
-            self.evaluate_query(query, options["min_score"]) for query in queries
+            self.evaluate_query(query, options["min_score"]) for query in self.queries
         ]
 
         avg_metrics = self.calculate_average_metrics(evaluations)
@@ -81,19 +88,29 @@ class Command(BaseCommand):
         self.close_evaluation()
         self.stdout.write(self.style.SUCCESS("\n[SUCCESS] Evaluation completed"))
 
-    def init_evaluation(self):
+    def init_evaluation(self, dataset_name):
         """Initialize evaluation by preparing index and mapping."""
+        self.documents = (
+            importlib.import_module(
+                f"core.management.commands.data.evaluation.{dataset_name}.documents"
+            )
+        ).documents
+        self.queries = (
+            importlib.import_module(
+                f"core.management.commands.data.evaluation.{dataset_name}.queries"
+            )
+        ).queries
         self.overwrite_settings()
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
-        prepare_index(self.index_name, bulk_create_documents(documents))
-        self.id_to_title = self.get_id_to_title(documents)
+        prepare_index(self.index_name, bulk_create_documents(self.documents))
+        self.id_to_title = self.build_id_to_title()
 
-    def get_id_to_title(self, documents):
+    def build_id_to_title(self):
         """Create a mapping from document IDs to titles."""
 
-        return {document["id"]: document["title"] for document in documents}
+        return {document["id"]: document["title"] for document in self.documents}
 
     def evaluate_query(self, query, min_score=0.0):
         """Evaluate a single query and return metrics."""
