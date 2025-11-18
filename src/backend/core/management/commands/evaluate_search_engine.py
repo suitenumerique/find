@@ -165,16 +165,20 @@ class Command(BaseCommand):
     def calculate_dcg(self, expected_titles, retrieved_ordered_titles):
         """Calculate Discounted Cumulative Gain."""
         return sum(
-            [
-                (1 if title in expected_titles else 0) / math.log2(rank + 2)
-                for rank, title in enumerate(retrieved_ordered_titles)
-            ]
+            (1 if title in expected_titles else 0) / math.log2(rank + 2)
+            for rank, title in enumerate(retrieved_ordered_titles)
         ) / len(expected_titles)
 
     def calculate_average_metrics(self, evaluations):
         """Calculate average metrics across all queries."""
         if not evaluations:
-            return {"avg_precision": 0, "avg_recall": 0, "avg_f1_score": 0}
+            return {
+                "avg_ndcg": 0,
+                "avg_dcg": 0,
+                "avg_precision": 0,
+                "avg_recall": 0,
+                "avg_f1_score": 0
+            }
 
         total_ndcg = sum(r["metrics"]["ndcg"] for r in evaluations)
         total_dcg = sum(r["metrics"]["dcg"] for r in evaluations)
@@ -200,7 +204,7 @@ class Command(BaseCommand):
     def overwrite_settings():
         """Overwrite settings for evaluation purposes."""
         settings.HYBRID_SEARCH_ENABLED = True
-        settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]  # evaluate only embedding search
+        settings.HYBRID_SEARCH_WEIGHTS = [0.2, 0.8]
         settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
         settings.EMBEDDING_REQUEST_TIMEOUT = 10
         settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
