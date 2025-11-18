@@ -40,12 +40,13 @@ def ensure_search_pipeline_exists():
                 "phase_results_processors": [
                     {
                         "normalization-processor": {
+                            "normalization": {"technique": "min_max"},
                             "combination": {
                                 "technique": "arithmetic_mean",
                                 "parameters": {
                                     "weights": settings.HYBRID_SEARCH_WEIGHTS
                                 },
-                            }
+                            },
                         }
                     }
                 ],

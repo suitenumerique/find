@@ -14,6 +14,8 @@ from core.services import opensearch
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     embed_text,
+    ensure_index_exists,
+    opensearch_client,
     search,
 )
 
@@ -63,6 +65,7 @@ def clear_caches():
     # is different and must be cleared separately
     check_hybrid_search_enabled_utils.cache_clear()
     delete_search_pipeline()
+    opensearch_client().indices.delete(index="*", ignore_unavailable=True)
 
 
 @responses.activate
@@ -445,3 +448,40 @@ def test_embed_wrong_format(settings, caplog):
     )
 
     assert embedding is None
+
+
+def test_opensearch_analyser(settings):
+    """Test the french_analyzer is correctly configured in OpenSearch"""
+    enable_hybrid_search(settings)
+    ensure_index_exists(SERVICE_NAME)
+
+    text = "l'éléphant a couru avec les Gens"
+
+    french_analyzer_response = opensearch_client().indices.analyze(
+        index=SERVICE_NAME,
+        body={
+            "analyzer": "french_analyzer",
+            "text": text,
+        },
+    )
+    french_analyzer_tokens = [token_info["token"] for token_info in french_analyzer_response["tokens"]]
+    response_trigram_analyzer = opensearch_client().indices.analyze(
+        index=SERVICE_NAME,
+        body={
+            "analyzer": "trigram_analyzer",
+            "text": text,
+        },
+    )
+    trigram_analyzer_tokens = [token_info["token"] for token_info in response_trigram_analyzer["tokens"]]
+
+    # lowercase is applied ("Gens" -> "gens")
+    # asciifolding is applied ("éléphant" -> "elephant")
+    # stop words are removed ('a', 'avec', 'les')
+    # elisions are removed ("l'")
+    # stemming is applied ("gens" -> "gen")
+    assert french_analyzer_tokens == ['elephant', 'a', 'couru', 'gen']
+    
+    # lowercase is applied ("Gens" -> "gens")
+    # asciifolding is applied ("éléphant" -> "elephant")
+    # trigrams are generated
+    assert trigram_analyzer_tokens == ["l'e", "'el", 'ele', 'lep', 'eph', 'pha', 'han', 'ant', 'cou', 'our', 'uru', 'ave', 'vec', 'les', 'gen', 'ens']
