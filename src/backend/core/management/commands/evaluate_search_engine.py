@@ -198,10 +198,9 @@ class Command(BaseCommand):
 
     @staticmethod
     def overwrite_settings():
-        """Set settings to enable hybrid search."""
+        """Overwrite settings for evaluation purposes."""
         settings.HYBRID_SEARCH_ENABLED = True
         settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]  # evaluate only embedding search
-        settings.EMBEDDING_API_KEY = "sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjozODIsInRva2VuX2lkIjo0MTQ0LCJleHBpcmVzX2F0IjoxNzkyNjIwMDAwfQ.sZ4c\_JHZeNNHd3nKhrCW345CarKksUrfTA4u3g9zDTE"
         settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
         settings.EMBEDDING_REQUEST_TIMEOUT = 10
         settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
