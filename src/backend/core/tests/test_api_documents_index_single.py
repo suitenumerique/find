@@ -145,10 +145,19 @@ def test_api_documents_index_single_ensure_index(settings):
         "properties": {
             "id": {"type": "keyword"},
             "title": {
-                "type": "keyword",  # Primary field for exact matches and sorting
                 "fields": {
-                    "text": {"type": "text"}  # Sub-field for full-text search
+                    "text": {
+                        "analyzer": "french_analyzer",
+                        "fields": {
+                            "trigrams": {
+                                "analyzer": "trigram_analyzer",
+                                "type": "text",
+                            },
+                        },
+                        "type": "text",
+                    },
                 },
+                "type": "keyword",
             },
             "depth": {"type": "integer"},
             "path": {
@@ -156,7 +165,16 @@ def test_api_documents_index_single_ensure_index(settings):
                 "fields": {"text": {"type": "text"}},
             },
             "numchild": {"type": "integer"},
-            "content": {"type": "text"},
+            "content": {
+                "analyzer": "french_analyzer",
+                "fields": {
+                    "trigrams": {
+                        "analyzer": "trigram_analyzer",
+                        "type": "text",
+                    },
+                },
+                "type": "text",
+            },
             "created_at": {"type": "date"},
             "updated_at": {"type": "date"},
             "size": {"type": "long"},
