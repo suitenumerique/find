@@ -11,6 +11,7 @@ and this project adheres to
 ## Added
 
 - ✨(backend) add semantic search
+- ✨(backend) add evaluation command
 - ✨(backend) add analyzers to full-text search
 - ✨(backend) handle french, english, german and dutch 
 - ✨(backend) add evaluation command
