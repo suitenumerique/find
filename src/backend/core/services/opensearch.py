@@ -117,13 +117,7 @@ def get_query(  # noqa : PLR0913
         logger.info("Performing full-text search without embedding: %s", q)
         return {
             "bool": {
-                "must": {
-                    "multi_match": {
-                        "query": q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                },
+                "must": get_full_text_query(q),
                 "filter": filter_,
             }
         }
@@ -134,13 +128,7 @@ def get_query(  # noqa : PLR0913
             "queries": [
                 {
                     "bool": {
-                        "must": {
-                            "multi_match": {
-                                "query": q,
-                                # Give title more importance over content by a power of 3
-                                "fields": ["title.text^3", "content"],
-                            }
-                        },
+                        "must": get_full_text_query(q),
                         "filter": filter_,
                     }
                 },
@@ -158,6 +146,31 @@ def get_query(  # noqa : PLR0913
                     }
                 },
             ]
+        }
+    }
+
+
+def get_full_text_query(q):
+    return {
+        "bool": {
+            "should": [
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": ["title.text^3", "content"],
+                        "boost": 1,
+                    }
+                },
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": ["title.text.trigrams^3", "content.trigrams"],
+                        "boost": 0.25,
+                        "minimum_should_match": "75%",
+                    }
+                },
+            ],
+            "minimum_should_match": 1,
         }
     }
 
@@ -269,14 +282,85 @@ def ensure_index_exists(index_name):
         opensearch_client().indices.create(
             index=index_name,
             body={
-                "settings": {"index.knn": True},
+                "settings": {
+                    "index.knn": True,
+                    "analysis": {
+                        "analyzer": {
+                            "french_analyzer": {
+                                "type": "custom",
+                                "tokenizer": "standard",
+                                "filter": [
+                                    "lowercase",
+                                    "asciifolding",
+                                    "french_elision",
+                                    "french_stop",
+                                    "french_stemmer",
+                                ],
+                            },
+                            "trigram_analyzer": {
+                                "type": "custom",
+                                "tokenizer": "standard",
+                                "filter": [
+                                    "lowercase",
+                                    "asciifolding",
+                                    "trigram_filter",
+                                ],
+                            },
+                        },
+                        "filter": {
+                            "french_elision": {
+                                "type": "elision",
+                                "articles_case": True,
+                                "articles": [
+                                    "l",
+                                    "m",
+                                    "t",
+                                    "qu",
+                                    "n",
+                                    "s",
+                                    "j",
+                                    "d",
+                                    "c",
+                                    "jusqu",
+                                    "quoiqu",
+                                    "lorsqu",
+                                    "puisqu",
+                                ],
+                            },
+                            "french_stop": {
+                                "type": "stop",
+                                "stopwords": "_french_",
+                            },
+                            "french_stemmer": {
+                                "type": "stemmer",
+                                "language": "light_french",
+                            },
+                            "trigram_filter": {
+                                "type": "ngram",
+                                "min_gram": 3,
+                                "max_gram": 3,
+                            },
+                        },
+                    },
+                },
                 "mappings": {
                     "dynamic": "strict",
                     "properties": {
                         "id": {"type": "keyword"},
                         "title": {
                             "type": "keyword",
-                            "fields": {"text": {"type": "text"}},
+                            "fields": {
+                                "text": {
+                                    "type": "text",
+                                    "analyzer": "french_analyzer",
+                                    "fields": {
+                                        "trigrams": {
+                                            "type": "text",
+                                            "analyzer": "trigram_analyzer",
+                                        }
+                                    },
+                                }
+                            },
                         },
                         "depth": {"type": "integer"},
                         "path": {
@@ -284,7 +368,16 @@ def ensure_index_exists(index_name):
                             "fields": {"text": {"type": "text"}},
                         },
                         "numchild": {"type": "integer"},
-                        "content": {"type": "text"},
+                        "content": {
+                            "type": "text",
+                            "analyzer": "french_analyzer",
+                            "fields": {
+                                "trigrams": {
+                                    "type": "text",
+                                    "analyzer": "trigram_analyzer",
+                                }
+                            },
+                        },
                         "created_at": {"type": "date"},
                         "updated_at": {"type": "date"},
                         "size": {"type": "long"},
