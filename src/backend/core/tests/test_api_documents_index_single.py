@@ -66,6 +66,7 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
     document = factories.DocumentSchemaFactory.build()
+    document["content"] = "a long text to embed." * 100  # Ensure content is long enough
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -84,15 +85,25 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
     assert new_indexed_document["_source"]["content"] == document["content"]
     assert (
-        new_indexed_document["_source"]["embedding"]
+        new_indexed_document["_source"]["chunks"][0]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
     )
     assert (
         new_indexed_document["_source"]["embedding_model"]
         == settings.EMBEDDING_API_MODEL_NAME
     )
-
-
+    # Check that the document has been chunked correctly
+    assert (
+        len(new_indexed_document["_source"]["chunks"])
+        == int(len(document["content"]) /  (settings.CHUNK_SIZE - settings.CHUNK_OVERLAP)) + 1
+    )
+    assert (
+        new_indexed_document["_source"]["chunks"][0]["embedding"]
+        == albert_embedding_response.response["data"][0]["embedding"]
+    )
+    assert new_indexed_document["_source"]["chunks"][0]["content"].startswith(f"Title: {document['title'].lower()}\n\n{document['content'][:10]}")
+    
+    
 def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory()
@@ -115,7 +126,7 @@ def test_api_documents_index_single_hybrid_disabled_success():
     assert new_indexed_document["_version"] == 1
     assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
     assert new_indexed_document["_source"]["content"] == document["content"]
-    assert new_indexed_document["_source"]["embedding"] is None
+    assert new_indexed_document["_source"]["chunks"] is None
 
 
 def test_api_documents_index_single_ensure_index(settings):
@@ -164,16 +175,23 @@ def test_api_documents_index_single_ensure_index(settings):
             "groups": {"type": "keyword"},
             "reach": {"type": "keyword"},
             "is_active": {"type": "boolean"},
-            "embedding": {
-                "type": "knn_vector",
-                "dimension": settings.EMBEDDING_DIMENSION,
-                "method": {
-                    "engine": "lucene",
-                    "space_type": "l2",
-                    "name": "hnsw",
-                    "parameters": {},
-                },
-            },
+            'chunks': {                                                                                                          
+                'properties': {                                                                                                    
+                'content': {'type': 'text'},                                                                                     
+                'embedding': {                                                                                                   
+                    'dimension': 1024,                                                                                             
+                    'method': {                                                                                                    
+                    'engine': 'lucene',                                                                                          
+                    'name': 'hnsw',                                                                                              
+                    'parameters': {},                                                                                            
+                    'space_type': 'l2',                                                                                          
+                    },                                                                                                             
+                    'type': 'knn_vector',                                                                                          
+                },                                                                                                               
+                'index': {'type': 'integer'},                                                                                    
+                },                                                                                                                 
+                'type': 'nested',                                                                                                  
+            },   
             "embedding_model": {"type": "keyword"},
         },
     }
