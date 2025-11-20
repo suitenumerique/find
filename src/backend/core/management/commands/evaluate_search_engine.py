@@ -17,11 +17,7 @@ from core.services.opensearch import (
     opensearch_client,
     search,
 )
-from core.tests.utils import (
-    bulk_create_documents,
-    delete_search_pipeline,
-    prepare_index,
-)
+from core.management.commands.utils import prepare_index, bulk_create_documents, delete_search_pipeline
 
 logger = logging.getLogger(__name__)
 

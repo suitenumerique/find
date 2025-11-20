@@ -67,35 +67,33 @@ def delete_search_pipeline():
 def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
     logger.info(f'prepare_index {index_name} with {len(documents)} documents')
-
+    opensearch_client_ = opensearch.opensearch_client()
     opensearch.ensure_index_exists(index_name)
 
-    # Index new documents
-    actions = [
-        {
-            "_op_type": "index",
-            "_index": index_name,
-            "_id": document["id"],
-            "_source": {
-                **{k: v for k, v in document.items() if k != "id"},
-                "embedding": opensearch.embed_text(
-                    opensearch.format_document(document["title"], document["content"])
-                )
-                if check_hybrid_search_enabled()
-                else None,
-                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-                if check_hybrid_search_enabled()
-                else None,
-            },
+    actions = []
+    for document in documents:
+        document_dict = {
+            **document,
+            "embedding": opensearch.embed_text(
+                opensearch.format_document(document["title"], document["content"])
+            )
+            if check_hybrid_search_enabled()
+            else None,
+            "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+            if check_hybrid_search_enabled()
+            else None,
         }
-        for document in documents
-    ]
-    bulk(opensearch.opensearch_client(), actions)
+        _id = document_dict.pop("id")
+        actions.append({"index": {"_id": _id}})
+        actions.append(document_dict)
 
-    # Force refresh again so all changes are visible to search
-    opensearch.opensearch_client().indices.refresh(index=index_name)
+    if not actions:
+        return 
+    
+    opensearch_client_.bulk(index=index_name, body=actions)
+    opensearch_client_.indices.refresh(index=index_name)
 
-    count = opensearch.opensearch_client().count(index=index_name)["count"]
+    count = opensearch_client_.count(index=index_name)["count"]
     assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 
