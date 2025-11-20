@@ -59,12 +59,25 @@ class Command(BaseCommand):
             default=0.0,
             help="hits with a score lower than min_score are ignored",
         )
+        parser.add_argument(
+            "--keep-index",
+            dest="keep_index",
+            type=bool,
+            default=True,
+            help="If True the index is not dropped after evaluation.",
+        )
+        parser.add_argument(
+            "--force-reindex",
+            dest="force_reindex",
+            type=bool,
+            default=False,
+            help="If True the index is dropped and recreated from scratch even if it already exists.",
+        )
 
     def handle(self, *args, **options):
         """Launch the search engine evaluation."""
 
-        self.init_evaluation(options["dataset_name"])
-
+        self.init_evaluation(options["dataset_name"], options["force_reindex"])
         self.stdout.write(
             f"[INFO] Starting evaluation with {len(self.documents)} documents and {len(self.queries)} queries"
         )
@@ -85,10 +98,10 @@ class Command(BaseCommand):
             f"  Average F1-Score: {avg_metrics['avg_f1_score']:.2%}\n"
         )
 
-        self.close_evaluation()
+        self.close_evaluation(options["keep_index"])
         self.stdout.write(self.style.SUCCESS("\n[SUCCESS] Evaluation completed"))
 
-    def init_evaluation(self, dataset_name):
+    def init_evaluation(self, dataset_name, force_reindex):
         """Initialize evaluation by preparing index and mapping."""
         self.documents = (
             importlib.import_module(
@@ -104,7 +117,8 @@ class Command(BaseCommand):
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
-        prepare_index(self.index_name, bulk_create_documents(self.documents))
+        if not opensearch_client().indices.exists(index=self.index_name) or force_reindex:
+            prepare_index(self.index_name, bulk_create_documents(self.documents))
         self.id_to_title = self.build_id_to_title()
 
     def build_id_to_title(self):
@@ -212,10 +226,11 @@ class Command(BaseCommand):
             "avg_f1_score": total_f1 / nb_evaluations,
         }
 
-    def close_evaluation(self):
+    def close_evaluation(self, keep_index):
         """Delete the evaluation index."""
-        self.opensearch_client_.indices.delete(index=self.index_name)
         delete_search_pipeline()
+        if not keep_index:
+            self.opensearch_client_.indices.delete(index=self.index_name)
 
     @staticmethod
     def overwrite_settings():

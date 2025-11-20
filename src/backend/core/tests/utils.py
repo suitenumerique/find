@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 def enable_hybrid_search(settings):
     """Enable hybrid search settings for tests."""
+    logger.info("Enabling hybrid search for tests")
     settings.HYBRID_SEARCH_ENABLED = True
     settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
     settings.EMBEDDING_API_KEY = "test-api-key"
@@ -52,6 +53,8 @@ def bulk_create_documents(document_payloads):
 
 def delete_search_pipeline():
     """Delete the hybrid search pipeline if it exists"""
+    logger.info(f'Deleting search pipeline {django_settings.HYBRID_SEARCH_PIPELINE_ID}')
+
     try:
         opensearch.opensearch_client().transport.perform_request(
             method="DELETE",
@@ -63,6 +66,8 @@ def delete_search_pipeline():
 
 def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
+    logger.info(f'prepare_index {index_name} with {len(documents)} documents')
+
     opensearch.ensure_index_exists(index_name)
 
     # Index new documents
