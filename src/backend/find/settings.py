@@ -289,6 +289,13 @@ class Base(Configuration):
     HYBRID_SEARCH_WEIGHTS = values.ListValue(
         default=[0.3, 0.7], environ_name="HYBRID_SEARCH_WEIGHTS", environ_prefix=None
     )
+    # Multi-embedding: chunk documents and embed each chunk separately
+    CHUNK_SIZE = values.IntegerValue(
+        default=512, environ_name="CHUNK_SIZE", environ_prefix=None
+    )
+    CHUNK_OVERLAP = values.IntegerValue(
+        default=50, environ_name="CHUNK_OVERLAP", environ_prefix=None
+    )
     EMBEDDING_API_PATH = values.Value(
         # embedding is the vector representation of a document used for semantic search
         default="None",

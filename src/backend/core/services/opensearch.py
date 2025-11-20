@@ -2,9 +2,11 @@
 
 import logging
 from functools import cache
+from typing import List, Dict, Any
 
 from django.conf import settings
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import requests
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
@@ -32,6 +34,11 @@ REQUIRED_ENV_VARIABLES = [
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
 LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
+
+TEXT_SPLITTER = RecursiveCharacterTextSplitter(
+    chunk_size=settings.CHUNK_SIZE,
+    chunk_overlap=settings.CHUNK_OVERLAP,
+)
 
 @cache
 def opensearch_client():
@@ -118,18 +125,23 @@ def get_query(  # noqa : PLR0913
 
     hybrid_search_enabled = check_hybrid_search_enabled()
     if hybrid_search_enabled:
-        embedding = embed_text(q)
+        q_vector = embed_text(q)
     else:
-        embedding = None
+        q_vector = None
 
-    if not embedding:
+    if not q_vector:
         logger.info("Performing full-text search without embedding: %s", q)
-        return {
-            "bool": {
-                "must": get_full_text_query(q),
-                "filter": filter_,
-            }
+        return get_full_text_query(q, filter_)
+
+    logger.info("Performing hybrid search with embedding: %s", q)
+    return {
+        "hybrid": {
+            "queries": [
+                get_full_text_query(q, filter_),
+                get_semantic_search_query(q_vector, filter_, nb_results),
+            ],
         }
+    }
 
     logger.info("Performing hybrid search with embedding: %s", q)
     return {
@@ -158,34 +170,60 @@ def get_query(  # noqa : PLR0913
         }
     }
 
+def get_semantic_search_query(q_vector, filter_, nb_results):
+    return {
+        "bool": {
+            "must": {
+                "nested": {
+                    "path": "chunks",
+                    "score_mode": "max",
+                    "query": {
+                        "knn": {
+                            "chunks.embedding": {
+                                "vector": q_vector,
+                                "k": nb_results,
+                            }
+                        }
+                    },
+                }
+            },
+            "filter": filter_,
+        }
+    }
 
-def get_full_text_query(q):
+
+def get_full_text_query(q, filter_):
     """Build OpenSearch full-text query"""
     return {
         "bool": {
-            "should": [
-                {
-                    "multi_match": {
-                        "query": q,
-                        "fields": [
-                            "title.*.text^3",
-                            "content.*",
-                        ],
-                    }
+            "must": {
+                "bool":{
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": q,
+                                "fields": [
+                                    "title.*.text^3",
+                                    "content.*",
+                                ],
+                            }
+                        },
+                        {
+                            "multi_match": {
+                                "query": q,
+                                "fields": [
+                                    "title.*.text.trigrams^3",
+                                    "content.*.trigrams",
+                                ],
+                                "boost": settings.TRIGRAMS_BOOST,
+                                "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
                 },
-                {
-                    "multi_match": {
-                        "query": q,
-                        "fields": [
-                            "title.*.text.trigrams^3",
-                            "content.*.trigrams",
-                        ],
-                        "boost": settings.TRIGRAMS_BOOST,
-                        "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
-                    }
-                },
-            ],
-            "minimum_should_match": 1,
+            },
+            "filter": filter,
         }
     }
 
@@ -245,6 +283,28 @@ def get_params(query_keys):
     return {}
 
 
+def embed_document(document):
+    """Get embedding vector for a given document"""
+    return embed_text(format_document(document.title, document.content))
+
+
+def chunk_document(title, content):
+    """
+    Chunk a document into multiple pieces.
+    """
+    chunks = [
+        {
+            'index': idx,
+            'content': f"Title: {title}\n\n{chunked_content}",
+            'embedding': embed_text(f"Title: {title}\n\n{chunked_content}")
+        }
+        for idx, chunked_content in enumerate(TEXT_SPLITTER.split_text(content))
+    ]
+
+    logger.info(f"Document '{title}' chunked into {len(chunks)} pieces")
+    return chunks
+
+
 def format_document(title, content):
     """Get the embedding input format for a document"""
     return f"<{title}>:<{content}>"
@@ -291,10 +351,12 @@ def prepare_document_for_indexing(document):
         "id": document["id"],
         f"title.{language_code}": document["title"],
         f"content.{language_code}": document["content"],
-        "embedding": embed_text(format_document(document["title"], document["content"]))
+        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
         if check_hybrid_search_enabled()
         else None,
-        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+        "chunks": chunk_document(
+            document["title"], document["content"],
+        ) 
         if check_hybrid_search_enabled()
         else None,
         "depth": document["depth"],

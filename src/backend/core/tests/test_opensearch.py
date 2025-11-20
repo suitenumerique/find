@@ -122,7 +122,7 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
     indexed_documents = opensearch.opensearch_client().search(
         index=service.index_name, body={"query": {"match_all": {}}}
     )
-    assert indexed_documents["hits"]["hits"][0]["_source"]["embedding"] is None
+    assert indexed_documents["hits"]["hits"][0]["_source"]["chunks"] is None
 
     # hybrid search is enabled before to do the first requests
     enable_hybrid_search(settings)

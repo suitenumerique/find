@@ -13,6 +13,7 @@ from core.services import opensearch
 from core.services.opensearch import (
     prepare_document_for_indexing,
 )
+from core.services.opensearch import check_hybrid_search_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +53,6 @@ def delete_index(index_name):
 
 def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
-    logger.info("prepare_index %s with %d documents", index_name, len(documents))
-    opensearch_client_ = opensearch.opensearch_client()
     opensearch.ensure_index_exists(index_name)
 
     # Index new documents
@@ -62,16 +61,27 @@ def prepare_index(index_name, documents: List):
             "_op_type": "index",
             "_index": index_name,
             "_id": document["id"],
-            "_source": prepare_document_for_indexing(document),
+            "_source": {
+                **{k: v for k, v in document.items() if k != "id"},
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                if check_hybrid_search_enabled()
+                else None,
+                "chunks": opensearch.chunk_document(
+                    document["title"], document["content"],
+                ) 
+                if check_hybrid_search_enabled()
+                else None,
+            },
         }
         for document in documents
     ]
+    bulk(opensearch.opensearch_client(), actions)
 
-    if not actions:
-        return
+    # Force refresh again so all changes are visible to search
+    opensearch.opensearch_client().indices.refresh(index=index_name)
 
-    bulk(opensearch_client_, actions)
-    opensearch_client_.indices.refresh(index=index_name)
+    count = opensearch.opensearch_client().count(index=index_name)["count"]
+    assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 
 def get_language_value(source, language_field):

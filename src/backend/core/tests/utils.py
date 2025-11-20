@@ -1,4 +1,4 @@
-"""Utility functions for management commands."""
+"""Utility functions for Test."""
 
 import base64
 import json
@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 def enable_hybrid_search(settings):
     """Enable hybrid search settings for tests."""
-    logger.info("Enabling hybrid search for tests")
     settings.HYBRID_SEARCH_ENABLED = True
     settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
     settings.EMBEDDING_API_KEY = "test-api-key"
@@ -36,6 +35,58 @@ def enable_hybrid_search(settings):
     # Clear the cache here or the hybrid search will remain disabled
     check_hybrid_search_enabled.cache_clear()
     ensure_search_pipeline_exists()
+
+
+def bulk_create_documents(document_payloads):
+    """Create documents in bulk from payloads"""
+    return [
+        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
+        for document_payload in document_payloads
+    ]
+
+
+def delete_search_pipeline():
+    """Delete the hybrid search pipeline if it exists"""
+    try:
+        opensearch.opensearch_client().transport.perform_request(
+            method="DELETE",
+            url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
+        )
+    except NotFoundError:
+        logger.info("Search pipeline not found, nothing to delete.")
+
+
+def prepare_index(index_name, documents: List):
+    """Prepare the search index before testing a query on it."""
+    opensearch.ensure_index_exists(index_name)
+
+    # Index new documents
+    actions = [
+        {
+            "_op_type": "index",
+            "_index": index_name,
+            "_id": document["id"],
+            "_source": {
+                **{k: v for k, v in document.items() if k != "id"},
+                "embedding": opensearch.embed_text(
+                    opensearch.format_document(document["title"], document["content"])
+                )
+                if check_hybrid_search_enabled()
+                else None,
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                if check_hybrid_search_enabled()
+                else None,
+            },
+        }
+        for document in documents
+    ]
+    bulk(opensearch.opensearch_client(), actions)
+
+    # Force refresh again so all changes are visible to search
+    opensearch.opensearch_client().indices.refresh(index=index_name)
+
+    count = opensearch.opensearch_client().count(index=index_name)["count"]
+    assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 
 def build_authorization_bearer(token="some_token"):
