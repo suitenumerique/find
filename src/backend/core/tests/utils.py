@@ -15,7 +15,6 @@ from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
 from opensearchpy.exceptions import NotFoundError
-from opensearchpy.helpers import bulk
 
 from core import factories
 from core.management.commands.create_search_pipeline import (
@@ -53,7 +52,9 @@ def bulk_create_documents(document_payloads):
 
 def delete_search_pipeline():
     """Delete the hybrid search pipeline if it exists"""
-    logger.info(f'Deleting search pipeline {django_settings.HYBRID_SEARCH_PIPELINE_ID}')
+    logger.info(
+        "Deleting search pipeline %s", django_settings.HYBRID_SEARCH_PIPELINE_ID
+    )
 
     try:
         opensearch.opensearch_client().transport.perform_request(
@@ -66,7 +67,7 @@ def delete_search_pipeline():
 
 def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
-    logger.info(f'prepare_index {index_name} with {len(documents)} documents')
+    logger.info("prepare_index %s with %d documents", index_name, len(documents))
     opensearch_client_ = opensearch.opensearch_client()
     opensearch.ensure_index_exists(index_name)
 
@@ -88,8 +89,8 @@ def prepare_index(index_name, documents: List):
         actions.append(document_dict)
 
     if not actions:
-        return 
-    
+        return
+
     opensearch_client_.bulk(index=index_name, body=actions)
     opensearch_client_.indices.refresh(index=index_name)
 

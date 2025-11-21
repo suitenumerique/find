@@ -5,6 +5,9 @@ Evaluate search engine performance with test documents and queries.
 import importlib
 import logging
 import math
+import os
+import re
+import unicodedata
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -12,12 +15,16 @@ from django.core.management.base import BaseCommand
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
+from core.management.commands.utils import (
+    bulk_create_documents,
+    delete_search_pipeline,
+    prepare_index,
+)
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
     search,
 )
-from core.management.commands.utils import prepare_index, bulk_create_documents, delete_search_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +45,7 @@ class Command(BaseCommand):
         "groups": [],
         "visited": [],
     }
+    base_data_path = "core/management/commands/data/evaluation"
     documents = []
     queries = []
     id_to_title = {}
@@ -88,7 +96,6 @@ class Command(BaseCommand):
             f"[SUMMARY] Average Performance\n"
             f"{'=' * 60}\n"
             f"  Average NDCG: {avg_metrics['avg_ndcg']:.2%}\n"
-            f"  Average DCG: {avg_metrics['avg_dcg']:.2%}\n"
             f"  Average Precision: {avg_metrics['avg_precision']:.2%}\n"
             f"  Average Recall: {avg_metrics['avg_recall']:.2%}\n"
             f"  Average F1-Score: {avg_metrics['avg_f1_score']:.2%}\n"
@@ -99,11 +106,7 @@ class Command(BaseCommand):
 
     def init_evaluation(self, dataset_name, force_reindex):
         """Initialize evaluation by preparing index and mapping."""
-        self.documents = (
-            importlib.import_module(
-                f"core.management.commands.data.evaluation.{dataset_name}.documents"
-            )
-        ).documents
+        self.documents = self.load_documents(dataset_name)
         self.queries = (
             importlib.import_module(
                 f"core.management.commands.data.evaluation.{dataset_name}.queries"
@@ -113,14 +116,47 @@ class Command(BaseCommand):
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
-        if not opensearch_client().indices.exists(index=self.index_name) or force_reindex:
+        if (
+            not opensearch_client().indices.exists(index=self.index_name)
+            or force_reindex
+        ):
             prepare_index(self.index_name, bulk_create_documents(self.documents))
-        self.id_to_title = self.build_id_to_title()
 
-    def build_id_to_title(self):
-        """Create a mapping from document IDs to titles."""
+    def load_documents(self, dataset_name: str):
+        """
+        Load a dataset module containing a `documents` list and return:
+        """
 
-        return {document["id"]: document["title"] for document in self.documents}
+        documents_dir_path = os.path.join(
+            self.base_data_path, dataset_name, "documents"
+        )
+        documents = []
+        for filename in os.listdir(documents_dir_path):
+            if not filename.endswith(".txt"):
+                raise logger.warning(
+                    f"Unexpected file format for document: {filename}. Only .txt files are supported."
+                )
+
+            str_document_id, title_with_extension = filename.split("_", 1)
+            document_id = int(str_document_id)
+            document_title = unicodedata.normalize(
+                "NFC", title_with_extension.rsplit(".", -1)[0]
+            )
+
+            filepath = os.path.join(documents_dir_path, filename)
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            documents.append(
+                {
+                    "id": document_id,
+                    "title": document_title,
+                    "content": content,
+                }
+            )
+            self.id_to_title[document_id] = document_title
+
+        return documents
 
     def evaluate_query(self, query, min_score=0.0):
         """Evaluate a single query and return metrics."""
@@ -143,7 +179,6 @@ class Command(BaseCommand):
             f"  expect: {list(expected_titles)}\n"
             f"  result: {list(retrieved_ordered_titles)}\n"
             f"  NDCG: {metrics['ndcg']:.2%} \n"
-            f"  DCG: {metrics['dcg']:.2%} \n"
             f"  PRECISION: {metrics['precision']:.2%} \n"
             f"  RECALL: {metrics['recall']:.2%} \n"
             f"  F1-SCORE: {metrics['f1_score']:.2%} \n"
@@ -155,25 +190,19 @@ class Command(BaseCommand):
             "metrics": metrics,
         }
 
-    def calculate_metrics(self, expected_ordered_titles, retrieved_ordered_titles):
+    def calculate_metrics(self, expected_titles, retrieved_ordered_titles):
         """Calculate precision, recall, F1-score, DCG and NDCG."""
 
-        dcg = self.calculate_dcg(expected_ordered_titles, retrieved_ordered_titles)
-        idcg = self.calculate_dcg(expected_ordered_titles, expected_ordered_titles)
+        dcg = self.calculate_dcg(expected_titles, retrieved_ordered_titles)
+        idcg = self.calculate_dcg(expected_titles, expected_titles)
         ndcg = dcg / idcg if idcg > 0 else 0
-        nb_true_positives = len(
-            set(expected_ordered_titles) & set(retrieved_ordered_titles)
-        )
+        nb_true_positives = len(set(expected_titles) & set(retrieved_ordered_titles))
         precision = (
             nb_true_positives / len(retrieved_ordered_titles)
             if retrieved_ordered_titles
             else 0
         )
-        recall = (
-            nb_true_positives / len(expected_ordered_titles)
-            if expected_ordered_titles
-            else 0
-        )
+        recall = nb_true_positives / len(expected_titles) if expected_titles else 0
         f1_score = (
             2 * (precision * recall) / (precision + recall)
             if (precision + recall) > 0
@@ -182,7 +211,6 @@ class Command(BaseCommand):
 
         return {
             "ndcg": ndcg,
-            "dcg": dcg,
             "precision": precision,
             "recall": recall,
             "f1_score": f1_score,
@@ -201,14 +229,12 @@ class Command(BaseCommand):
         if not evaluations:
             return {
                 "avg_ndcg": 0,
-                "avg_dcg": 0,
                 "avg_precision": 0,
                 "avg_recall": 0,
                 "avg_f1_score": 0,
             }
 
         total_ndcg = sum(r["metrics"]["ndcg"] for r in evaluations)
-        total_dcg = sum(r["metrics"]["dcg"] for r in evaluations)
         total_precision = sum(r["metrics"]["precision"] for r in evaluations)
         total_recall = sum(r["metrics"]["recall"] for r in evaluations)
         total_f1 = sum(r["metrics"]["f1_score"] for r in evaluations)
@@ -216,7 +242,6 @@ class Command(BaseCommand):
 
         return {
             "avg_ndcg": total_ndcg / nb_evaluations,
-            "avg_dcg": total_dcg / nb_evaluations,
             "avg_precision": total_precision / nb_evaluations,
             "avg_recall": total_recall / nb_evaluations,
             "avg_f1_score": total_f1 / nb_evaluations,

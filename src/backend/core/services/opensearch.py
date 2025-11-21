@@ -231,7 +231,7 @@ def embed_text(text):
     """
     Get embedding vector for the given text from any OpenAI-compatible embedding API
     """
-    logger.info(f"embed: '{text}'")
+    logger.info("embed: '%s'", text)
 
     response = requests.post(
         settings.EMBEDDING_API_PATH,

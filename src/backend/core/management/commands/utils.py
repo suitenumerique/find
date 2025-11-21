@@ -19,7 +19,13 @@ from opensearchpy.helpers import bulk
 
 from core import factories
 from core.services import opensearch
-from core.services.opensearch import check_hybrid_search_enabled, embed_document, embed_text, format_document, opensearch_client
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    embed_document,
+    embed_text,
+    format_document,
+    opensearch_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +40,7 @@ def bulk_create_documents(document_payloads):
 
 def delete_search_pipeline():
     """Delete the hybrid search pipeline if it exists"""
-    logger.info(f'Deleting search pipeline {django_settings.HYBRID_SEARCH_PIPELINE_ID}')
+    logger.info(f"Deleting search pipeline {django_settings.HYBRID_SEARCH_PIPELINE_ID}")
 
     try:
         opensearch.opensearch_client().transport.perform_request(
@@ -47,15 +53,16 @@ def delete_search_pipeline():
 
 def prepare_index(index_name, documents: List):
     """Prepare the search index."""
-    logger.info(f'prepare_index {index_name} with {len(documents)} documents')
+    logger.info(f"prepare_index {index_name} with {len(documents)} documents")
     opensearch_client_ = opensearch.opensearch_client()
 
     actions = []
     for document in documents:
-
         document_dict = {
             **document,
-            "embedding": embed_text(format_document(document["title"], document["content"]))
+            "embedding": embed_text(
+                format_document(document["title"], document["content"])
+            )
             if check_hybrid_search_enabled()
             else None,
             "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
@@ -68,4 +75,7 @@ def prepare_index(index_name, documents: List):
 
     opensearch_client_.bulk(index=index_name, body=actions)
     count = opensearch_client_.count(index=index_name)["count"]
-    assert count == len(documents), f"Expected {len(documents)}, got {count}"
+    if count != len(documents):
+        raise ValueError(
+            f"Indexing error: expected {len(documents)} documents, but found {count} in index {index_name}"
+        )
