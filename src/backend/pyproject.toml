@@ -46,6 +46,7 @@ dependencies = [
     "url-normalize==1.4.3",
     "opensearch-py==2.8.0",
     "whitenoise==6.8.2",
+    "unstructured[doc,docx,csv,odt,pptx,xlsx]==0.18.21",
 ]
 
 [project.urls]

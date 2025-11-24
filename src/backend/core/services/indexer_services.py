@@ -3,7 +3,7 @@
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict as dataasdict
-from io import StringIO
+from io import BytesIO
 
 from django.conf import settings
 
@@ -222,6 +222,7 @@ class IndexerTaskService:
     and embedding
     """
 
+    # V2 : Use settings to define the list of converters
     converters = {"application/pdf": pdf_to_markdown}
 
     def __init__(
@@ -251,7 +252,7 @@ class IndexerTaskService:
     def process_content(self, document, content):
         """Transforms the document file data into an indexable format"""
         try:
-            stream = StringIO(content) if isinstance(content, str) else content
+            stream = BytesIO(content.encode()) if isinstance(content, str) else content
             converter = self.get_converter(document.mimetype)
             output = converter(stream) if converter is not None else stream.read()
             return output.decode() if isinstance(output, bytes) else output
@@ -335,7 +336,7 @@ class IndexerTaskService:
             ) as actions:
                 for doc in docs:
                     try:
-                        content = self.process_content(doc, StringIO(doc.content))
+                        content = self.process_content(doc, doc.content)
 
                         actions.update(
                             doc.id,
@@ -493,7 +494,7 @@ class IndexerTaskService:
                     doc.content_status = enums.ContentStatusEnum.WAIT
                 elif not is_allowed_mimetype(doc.mimetype, INDEXABLE_MIMETYPES):
                     try:
-                        doc.content = self.process_content(doc, StringIO(doc.content))
+                        doc.content = self.process_content(doc, doc.content)
                         doc.content_status = enums.ContentStatusEnum.READY
                     except IndexContentError as err:
                         errors.append(IndexBulkError(str(err), _id=doc.id))

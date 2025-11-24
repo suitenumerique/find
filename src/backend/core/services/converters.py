@@ -1,6 +1,10 @@
 """Document content conversion tools"""
 
+from io import BytesIO
 
-def pdf_to_markdown(content):
+from .albert import AlbertAI
+
+
+def pdf_to_markdown(content: BytesIO):
     """Convert PDF stream into markdown"""
-    return content.read()
+    return AlbertAI().convert(content=content, mimetype="application/pdf")

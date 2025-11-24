@@ -258,6 +258,10 @@ class Base(Configuration):
         default=1, environ_name="INDEXER_TASK_COUNTDOWN", environ_prefix=None
     )
 
+    ALBERT_PARSE_ENDPOINT = values.Value(
+        default=None, environ_name="ALBERT_PARSE_ENDPOINT", environ_prefix=None
+    )
+
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",
         "DESCRIPTION": "This is the find API schema.",
