@@ -2,6 +2,7 @@
 
 from typing import Annotated, List, Literal, Optional
 
+from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -115,3 +116,17 @@ class SearchQueryParametersSchema(BaseModel):
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
+
+
+def get_default_language():
+    """Get the default language from Django settings, fallback to 'en-us' if not supported."""
+    language_code = getattr(settings, "LANGUAGE_CODE", "en-us")
+    return language_code if language_code in settings.SUPPORTED_LANGUAGES else "en-us"
+
+
+class IndexQueryParametersSchema(BaseModel):
+    """Schema for validating query parameters on the index API endpoint"""
+
+    language_code: Literal[*settings.SUPPORTED_LANGUAGES] = Field(
+        default_factory=get_default_language
+    )

@@ -11,6 +11,11 @@ from opensearchpy.exceptions import NotFoundError
 from rest_framework.exceptions import ValidationError
 
 from core import enums
+from core.services.language import (
+    LANGUAGE_ANALYZERS,
+    LANGUAGE_FILTERS,
+    get_language_mapping,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -230,11 +235,6 @@ def get_params(query_keys):
     return {}
 
 
-def embed_document(document):
-    """Get embedding vector for a given document"""
-    return embed_text(format_document(document.title, document.content))
-
-
 def format_document(title, content):
     """Get the embedding input format for a document"""
     return f"<{title}>:<{content}>"
@@ -273,6 +273,33 @@ def embed_text(text):
     return embedding
 
 
+def prepare_document_for_indexing(document, language_code):
+    """Prepare document for indexing using nested language structure and handle embedding"""
+    return {
+        "id": document["id"],
+        language_code: {
+            "title": document["title"],
+            "content": document["content"],
+        },
+        "embedding": embed_text(format_document(document["title"], document["content"]))
+        if check_hybrid_search_enabled()
+        else None,
+        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+        if check_hybrid_search_enabled()
+        else None,
+        "depth": document["depth"],
+        "path": document["path"],
+        "numchild": document["numchild"],
+        "created_at": document["created_at"],
+        "updated_at": document["updated_at"],
+        "size": document["size"],
+        "users": document["users"],
+        "groups": document["groups"],
+        "reach": document["reach"],
+        "is_active": document["is_active"],
+    }
+
+
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
@@ -285,99 +312,21 @@ def ensure_index_exists(index_name):
                 "settings": {
                     "index.knn": True,
                     "analysis": {
-                        "analyzer": {
-                            "french_analyzer": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": [
-                                    "lowercase",
-                                    "asciifolding",
-                                    "french_elision",
-                                    "french_stop",
-                                    "french_stemmer",
-                                ],
-                            },
-                            "trigram_analyzer": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": [
-                                    "lowercase",
-                                    "asciifolding",
-                                    "trigram_filter",
-                                ],
-                            },
-                        },
-                        "filter": {
-                            "french_elision": {
-                                "type": "elision",
-                                "articles_case": True,
-                                "articles": [
-                                    "l",
-                                    "m",
-                                    "t",
-                                    "qu",
-                                    "n",
-                                    "s",
-                                    "j",
-                                    "d",
-                                    "c",
-                                    "jusqu",
-                                    "quoiqu",
-                                    "lorsqu",
-                                    "puisqu",
-                                ],
-                            },
-                            "french_stop": {
-                                "type": "stop",
-                                "stopwords": "_french_",
-                            },
-                            "french_stemmer": {
-                                "type": "stemmer",
-                                "language": "light_french",
-                            },
-                            "trigram_filter": {
-                                "type": "ngram",
-                                "min_gram": 3,
-                                "max_gram": 3,
-                            },
-                        },
+                        "analyzer": LANGUAGE_ANALYZERS,
+                        "filter": LANGUAGE_FILTERS,
                     },
                 },
                 "mappings": {
                     "dynamic": "strict",
                     "properties": {
                         "id": {"type": "keyword"},
-                        "title": {
-                            "type": "keyword",
-                            "fields": {
-                                "text": {
-                                    "type": "text",
-                                    "analyzer": "french_analyzer",
-                                    "fields": {
-                                        "trigrams": {
-                                            "type": "text",
-                                            "analyzer": "trigram_analyzer",
-                                        }
-                                    },
-                                }
-                            },
-                        },
+                        **get_language_mapping(),
                         "depth": {"type": "integer"},
                         "path": {
                             "type": "keyword",
                             "fields": {"text": {"type": "text"}},
                         },
                         "numchild": {"type": "integer"},
-                        "content": {
-                            "type": "text",
-                            "analyzer": "french_analyzer",
-                            "fields": {
-                                "trigrams": {
-                                    "type": "text",
-                                    "analyzer": "trigram_analyzer",
-                                }
-                            },
-                        },
                         "created_at": {"type": "date"},
                         "updated_at": {"type": "date"},
                         "size": {"type": "long"},
