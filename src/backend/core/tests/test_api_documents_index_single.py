@@ -81,8 +81,20 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
         index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
-    assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
-    assert new_indexed_document["_source"]["content"] == document["content"]
+    # the language field was not passed in the query params. Language defaults to settings.LANGUAGE_CODE
+    assert (
+        new_indexed_document["_source"][settings.LANGUAGE_CODE]["title"]
+        == document["title"].strip().lower()
+    )
+    assert (
+        new_indexed_document["_source"][settings.LANGUAGE_CODE]["content"]
+        == document["content"]
+    )
+    other_language_code = "de-de"
+    assert other_language_code != settings.LANGUAGE_CODE
+    # only the default language is indexed
+    assert not other_language_code in new_indexed_document["_source"]
+    # check embedding
     assert (
         new_indexed_document["_source"]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
@@ -93,7 +105,63 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
 
-def test_api_documents_index_single_hybrid_disabled_success():
+def test_api_documents_index_language_params(settings):
+    """language_code query param should control which language is indexed."""
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    language_code = "de-de"
+    other_language_code = "fr-fr"
+    assert language_code != settings.LANGUAGE_CODE
+    response = APIClient().post(
+        f"/api/v1.0/documents/index/?language_code={language_code}",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["_id"] == str(document["id"])
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+    assert (
+        new_indexed_document["_source"][language_code]["title"]
+        == document["title"].strip().lower()
+    )
+    assert (
+        new_indexed_document["_source"][language_code]["content"] == document["content"]
+    )
+    # only the requested language is indexed
+    assert not other_language_code in new_indexed_document["_source"]
+
+
+def test_api_documents_index_wrong_language_params():
+    """using unrecognised language_code query should through an error."""
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    language_code = "es-es"  # unsupported language
+    response = APIClient().post(
+        f"/api/v1.0/documents/index/?language_code={language_code}",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "errors": [
+            {
+                "msg": "Input should be 'fr-fr', 'en-us', 'de-de' or 'nl'",
+                "type": "literal_error",
+                "loc": ["language_code"],
+            }
+        ]
+    }
+
+
+def test_api_documents_index_single_hybrid_disabled_success(settings):
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
@@ -113,8 +181,14 @@ def test_api_documents_index_single_hybrid_disabled_success():
         index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
-    assert new_indexed_document["_source"]["title"] == document["title"].strip().lower()
-    assert new_indexed_document["_source"]["content"] == document["content"]
+    assert (
+        new_indexed_document["_source"][settings.LANGUAGE_CODE]["title"]
+        == document["title"].strip().lower()
+    )
+    assert (
+        new_indexed_document["_source"][settings.LANGUAGE_CODE]["content"]
+        == document["content"]
+    )
     assert new_indexed_document["_source"]["embedding"] is None
 
 
@@ -144,20 +218,77 @@ def test_api_documents_index_single_ensure_index(settings):
         "dynamic": "strict",
         "properties": {
             "id": {"type": "keyword"},
-            "title": {
-                "fields": {
-                    "text": {
+            "fr-fr": {
+                "properties": {
+                    "content": {
                         "analyzer": "french_analyzer",
                         "fields": {
-                            "trigrams": {
-                                "analyzer": "trigram_analyzer",
-                                "type": "text",
-                            },
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
                         },
                         "type": "text",
                     },
-                },
-                "type": "keyword",
+                    "title": {
+                        "analyzer": "french_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                }
+            },
+            "en-us": {
+                "properties": {
+                    "content": {
+                        "analyzer": "english_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                    "title": {
+                        "analyzer": "english_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                }
+            },
+            "de-de": {
+                "properties": {
+                    "content": {
+                        "analyzer": "german_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                    "title": {
+                        "analyzer": "german_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                }
+            },
+            "nl": {
+                "properties": {
+                    "content": {
+                        "analyzer": "dutch_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                    "title": {
+                        "analyzer": "dutch_analyzer",
+                        "fields": {
+                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
+                        },
+                        "type": "text",
+                    },
+                }
             },
             "depth": {"type": "integer"},
             "path": {
@@ -165,16 +296,6 @@ def test_api_documents_index_single_ensure_index(settings):
                 "fields": {"text": {"type": "text"}},
             },
             "numchild": {"type": "integer"},
-            "content": {
-                "analyzer": "french_analyzer",
-                "fields": {
-                    "trigrams": {
-                        "analyzer": "trigram_analyzer",
-                        "type": "text",
-                    },
-                },
-                "type": "text",
-            },
             "created_at": {"type": "date"},
             "updated_at": {"type": "date"},
             "size": {"type": "long"},

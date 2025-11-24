@@ -123,6 +123,7 @@ class Base(Configuration):
     # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
     # Languages
+    SUPPORTED_LANGUAGES = ["fr-fr", "en-us", "de-de", "nl"]
     LANGUAGE_CODE = values.Value("en-us")
 
     # Careful! Languages should be ordered by priority, as this tuple is used to get

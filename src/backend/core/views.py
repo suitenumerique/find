@@ -16,10 +16,9 @@ from .authentication import ServiceTokenAuthentication
 from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
 from .services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_document,
     ensure_index_exists,
     opensearch_client,
+    prepare_document_for_indexing,
     search,
 )
 
@@ -57,6 +56,13 @@ class IndexDocumentView(views.APIView):
             response body contains information about the success or failure of each individual
             document.
 
+        Query Parameters:
+        ----------------
+        language : str, optional
+            Language code for indexing ("fr-fr", "en-us", "de-de", "nl").
+            Defaults to settings.LANGUAGE_CODE if not provided.
+            This determines which language-specific analyzer and fields are used for indexing.
+
         Methods:
         -------
         post(request, *args, **kwargs):
@@ -86,6 +92,24 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
+        # Validate query parameters - use .get() to extract single values
+        try:
+            row_language_code = request.query_params.get("language_code", None)
+            parsed_query_params = schemas.IndexQueryParametersSchema(
+                **{
+                    "language_code": row_language_code
+                    if row_language_code
+                    else schemas.get_default_language()
+                }
+            )
+        except PydanticValidationError as excpt:
+            errors = [
+                {key: error[key] for key in ("msg", "type", "loc")}
+                for error in excpt.errors()
+            ]
+            return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        language_code = parsed_query_params.language_code
         index_name = request.auth.index_name
         opensearch_client_ = opensearch_client()
 
@@ -106,15 +130,9 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = {
-                        **document.model_dump(),
-                        "embedding": embed_document(document)
-                        if check_hybrid_search_enabled()
-                        else None,
-                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-                        if check_hybrid_search_enabled()
-                        else None,
-                    }
+                    document_dict = prepare_document_for_indexing(
+                        document.model_dump(), language_code
+                    )
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -140,15 +158,7 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = {
-            **document.model_dump(),
-            "embedding": embed_document(document)
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
+        document_dict = prepare_document_for_indexing(document.model_dump(), language_code)
         _id = document_dict.pop("id")
 
         # Build index if needed.
