@@ -11,10 +11,10 @@ from opensearchpy.exceptions import NotFoundError
 from rest_framework.exceptions import ValidationError
 
 from core import enums
-from core.services.language import (
+from core.services.opensearch_settings import (
     LANGUAGE_ANALYZERS,
     LANGUAGE_FILTERS,
-    get_language_mapping,
+    MAPPINGS,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +54,7 @@ def opensearch_client():
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def search(  # noqa : PLR0913
     q,
+    language_code,
     nb_results,
     order_by,
     order_direction,
@@ -66,6 +67,7 @@ def search(  # noqa : PLR0913
     """Perform an OpenSearch search"""
     query = get_query(
         q=q,
+        language_code=language_code,
         nb_results=nb_results,
         reach=reach,
         visited=visited,
@@ -98,7 +100,7 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, nb_results, reach, visited, user_sub, groups
+    q, language_code, nb_results, reach, visited, user_sub, groups
 ):
     """Build OpenSearch query body based on parameters"""
     filter_ = get_filter(reach, visited, user_sub, groups)
@@ -122,7 +124,7 @@ def get_query(  # noqa : PLR0913
         logger.info("Performing full-text search without embedding: %s", q)
         return {
             "bool": {
-                "must": get_full_text_query(q),
+                "must": get_full_text_query(q, language_code),
                 "filter": filter_,
             }
         }
@@ -133,7 +135,7 @@ def get_query(  # noqa : PLR0913
             "queries": [
                 {
                     "bool": {
-                        "must": get_full_text_query(q),
+                        "must": get_full_text_query(q, language_code),
                         "filter": filter_,
                     }
                 },
@@ -155,7 +157,7 @@ def get_query(  # noqa : PLR0913
     }
 
 
-def get_full_text_query(q):
+def get_full_text_query(q, language_code):
     """Build OpenSearch full-text query"""
     return {
         "bool": {
@@ -163,13 +165,19 @@ def get_full_text_query(q):
                 {
                     "multi_match": {
                         "query": q,
-                        "fields": ["title.text^3", "content"],
+                        "fields": [
+                            f"title.{language_code}.text^3",
+                            f"content.{language_code}",
+                        ],
                     }
                 },
                 {
                     "multi_match": {
                         "query": q,
-                        "fields": ["title.text.trigrams^3", "content.trigrams"],
+                        "fields": [
+                            f"title.{language_code}.text.trigrams^3",
+                            f"content.{language_code}.trigrams",
+                        ],
                         "boost": settings.TRIGRAMS_BOOST,
                         "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
                     }
@@ -277,10 +285,8 @@ def prepare_document_for_indexing(document, language_code):
     """Prepare document for indexing using nested language structure and handle embedding"""
     return {
         "id": document["id"],
-        language_code: {
-            "title": document["title"],
-            "content": document["content"],
-        },
+        f"title.{language_code}": document["title"],
+        f"content.{language_code}": document["content"],
         "embedding": embed_text(format_document(document["title"], document["content"]))
         if check_hybrid_search_enabled()
         else None,
@@ -316,39 +322,7 @@ def ensure_index_exists(index_name):
                         "filter": LANGUAGE_FILTERS,
                     },
                 },
-                "mappings": {
-                    "dynamic": "strict",
-                    "properties": {
-                        "id": {"type": "keyword"},
-                        **get_language_mapping(),
-                        "depth": {"type": "integer"},
-                        "path": {
-                            "type": "keyword",
-                            "fields": {"text": {"type": "text"}},
-                        },
-                        "numchild": {"type": "integer"},
-                        "created_at": {"type": "date"},
-                        "updated_at": {"type": "date"},
-                        "size": {"type": "long"},
-                        "users": {"type": "keyword"},
-                        "groups": {"type": "keyword"},
-                        "reach": {"type": "keyword"},
-                        "is_active": {"type": "boolean"},
-                        "embedding": {
-                            # for simplicity, embedding is always present but is empty
-                            # when hybrid search is disabled
-                            "type": "knn_vector",
-                            "dimension": settings.EMBEDDING_DIMENSION,
-                            "method": {
-                                "engine": "lucene",
-                                "space_type": "l2",
-                                "name": "hnsw",
-                                "parameters": {},
-                            },
-                        },
-                        "embedding_model": {"type": "keyword"},
-                    },
-                },
+                "mappings": MAPPINGS,
             },
         )
 
