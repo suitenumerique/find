@@ -41,7 +41,7 @@ LANGUAGE_ANALYZERS = {
             "lowercase",
             "asciifolding",
             "dutch_stop",
-            # "dutch_stemmer",
+            "dutch_stemmer",
         ],
     },
     "trigram_analyzer": {
@@ -89,7 +89,7 @@ LANGUAGE_FILTERS = {
     },
     "english_stemmer": {
         "type": "stemmer",
-        "language": "light_english",
+        "language": "english",
     },
     "german_stop": {
         "type": "stop",
@@ -103,10 +103,10 @@ LANGUAGE_FILTERS = {
         "type": "stop",
         "stopwords": "_dutch_",
     },
-    # "dutch_stemmer": {
-    #     "type": "stemmer",
-    #     "language": "dutch",
-    # },
+    "dutch_stemmer": {
+        "type": "stemmer",
+        "language": "dutch",
+    },
     "trigram_filter": {
         "type": "ngram",
         "min_gram": 3,

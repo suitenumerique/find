@@ -34,12 +34,14 @@ pytestmark = pytest.mark.django_db
 
 
 SERVICE_NAME = "test-service"
+DEFAULT_LANGUAGE_CODE = "en-us"
 
 
 def search_params(service):
     """Build opensearch.search() parameters for tests using the service index name"""
     return {
         "nb_results": 20,
+        "language_code": DEFAULT_LANGUAGE_CODE,
         "order_by": "relevance",
         "order_direction": "desc",
         "search_indices": {service.index_name},
@@ -99,9 +101,10 @@ def test_hybrid_search_success(settings, caplog):
 
     assert result["hits"]["max_score"] > 0.0
     # hybrid search always returns a response of fixed sized sorted and scored by relevance
-    assert {hit["_source"]["title"] for hit in result["hits"]["hits"]} == {
-        doc["title"] for doc in documents
-    }
+    assert {
+        hit["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"]
+        for hit in result["hits"]["hits"]
+    } == {doc["title"] for doc in documents}
 
 
 @responses.activate
@@ -166,7 +169,7 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
 
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title"] == q
+    assert result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == q
 
 
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
@@ -198,7 +201,9 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
+    assert (
+        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
+    )
 
 
 @responses.activate
@@ -235,7 +240,9 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
+    assert (
+        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
+    )
 
 
 @responses.activate
@@ -267,7 +274,9 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title"] == "wolf"
+    assert (
+        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
+    )
 
 
 @responses.activate
@@ -365,6 +374,60 @@ def test_hybrid_search_number_of_matches(settings):
 
 
 @responses.activate
+def test_language_code():
+    """
+    Searching a document by its content should work as expected.
+    Search, like indexing, defaults to settings.LANGUAGE_CODE.
+    """
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    english_code = "en-us"
+    french_code = "fr-fr"
+    prepare_index(
+        service.index_name,
+        bulk_create_documents(
+            [
+                {"title": "The quick brown fox", "content": "the wolf"},
+                {"title": "The blue fox", "content": "the wolf"},
+                {"title": "The brown goat", "content": "the wolf"},
+            ]
+        ),
+        language_code=english_code,
+    )
+    prepare_index(
+        service.index_name,
+        bulk_create_documents(
+            [
+                {"title": "Le rapide renard brun", "content": "le loup"},
+                {"title": "Le renard bleu", "content": "le loup"},
+                {"title": "La chèvre brune", "content": "le loup"},
+            ]
+        ),
+        language_code=french_code,
+    )
+
+    french_query = "renard"
+
+    # search french documents in french
+    result = search(
+        q=french_query, **{**search_params(service), "language_code": french_code}
+    )
+    # find the corresponding documents
+    assert len(result["hits"]["hits"]) == 2
+    assert [
+        document["_source"][f"title.{french_code}"]
+        for document in result["hits"]["hits"]
+    ] == ["Le renard bleu", "Le rapide renard brun"]
+    assert not f"title.{english_code}" in result["hits"]["hits"][0]["_source"]
+
+    # search french documents in english
+    result = search(
+        q=french_query, **{**search_params(service), "language_code": english_code}
+    )
+    # can not find them
+    assert len(result["hits"]["hits"]) == 0
+
+
+@responses.activate
 def test_embed_text_success(settings):
     """Test embed_text retrieval is successful"""
     enable_hybrid_search(settings)
@@ -450,22 +513,153 @@ def test_embed_wrong_format(settings, caplog):
     assert embedding is None
 
 
-def test_opensearch_analyzer(settings):
+@pytest.mark.parametrize(
+    "text, analyzer_name, expected_language_analyzer_tokens, expected_trigram_analyzer_tokens",
+    [
+        (
+            "l'éléphant a couru avec les Gens",
+            "french_analyzer",
+            # lowercase is applied ("Gens" -> "gens")
+            # asciifolding is applied ("éléphant" -> "elephant")
+            # stop words are removed ('avec', 'les')
+            # elisions are removed ("l'")
+            # stemming is applied ("gens" -> "gen")
+            ["elephant", "a", "couru", "gen"],
+            # lowercase is applied ("Gens" -> "gens")
+            # asciifolding is applied ("éléphant" -> "elephant")
+            # words smaller than 3 characters are removed ("a")
+            # trigrams are generated
+            [
+                "l'e",
+                "'el",
+                "ele",
+                "lep",
+                "eph",
+                "pha",
+                "han",
+                "ant",
+                "cou",
+                "our",
+                "uru",
+                "ave",
+                "vec",
+                "les",
+                "gen",
+                "ens",
+            ],
+        ),
+        (
+            "The Elephant is running into a café",
+            "english_analyzer",
+            # lowercase is applied ("Elephant" -> "elephant")
+            # asciifolding is applied ("café" -> "cafe")
+            # stop words are removed ("The", "into", "a")
+            # stemming is applied ("running" -> "run", "elephant" -> "eleph")
+            ["eleph", "run", "cafe"],
+            # lowercase is applied ("Gens" -> "gens")
+            # asciifolding is applied ("café" -> "cafe")
+            # trigrams are generated
+            # words smaller than 3 characters are removed ("a")
+            [
+                "the",
+                "ele",
+                "lep",
+                "eph",
+                "pha",
+                "han",
+                "ant",
+                "run",
+                "unn",
+                "nni",
+                "nin",
+                "ing",
+                "int",
+                "nto",
+                "caf",
+                "afe",
+            ],
+        ),
+        (
+            "Der Käfer läuft über die Straße",
+            "german_analyzer",
+            # lowercase is applied ("Der" -> "der", "Käfer" -> "käfer", "Straße" -> "straße")
+            # asciifolding is applied ("käfer" -> "kafer", "straße" -> "strass")
+            # stop words are removed ("Der", "die")
+            # stemming is applied ("kafer" -> "kaf")
+            ["kaf", "lauft", "uber", "strass"],
+            # lowercase is applied
+            # asciifolding is applied ("käfer" -> "kafer", "straße" -> "strasse")
+            # trigrams are generated
+            [
+                "der",
+                "kaf",
+                "afe",
+                "fer",
+                "lau",
+                "auf",
+                "uft",
+                "ube",
+                "ber",
+                "die",
+                "str",
+                "tra",
+                "ras",
+                "ass",
+                "sse",
+            ],
+        ),
+        (
+            "De Kinderen lopen naar de bakkerij",
+            "dutch_analyzer",
+            # lowercase is applied ("De" -> "de", "Kinderen" -> "kinderen")
+            # stop words are removed ("De", "naar", "de")
+            # stemming is applied ("kinderen" -> "kinder", "lopen" -> "lop")
+            ["kinder", "lop", "bakkerij"],
+            # lowercase is applied
+            # words smaller than 3 characters are removed ("de")
+            # trigrams are generated
+            [
+                "kin",
+                "ind",
+                "nde",
+                "der",
+                "ere",
+                "ren",
+                "lop",
+                "ope",
+                "pen",
+                "naa",
+                "aar",
+                "bak",
+                "akk",
+                "kke",
+                "ker",
+                "eri",
+                "rij",
+            ],
+        ),
+    ],
+)
+def test_opensearch_analyzers(
+    settings,
+    text,
+    analyzer_name,
+    expected_language_analyzer_tokens,
+    expected_trigram_analyzer_tokens,
+):
     """Test the french_analyzer is correctly configured in OpenSearch"""
     enable_hybrid_search(settings)
     ensure_index_exists(SERVICE_NAME)
 
-    text = "l'éléphant a couru avec les Gens"
-
-    french_analyzer_response = opensearch_client().indices.analyze(
+    language_analyzer_response = opensearch_client().indices.analyze(
         index=SERVICE_NAME,
         body={
-            "analyzer": "french_analyzer",
+            "analyzer": analyzer_name,
             "text": text,
         },
     )
-    french_analyzer_tokens = [
-        token_info["token"] for token_info in french_analyzer_response["tokens"]
+    language_analyzer_tokens = [
+        token_info["token"] for token_info in language_analyzer_response["tokens"]
     ]
     response_trigram_analyzer = opensearch_client().indices.analyze(
         index=SERVICE_NAME,
@@ -478,31 +672,5 @@ def test_opensearch_analyzer(settings):
         token_info["token"] for token_info in response_trigram_analyzer["tokens"]
     ]
 
-    # lowercase is applied ("Gens" -> "gens")
-    # asciifolding is applied ("éléphant" -> "elephant")
-    # stop words are removed ('avec', 'les')
-    # elisions are removed ("l'")
-    # stemming is applied ("gens" -> "gen")
-    assert french_analyzer_tokens == ["elephant", "a", "couru", "gen"]
-
-    # lowercase is applied ("Gens" -> "gens")
-    # asciifolding is applied ("éléphant" -> "elephant")
-    # trigrams are generated
-    assert trigram_analyzer_tokens == [
-        "l'e",
-        "'el",
-        "ele",
-        "lep",
-        "eph",
-        "pha",
-        "han",
-        "ant",
-        "cou",
-        "our",
-        "uru",
-        "ave",
-        "vec",
-        "les",
-        "gen",
-        "ens",
-    ]
+    assert expected_language_analyzer_tokens == language_analyzer_tokens
+    assert expected_trigram_analyzer_tokens == trigram_analyzer_tokens
