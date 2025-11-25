@@ -13,7 +13,10 @@ import responses
 from rest_framework.test import APIClient
 
 from core import enums, factories
-from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    opensearch_client,
+)
 
 from .mock import albert_embedding_response
 from .utils import (
@@ -353,10 +356,10 @@ def test_api_documents_language_code(settings):
     Search, like indexing, defaults to settings.LANGUAGE_CODE.
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-
     service = factories.ServiceFactory()
-    english = "en-us"
-    french = "fr-fr"
+
+    english_code = "en-us"
+    french_code = "fr-fr"
     prepare_index(
         service.index_name,
         bulk_create_documents(
@@ -366,7 +369,7 @@ def test_api_documents_language_code(settings):
                 {"title": "The brown goat", "content": "the wolf"},
             ]
         ),
-        language_code=english,
+        language_code=english_code,
     )
     prepare_index(
         service.index_name,
@@ -377,7 +380,7 @@ def test_api_documents_language_code(settings):
                 {"title": "La chèvre brune", "content": "le loup"},
             ]
         ),
-        language_code=french,
+        language_code=french_code,
     )
 
     french_query = "renard"
@@ -385,7 +388,7 @@ def test_api_documents_language_code(settings):
     # search french documents in french
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": french_query, "language_code": french},
+        {"q": french_query, "language_code": french_code},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -396,13 +399,46 @@ def test_api_documents_language_code(settings):
     # search french documents in english
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": french_query, "language_code": english},
+        {"q": french_query, "language_code": english_code},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
     # can not find them
     assert response.status_code == 200
     assert len(response.json()) == 0
+
+
+@responses.activate
+def test_api_documents_wrong_language_code(settings):
+    """returns an error if the language code is not supported"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    prepare_index(
+        service.index_name,
+        bulk_create_documents(
+            [
+                {"title": "The brown goat", "content": "the wolf"},
+            ]
+        ),
+    )
+    unsupported_language_code = "es-es"
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "language_code": unsupported_language_code},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {
+            "msg": "Input should be 'en-us', 'fr-fr', 'de-de' or 'nl-nl'",
+            "type": "literal_error",
+            "loc": ["language_code"],
+        }
+    ]
 
 
 @responses.activate

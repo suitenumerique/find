@@ -132,7 +132,9 @@ class Base(Configuration):
             ("nl-nl", _("Dutch")),
         )
     )
-    SUPPORTED_LANGUAGE_CODES = tuple(language_code for language_code, _ in LANGUAGES.value)
+    SUPPORTED_LANGUAGE_CODES = tuple(
+        language_code for language_code, _ in LANGUAGES.value
+    )
 
     LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
 
