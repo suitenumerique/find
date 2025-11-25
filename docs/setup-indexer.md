@@ -26,6 +26,20 @@ OPENSEARCH_USE_SSL=True
 OPENSEARCH_INDEX_PREFIX=find
 ```
 
+### Language
+Find supports french, english, german and dutch. 
+
+Language specific operations are applied to document titles and contents to improve search results. 
+The indexing and search endpoints take an optional 'language_code' query param to identify the language.
+If the language is not provided the language will fall-back to the default language. Tha default language can
+be control with a DEFAULT_LANGUAGE_CODE environment variable.
+
+```python
+DEFAULT_LANGUAGE_CODE=en-us
+````
+
+Supported values are 'fr-fr', 'en-us', 'de-de', 'nl-nl'.
+
 ### Semantic search
 
 Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the fallowing settings. 
@@ -48,6 +62,19 @@ EMBEDDING_DIMENSION = 1024
 The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 
 
 You need to use an embedding api similar to https://albert.api.etalab.gouv.fr/documentation#tag/Embeddings/operation/embeddings_v1_embeddings_post. 
+
+## trigrams
+
+Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It ca be configured by to environment variables. 
+
+````
+TRIGRAMS_BOOST=0.25
+TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
+````
+
+`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
+`TRIGRAMS_MINIMUM_SHOULD_MATCH`is the minimal number or proportion of trigrams having to match to score. I can be
+either an absolute number or proportion as the default value.
 
 ## Setup indexation API
 
