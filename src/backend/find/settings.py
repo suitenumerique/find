@@ -123,7 +123,7 @@ class Base(Configuration):
     # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
     # Languages
-    DEFAULT_LANGUAGE_CODE = values.Value("en-us")
+    DEFAULT_LANGUAGE_CODE = values.Value("en-us", environ_name="DEFAULT_LANGUAGE_CODE")
     LANGUAGES = values.SingleNestedTupleValue(
         (
             ("en-us", _("English")),
