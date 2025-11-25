@@ -1,4 +1,4 @@
-"""Tests Service model for find's core app."""
+"""Utility functions for management commands."""
 
 import base64
 import json
@@ -23,8 +23,7 @@ from core.management.commands.create_search_pipeline import (
 from core.services import opensearch
 from core.services.opensearch import (
     check_hybrid_search_enabled,
-    embed_text,
-    format_document,
+    prepare_document_for_indexing,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,29 +82,9 @@ def prepare_index(
             "_op_type": "index",
             "_index": index_name,
             "_id": document["id"],
-            "_source": {
-                "id": document["id"],
-                f"title.{language_code}": document["title"],
-                f"content.{language_code}": document["content"],
-                "embedding": embed_text(
-                    format_document(document["title"], document["content"])
-                )
-                if check_hybrid_search_enabled()
-                else None,
-                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-                if check_hybrid_search_enabled()
-                else None,
-                "depth": document["depth"],
-                "path": document["path"],
-                "numchild": document["numchild"],
-                "created_at": document["created_at"],
-                "updated_at": document["updated_at"],
-                "size": document["size"],
-                "users": document["users"],
-                "groups": document["groups"],
-                "reach": document["reach"],
-                "is_active": document["is_active"],
-            },
+            "_source": prepare_document_for_indexing(
+                document, language_code=language_code
+            ),
         }
         for document in documents
     ]

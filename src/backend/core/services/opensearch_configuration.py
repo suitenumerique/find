@@ -1,8 +1,8 @@
-"""OpenSearch configuration for multi-language support."""
+"""OpenSearch configuration."""
 
 from django.conf import settings
 
-LANGUAGE_ANALYZERS = {
+ANALYZERS = {
     "french_analyzer": {
         "type": "custom",
         "tokenizer": "standard",
@@ -55,7 +55,7 @@ LANGUAGE_ANALYZERS = {
     },
 }
 
-LANGUAGE_FILTERS = {
+FILTERS = {
     "french_elision": {
         "type": "elision",
         "articles_case": True,

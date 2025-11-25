@@ -59,8 +59,8 @@ class IndexDocumentView(views.APIView):
         Query Parameters:
         ----------------
         language : str, optional
-            Language code for indexing ("fr-fr", "en-us", "de-de", "nl").
-            Defaults to settings.LANGUAGE_CODE if not provided.
+            Language code for indexing ("fr-fr", "en-us", "de-de", "nl-nl").
+            Defaults to settings.DEFAULT_LANGUAGE_CODE if not provided.
             This determines which language-specific analyzer and fields are used for indexing.
 
         Methods:
@@ -99,7 +99,7 @@ class IndexDocumentView(views.APIView):
                 **{
                     "language_code": row_language_code
                     if row_language_code
-                    else settings.LANGUAGE_CODE
+                    else settings.DEFAULT_LANGUAGE_CODE
                 }
             )
         except PydanticValidationError as excpt:
@@ -109,7 +109,7 @@ class IndexDocumentView(views.APIView):
             ]
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        language_code = parsed_query_params.language_code
+        language_code = parsed_query_params.DEFAULT_LANGUAGE_CODE
         index_name = request.auth.index_name
         opensearch_client_ = opensearch_client()
 
@@ -263,7 +263,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         response = search(
             q=params.q,
-            language_code=params.language_code,
+            language_code=params.DEFAULT_LANGUAGE_CODE,
             nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,

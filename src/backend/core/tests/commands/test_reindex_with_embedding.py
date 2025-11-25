@@ -204,7 +204,7 @@ def test_reindex_can_fail_and_restart(settings):
 def test_reindex_preserves_concurrent_updates(settings):
     """
     Test that concurrent document updates don't get overwritten by reindexing.
-    This test simulates the fallowing scenario:
+    This test simulates the following scenario:
     • the hybrid search is disabled
     • documents are created and indexed without indexing
     • the hybrid search is enabled

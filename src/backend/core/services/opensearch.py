@@ -11,9 +11,9 @@ from opensearchpy.exceptions import NotFoundError
 from rest_framework.exceptions import ValidationError
 
 from core import enums
-from core.services.opensearch_settings import (
-    LANGUAGE_ANALYZERS,
-    LANGUAGE_FILTERS,
+from core.services.opensearch_configuration import (
+    ANALYZERS,
+    FILTERS,
     MAPPINGS,
 )
 
@@ -318,8 +318,8 @@ def ensure_index_exists(index_name):
                 "settings": {
                     "index.knn": True,
                     "analysis": {
-                        "analyzer": LANGUAGE_ANALYZERS,
-                        "filter": LANGUAGE_FILTERS,
+                        "analyzer": ANALYZERS,
+                        "filter": FILTERS,
                     },
                 },
                 "mappings": MAPPINGS,

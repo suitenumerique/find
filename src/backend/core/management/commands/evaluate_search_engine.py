@@ -6,7 +6,6 @@ import importlib
 import logging
 import math
 import os
-import re
 import unicodedata
 
 from django.conf import settings
@@ -37,6 +36,7 @@ class Command(BaseCommand):
     index_name = "evaluation-index"
     search_params = {
         "nb_results": 20,
+        "language_code": settings.DEFAULT_LANGUAGE_CODE,
         "order_by": "relevance",
         "order_direction": "desc",
         "search_indices": {index_name},
