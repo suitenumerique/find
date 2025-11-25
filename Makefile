@@ -60,6 +60,9 @@ data/opensearch:
 data/static:
 	@mkdir -p data/static
 
+data/nltk:
+	@mkdir -p data/nltk
+
 # -- Project
 
 create-env-files: ## Copy the dist env files to env files
@@ -73,6 +76,7 @@ bootstrap: ## Prepare Docker images for the project
 bootstrap: \
 	data/opensearch \
 	data/static \
+	data/nltk \
 	create-env-files \
 	build \
 	migrate \

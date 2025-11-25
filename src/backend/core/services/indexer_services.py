@@ -223,7 +223,16 @@ class IndexerTaskService:
     """
 
     # V2 : Use settings to define the list of converters
-    converters = {"application/pdf": converters.pdf_to_markdown}
+    converters = {
+        "application/pdf": converters.pdf_to_markdown,
+        "application/docx": converters.docx_to_markdown,
+        "application/pptx": converters.pptx_to_markdown,
+        "application/xlsx": converters.xlsx_to_markdown,
+        "application/odt": converters.odt_to_markdown,
+        "application/html": converters.html_to_markdown,
+        "application/rtf": converters.rtf_to_markdown,
+        "application/rst": converters.rst_to_markdown,
+    }
     processors = [
         # Put prepare_document_for_indexing() here !
     ]

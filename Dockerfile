@@ -63,8 +63,11 @@ RUN apt-get update && \
       libcairo2 \
       libffi-dev \
       libgdk-pixbuf2.0-0 \
+      libmagic-dev \
       libpango-1.0-0 \
       libpangocairo-1.0-0 \
+      poppler-utils \
+      pandoc \
       shared-mime-info && \
   rm -rf /var/lib/apt/lists/*
 

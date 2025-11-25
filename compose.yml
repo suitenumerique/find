@@ -57,6 +57,7 @@ services:
     environment:
       - PYLINTHOME=/app/.pylint.d
       - DJANGO_CONFIGURATION=Development
+      - NLTK_DATA=/data/nltk
     env_file:
       - env.d/development/common
       - env.d/development/postgresql
@@ -70,6 +71,7 @@ services:
     volumes:
       - ./src/backend:/app
       - ./data/static:/data/static
+      - ./data/nltk:/data/nltk
     depends_on:
       postgresql:
         condition: service_started
@@ -84,12 +86,14 @@ services:
     command: ["celery", "-A", "find.celery_app", "worker", "-l", "DEBUG"]
     environment:
       - DJANGO_CONFIGURATION=Development
+      - NLTK_DATA=/data/nltk
     env_file:
       - env.d/development/common
       - env.d/development/postgresql
     volumes:
       - ./src/backend:/app
       - ./data/static:/data/static
+      - ./data/nltk:/data/nltk
     depends_on:
       - app
 
