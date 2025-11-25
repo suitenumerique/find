@@ -110,6 +110,9 @@ class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
     q: str
+    language_code: Literal[settings.SUPPORTED_LANGUAGE_CODES] = Field(
+        default_factory=lambda: settings.DEFAULT_LANGUAGE_CODE
+    )
     services: StringListParameter = Field(default_factory=list)
     visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
@@ -118,15 +121,9 @@ class SearchQueryParametersSchema(BaseModel):
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
 
 
-def get_default_language():
-    """Get the default language from Django settings, fallback to 'en-us' if not supported."""
-    language_code = getattr(settings, "LANGUAGE_CODE", "en-us")
-    return language_code if language_code in settings.SUPPORTED_LANGUAGES else "en-us"
-
-
 class IndexQueryParametersSchema(BaseModel):
     """Schema for validating query parameters on the index API endpoint"""
 
-    language_code: Literal[*settings.SUPPORTED_LANGUAGES] = Field(
-        default_factory=get_default_language
+    language_code: Literal[settings.SUPPORTED_LANGUAGE_CODES] = Field(
+        default_factory=lambda: settings.DEFAULT_LANGUAGE_CODE
     )

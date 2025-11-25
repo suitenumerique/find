@@ -243,7 +243,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -265,7 +265,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -275,7 +275,10 @@ def test_api_documents_full_text_search_query_title(settings):
 
 @responses.activate
 def test_api_documents_full_text_search(settings):
-    """Searching a document by its content should work as expected"""
+    """
+    Searching a document by its content should work as expected.
+    Search, like indexing, defaults to settings.LANGUAGE_CODE.
+    """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
 
@@ -312,7 +315,7 @@ def test_api_documents_full_text_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -335,12 +338,71 @@ def test_api_documents_full_text_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
         "number_of_groups": [3],
     }
+
+
+@responses.activate
+def test_api_documents_language_code(settings):
+    """
+    Searching a document by its content should work as expected.
+    Search, like indexing, defaults to settings.LANGUAGE_CODE.
+    """
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+
+    service = factories.ServiceFactory()
+    english = "en-us"
+    french = "fr-fr"
+    prepare_index(
+        service.index_name,
+        bulk_create_documents(
+            [
+                {"title": "The quick brown fox", "content": "the wolf"},
+                {"title": "The blue fox", "content": "the wolf"},
+                {"title": "The brown goat", "content": "the wolf"},
+            ]
+        ),
+        language_code=english,
+    )
+    prepare_index(
+        service.index_name,
+        bulk_create_documents(
+            [
+                {"title": "Le rapide renard brun", "content": "le loup"},
+                {"title": "Le renard bleu", "content": "le loup"},
+                {"title": "La chèvre brune", "content": "le loup"},
+            ]
+        ),
+        language_code=french,
+    )
+
+    french_query = "renard"
+
+    # search french documents in french
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": french_query, "language_code": french},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+    # find the corresponding documents
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+    # search french documents in english
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {"q": french_query, "language_code": english},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+    # can not find them
+    assert response.status_code == 200
+    assert len(response.json()) == 0
 
 
 @responses.activate
@@ -392,7 +454,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -415,7 +477,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -440,7 +502,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": no_fox_document["created_at"].isoformat(),
         "updated_at": no_fox_document["updated_at"].isoformat(),
         "reach": no_fox_document["reach"],
-        "title": no_fox_document["title"],
+        f"title.{settings.LANGUAGE_CODE}": no_fox_document["title"],
     }
     assert no_fox_response["fields"] == {
         "number_of_users": [1],
@@ -466,8 +528,6 @@ def test_api_documents_search_ordering_by_fields(settings):
     prepare_index(service.index_name, documents)
 
     parameters = [
-        (enums.TITLE, "asc"),
-        (enums.TITLE, "desc"),
         (enums.CREATED_AT, "asc"),
         (enums.CREATED_AT, "desc"),
         (enums.UPDATED_AT, "asc"),

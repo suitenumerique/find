@@ -2,7 +2,6 @@
 
 from django.conf import settings
 
-
 LANGUAGE_ANALYZERS = {
     "french_analyzer": {
         "type": "custom",
@@ -198,7 +197,7 @@ MAPPINGS = {
             },
         },
         # Dutch
-        "title.nl": {
+        "title.nl-nl": {
             "type": "keyword",
             "fields": {
                 "text": {
@@ -213,7 +212,7 @@ MAPPINGS = {
                 }
             },
         },
-        "content.nl": {
+        "content.nl-nl": {
             "type": "text",
             "analyzer": "dutch_analyzer",
             "fields": {

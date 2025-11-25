@@ -99,7 +99,7 @@ class IndexDocumentView(views.APIView):
                 **{
                     "language_code": row_language_code
                     if row_language_code
-                    else schemas.get_default_language()
+                    else settings.LANGUAGE_CODE
                 }
             )
         except PydanticValidationError as excpt:
@@ -158,7 +158,9 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = prepare_document_for_indexing(document.model_dump(), language_code)
+        document_dict = prepare_document_for_indexing(
+            document.model_dump(), language_code
+        )
         _id = document_dict.pop("id")
 
         # Build index if needed.
@@ -261,6 +263,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         response = search(
             q=params.q,
+            language_code=params.language_code,
             nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,
@@ -270,5 +273,4 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             user_sub=user_sub,
             groups=groups,
         )
-
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

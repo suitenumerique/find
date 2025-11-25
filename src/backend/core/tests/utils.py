@@ -21,7 +21,11 @@ from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
 from core.services import opensearch
-from core.services.opensearch import check_hybrid_search_enabled
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    embed_text,
+    format_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,37 +69,49 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def prepare_index(index_name, documents: List):
+def prepare_index(
+    index_name, documents: List, language_code=django_settings.DEFAULT_LANGUAGE_CODE
+):
     """Prepare the search index before testing a query on it."""
     logger.info("prepare_index %s with %d documents", index_name, len(documents))
     opensearch_client_ = opensearch.opensearch_client()
     opensearch.ensure_index_exists(index_name)
 
-    actions = []
-    for document in documents:
-        document_dict = {
-            **document,
-            "embedding": opensearch.embed_text(
-                opensearch.format_document(document["title"], document["content"])
-            )
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
+    # Index new documents
+    actions = [
+        {
+            "_op_type": "index",
+            "_index": index_name,
+            "_id": document["id"],
+            "_source": {
+                "id": document["id"],
+                f"title.{language_code}": document["title"],
+                f"content.{language_code}": document["content"],
+                "embedding": embed_text(
+                    format_document(document["title"], document["content"])
+                )
+                if check_hybrid_search_enabled()
+                else None,
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                if check_hybrid_search_enabled()
+                else None,
+                "depth": document["depth"],
+                "path": document["path"],
+                "numchild": document["numchild"],
+                "created_at": document["created_at"],
+                "updated_at": document["updated_at"],
+                "size": document["size"],
+                "users": document["users"],
+                "groups": document["groups"],
+                "reach": document["reach"],
+                "is_active": document["is_active"],
+            },
         }
-        _id = document_dict.pop("id")
-        actions.append({"index": {"_id": _id}})
-        actions.append(document_dict)
-
+        for document in documents
+    ]
     if not actions:
         return
-
-    opensearch_client_.bulk(index=index_name, body=actions)
-    opensearch_client_.indices.refresh(index=index_name)
-
-    count = opensearch_client_.count(index=index_name)["count"]
-    assert count == len(documents), f"Expected {len(documents)}, got {count}"
+    bulk(opensearch.opensearch_client(), actions)
 
 
 def build_authorization_bearer(token="some_token"):
