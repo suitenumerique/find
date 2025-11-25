@@ -1,28 +1,16 @@
-"""Tests Service model for find's core app."""
+"""Command Service model for find's core app."""
 
-import base64
-import json
 import logging
-from functools import partial
 from typing import List
 
 from django.conf import settings as django_settings
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from joserfc import jwe as jose_jwe
-from joserfc import jwt as jose_jwt
-from joserfc.jwk import RSAKey
-from jwt.utils import to_base64url_uint
 from opensearchpy.exceptions import NotFoundError
-from opensearchpy.helpers import bulk
 
 from core import factories
 from core.services import opensearch
 from core.services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_text,
-    format_document,
+    prepare_document_for_indexing,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,24 +37,18 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def prepare_index(index_name, documents: List):
+def prepare_index(
+    index_name, documents: List, language_code=django_settings.DEFAULT_LANGUAGE_CODE
+):
     """Prepare the search index."""
     logger.info(f"prepare_index {index_name} with {len(documents)} documents")
     opensearch_client_ = opensearch.opensearch_client()
 
     actions = []
     for document in documents:
-        document_dict = {
-            **document,
-            "embedding": embed_text(
-                format_document(document["title"], document["content"])
-            )
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
+        document_dict = prepare_document_for_indexing(
+            document, language_code=language_code
+        )
         _id = document_dict.pop("id")
         actions.append({"index": {"_id": _id}})
         actions.append(document_dict)

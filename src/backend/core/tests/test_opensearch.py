@@ -377,7 +377,7 @@ def test_hybrid_search_number_of_matches(settings):
 def test_language_code():
     """
     Searching a document by its content should work as expected.
-    Search, like indexing, defaults to settings.LANGUAGE_CODE.
+    Search, like indexing, defaults to settings.DEFAULT_LANGUAGE_CODE.
     """
     service = factories.ServiceFactory(name=SERVICE_NAME)
     english_code = "en-us"

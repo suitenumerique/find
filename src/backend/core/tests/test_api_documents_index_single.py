@@ -140,7 +140,7 @@ def test_api_documents_index_language_params(settings):
 
 
 def test_api_documents_index_wrong_language_params():
-    """using unrecognised language_code query should through an error."""
+    """using unrecognised language_code query should throw an error."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
@@ -155,7 +155,7 @@ def test_api_documents_index_wrong_language_params():
     assert response.json() == {
         "errors": [
             {
-                "msg": "Input should be 'fr-fr', 'en-us', 'de-de' or 'nl'",
+                "msg": "Input should be 'en-us', 'fr-fr', 'de-de' or 'nl-nl'",
                 "type": "literal_error",
                 "loc": ["language_code"],
             }
@@ -267,7 +267,7 @@ def test_api_documents_index_single_ensure_index(settings):
                         },
                         "type": "keyword",
                     },
-                    "nl": {
+                    "nl-nl": {
                         "fields": {
                             "text": {
                                 "analyzer": "dutch_analyzer",
@@ -307,7 +307,7 @@ def test_api_documents_index_single_ensure_index(settings):
                         },
                         "type": "text",
                     },
-                    "nl": {
+                    "nl-nl": {
                         "analyzer": "dutch_analyzer",
                         "fields": {
                             "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}

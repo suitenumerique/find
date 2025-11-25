@@ -12,6 +12,7 @@ and this project adheres to
 
 - ✨(backend) add semantic search
 - ✨(backend) add analyzers to full-text search
+- ✨(backend) handle french, english, german and dutch 
 - ✨(backend) add evaluation command
 - backend application
 - helm chart
