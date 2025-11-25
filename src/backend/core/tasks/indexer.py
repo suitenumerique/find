@@ -24,35 +24,27 @@ def get_service(service_id):
 
 
 @app.task
-def loading_task(service_id):
+def load_n_process_task(service_id):
     """Celery Task : Re-index documents with deferred loading."""
     service = get_service(service_id)
 
     if service is not None:
-        indexer = IndexerTaskService(service)
+        indexer = IndexerTaskService(service, force_refresh=True)
 
         logger.info("Start deferred loading on index %s", service.index_name)
-        indexer.load_all()
-
-        # Trigger the embedding task if enabled
-        if check_hybrid_search_enabled():
-            embedding_task.apply_async((service_id,))
+        indexer.load_n_process_all()
 
 
 @app.task
-def preprocess_task(service_id):
+def process_task(service_id):
     """Celery Task : Re-index documents with deferred loading."""
     service = get_service(service_id)
 
     if service is not None:
-        indexer = IndexerTaskService(service)
+        indexer = IndexerTaskService(service, force_refresh=True)
 
         logger.info("Start deferred preprocessing on index %s", service.index_name)
-        indexer.preprocess_all()
-
-        # Trigger the embedding task if enabled
-        if check_hybrid_search_enabled():
-            embedding_task.apply_async((service_id,))
+        indexer.process_all()
 
 
 @app.task
@@ -61,7 +53,7 @@ def embedding_task(service_id):
     service = get_service(service_id)
 
     if service is not None:
-        indexer = IndexerTaskService(service)
+        indexer = IndexerTaskService(service, force_refresh=True)
 
         logger.info("Start embedding on index %s", service.index_name)
         indexer.embed_all()
@@ -72,18 +64,20 @@ def dispatch_indexing_tasks(service, documents: List[models.IndexDocument]):
     Trigger task related to the different status of the documents
     """
     countdown = settings.INDEXER_TASK_COUNTDOWN
-    waiting = any(doc.is_waiting for doc in documents)
-    not_ready = any(doc.is_loaded for doc in documents)
-    not_embed = check_hybrid_search_enabled() and any(
+    should_load = any(doc.is_waiting for doc in documents)
+    should_preprocess = any(doc.is_loaded for doc in documents)
+    should_embed = check_hybrid_search_enabled() and any(
         doc.is_ready and not doc.embedding for doc in documents
     )
 
-    # Trigger tasks for deferred loading
-    if waiting:
-        loading_task.apply_async((service.pk,), countdown=countdown)
+    # Trigger task for deferred loading if the file is too big
+    if should_load:
+        load_n_process_task.apply_async((service.pk,), countdown=countdown)
 
-    if not_ready:
-        preprocess_task.apply_async((service.pk,), countdown=countdown)
+    # Trigger task for deferred preprocessing of the content (picture analysis for instance)
+    if should_preprocess:
+        process_task.apply_async((service.pk,), countdown=countdown)
 
-    if not_embed:
+    # Trigger task for semantic indexation
+    if should_embed:
         embedding_task.apply_async((service.pk,), countdown=countdown)

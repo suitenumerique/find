@@ -56,6 +56,10 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     If hybrid search is enabled, the indexing should have embedding of
     dimension settings.EMBEDDING_DIMENSION.
     """
+    # Force opensearch index refresh because the task are runned synchronously
+    # within the tests.
+    settings.INDEXER_FORCE_REFRESH = True
+
     service = factories.ServiceFactory()
     enable_hybrid_search(settings)
     responses.add(

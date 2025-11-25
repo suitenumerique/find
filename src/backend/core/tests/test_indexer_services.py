@@ -1,4 +1,4 @@
-"""Tests indexing documents"""
+"""Test index task service for documents"""
 
 from dataclasses import asdict as dataasdict
 from io import StringIO
@@ -162,9 +162,9 @@ def test_services_openbulk__raise_on_status():
 def test_services_process_content():
     """Should convert the document content with the according converter"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         indexer.converters = {"application/pdf": mock_pdf}
 
         assert (
@@ -201,9 +201,9 @@ def test_services_process_content():
 def test_services_process_content__error():
     """Document content process should raise an error"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         indexer.converters = {"application/pdf": mock_pdf}
         mock_pdf.side_effect = KeyError()
 
@@ -217,7 +217,7 @@ def test_services_process_content__error():
 def test_services_search_documents():
     """Search document as an iterable of IndexDocument"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service, batch_size=3)
+    indexer = IndexerTaskService(service, batch_size=3, force_refresh=True)
     active_docs = factories.IndexDocumentFactory.create_batch(5)
     inactive_docs = factories.IndexDocumentFactory.create_batch(3, is_active=False)
     docs = active_docs + inactive_docs
@@ -240,7 +240,7 @@ def test_services_search_documents():
 def test_services_search_documents__as_batch():
     """Search document as an iterable of list of IndexDocument (batches)"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service, batch_size=3)
+    indexer = IndexerTaskService(service, batch_size=3, force_refresh=True)
     docs = [
         factories.IndexDocumentFactory(
             id=f"00000000-0000-0000-0000-0000000000{index:02d}"  # fake uuid to know order
@@ -285,12 +285,12 @@ def test_services_search_documents__as_batch():
 def test_services_index(content_uri, content, mimetype, processed, status):
     """Add documents to index and set the content_status depending of their properties"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     doc = factories.IndexDocumentFactory(
         mimetype=mimetype, content_uri=content_uri, content=content
     )
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.return_value = "processed content"
         indexer.converters = {"application/pdf": mock_pdf}
         errors = indexer.index([doc])
@@ -311,7 +311,7 @@ def test_services_index__process_errors():
     the index() error list
     """
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     pdf_doc = factories.IndexDocumentFactory(
         mimetype="application/pdf", content="this is a pdf"
     )
@@ -322,7 +322,7 @@ def test_services_index__process_errors():
         mimetype="application/unknown", content="this is a ???"
     )
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.side_effect = Exception()
         indexer.converters = {"application/pdf": mock_pdf}
         errors = indexer.index([pdf_doc, text_doc, unknown_doc])
@@ -344,9 +344,9 @@ def test_services_index__bulk_errors():
     Opensearch bulk errors should appear in the index() error list
     """
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     doc_a, doc_b = factories.IndexDocumentFactory.create_batch(
-        2, mimetype="application/pdf", content="this is a pdf"
+        2, mimetype="text/plain", content="this is a text"
     )
 
     with mock.patch.object(indexer.client, "bulk") as mock_client_bulk:
@@ -424,10 +424,10 @@ def test_services_index__bulk_errors():
     ),
 )
 @responses.activate
-def test_services_load_all(status, mimetype, is_active, expected):
+def test_services_load_n_process_all(status, mimetype, is_active, expected):
     """Documents content should be downloaded and processed if needed"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     docs = factories.IndexDocumentFactory.create_batch(
         3,
         mimetype=mimetype,
@@ -452,10 +452,10 @@ def test_services_load_all(status, mimetype, is_active, expected):
     assert [d.content_status for d in indexed_docs] == [status] * 3
     assert [d.is_active for d in indexed_docs] == [is_active] * 3
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.return_value = "processed content"
         indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.load_all()
+        errors = indexer.load_n_process_all()
 
     assert len(errors) == 0
 
@@ -465,10 +465,10 @@ def test_services_load_all(status, mimetype, is_active, expected):
 
 
 @responses.activate
-def test_services_load_all__errors():
+def test_services_load_n_process_all__errors():
     """Should return download and processing errors"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     pdf_doc = factories.IndexDocumentFactory(
         mimetype="application/pdf",
         content_uri="http://localhost/mydoc",
@@ -503,10 +503,10 @@ def test_services_load_all__errors():
         status=400,
     )
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.side_effect = Exception()
         indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.load_all()
+        errors = indexer.load_n_process_all()
 
     assert len(errors) == 3
     assert sorted(((e.id, e.message) for e in errors)) == sorted(
@@ -534,10 +534,10 @@ def test_services_load_all__errors():
 
 
 @responses.activate
-def test_services_load_all__bulk_errors():
+def test_services_load_n_process_all__bulk_errors():
     """Should return bulk indexation errors"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     doc_a, doc_b = factories.IndexDocumentFactory.create_batch(
         2,
         mimetype="text/plain",
@@ -572,7 +572,7 @@ def test_services_load_all__bulk_errors():
 
     with mock.patch.object(indexer.client, "bulk") as mock_client_bulk:
         mock_client_bulk.return_value = bulk_response
-        errors = indexer.load_all()
+        errors = indexer.load_n_process_all()
 
     assert [(e.id, e.message) for e in errors] == [
         (doc_a.id, "Unknown error"),
@@ -639,10 +639,10 @@ def test_services_load_all__bulk_errors():
     ),
 )
 @responses.activate
-def test_services_preprocess_all(status, mimetype, is_active, expected):
+def test_services_process_all(status, mimetype, is_active, expected):
     """Documents content should be processed if needed"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     docs = factories.IndexDocumentFactory.create_batch(
         3,
         mimetype=mimetype,
@@ -667,10 +667,10 @@ def test_services_preprocess_all(status, mimetype, is_active, expected):
     assert [d.content_status for d in indexed_docs] == [status] * 3
     assert [d.is_active for d in indexed_docs] == [is_active] * 3
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.return_value = "processed content"
         indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.preprocess_all()
+        errors = indexer.process_all()
 
     assert len(errors) == 0
 
@@ -679,10 +679,10 @@ def test_services_preprocess_all(status, mimetype, is_active, expected):
     assert [d.content for d in indexed_docs] == [expected["content"]] * 3
 
 
-def test_services_preprocess_all__errors():
+def test_services_process_all__errors():
     """Documents content should be processed if needed"""
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     pdf_doc = factories.IndexDocumentFactory(
         mimetype="application/pdf",
         content_status=enums.ContentStatusEnum.LOADED,
@@ -696,10 +696,10 @@ def test_services_preprocess_all__errors():
         actions.index_document(pdf_doc)
         actions.index_document(unknown_doc)
 
-    with mock.patch("core.services.indexer_services.pdf_to_markdown") as mock_pdf:
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.side_effect = Exception()
         indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.preprocess_all()
+        errors = indexer.process_all()
 
     assert len(errors) == 2
     assert sorted(((e.id, e.message) for e in errors)) == sorted(
@@ -784,7 +784,7 @@ def test_services_embed_all(settings, status, embedding_model, is_active, expect
     assert check_hybrid_search_enabled()
 
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     docs = factories.IndexDocumentFactory.create_batch(
         3,
         content_status=status,
@@ -826,7 +826,7 @@ def test_services_embed_all__errors(settings):
     enable_hybrid_search(settings)
 
     service = factories.ServiceFactory()
-    indexer = IndexerTaskService(service)
+    indexer = IndexerTaskService(service, force_refresh=True)
     docs = factories.IndexDocumentFactory.create_batch(3)
 
     with openbulk(service.index_name, refresh=True) as actions:
@@ -836,14 +836,17 @@ def test_services_embed_all__errors(settings):
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
-        json={"message": "Invalid request"},
+        json={"detail": "Invalid request"},
         status=400,
     )
 
     errors = indexer.embed_all(model_name="mymodel")
 
     assert sorted([(e.id, e.message) for e in errors]) == sorted(
-        [(d.id, "Unable to build embedding for the document") for d in docs]
+        [
+            (d.id, "Unable to build embedding for the document : Invalid request")
+            for d in docs
+        ]
     )
 
     indexed_docs = indexer.search_documents({"match_all": {}})
@@ -853,11 +856,11 @@ def test_services_embed_all__errors(settings):
     )
 
 
-@mock.patch("core.services.indexer_services.IndexerTaskService.load_all")
-@mock.patch("core.services.indexer_services.IndexerTaskService.preprocess_all")
+@mock.patch("core.services.indexer_services.IndexerTaskService.load_n_process_all")
+@mock.patch("core.services.indexer_services.IndexerTaskService.process_all")
 @mock.patch("core.services.indexer_services.IndexerTaskService.embed_all")
 def test_dispatch_indexing_tasks(
-    mock_load_all, mock_process_all, mock_embed_all, settings
+    mock_load_n_process_all, mock_process_all, mock_embed_all, settings
 ):
     """An different task for should be started depending of the state of the documents"""
     settings.INDEXER_TASK_COUNTDOWN = 0
@@ -886,6 +889,6 @@ def test_dispatch_indexing_tasks(
 
     dispatch_indexing_tasks(service, [waiting_doc, loaded_doc, ready_doc])
 
-    mock_load_all.assert_called()
+    mock_load_n_process_all.assert_called()
     mock_process_all.assert_called()
     mock_embed_all.assert_called()

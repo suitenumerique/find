@@ -3,7 +3,7 @@
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict as dataasdict
-from io import StringIO
+from io import BytesIO
 
 from django.conf import settings
 
@@ -12,10 +12,10 @@ import requests
 from core import enums
 from core.models import IndexDocument, Service
 
-from .converters import pdf_to_markdown
+from . import converters
+from .albert import AlbertAI, AlbertAIError
 from .opensearch import (
     check_hybrid_search_enabled,
-    embed_text,
     ensure_index_exists,
     format_document,
     opensearch_client,
@@ -222,7 +222,8 @@ class IndexerTaskService:
     and embedding
     """
 
-    converters = {"application/pdf": pdf_to_markdown}
+    # V2 : Use settings to define the list of converters
+    converters = {"application/pdf": converters.pdf_to_markdown}
 
     def __init__(
         self, service: Service, batch_size=100, client=None, force_refresh=None
@@ -251,9 +252,18 @@ class IndexerTaskService:
     def process_content(self, document, content):
         """Transforms the document file data into an indexable format"""
         try:
-            stream = StringIO(content) if isinstance(content, str) else content
             converter = self.get_converter(document.mimetype)
-            output = converter(stream) if converter is not None else stream.read()
+
+            if converter is not None:
+                # A converter only accepts a BytesIO
+                stream = (
+                    BytesIO(content.encode()) if isinstance(content, str) else content
+                )
+                output = converter(stream)
+            else:
+                # no need to convert
+                output = content if isinstance(content, str) else content.read()
+
             return output.decode() if isinstance(output, bytes) else output
         except IndexContentError as e:
             e.id = document.id
@@ -304,7 +314,7 @@ class IndexerTaskService:
             for hit in self.search(query, sort=sort, batch_size=batch_size):
                 yield hit_to_doc(hit)
 
-    def preprocess_all(self, batch_size=None):
+    def process_all(self, batch_size=None):
         """
         Gets all the documents in waiting status to load and convert their content
         Returns an error dict.
@@ -335,7 +345,8 @@ class IndexerTaskService:
             ) as actions:
                 for doc in docs:
                     try:
-                        content = self.process_content(doc, StringIO(doc.content))
+                        # V2 : Use asyncio loop to parallelize conversion
+                        content = self.process_content(doc, doc.content)
 
                         actions.update(
                             doc.id,
@@ -355,7 +366,7 @@ class IndexerTaskService:
 
         return errors
 
-    def load_all(self, batch_size=None):
+    def load_n_process_all(self, batch_size=None):
         """
         Gets all the documents in waiting status to load and convert their content
         Returns an error dict.
@@ -420,6 +431,7 @@ class IndexerTaskService:
         index_name = self.service.index_name
         batch_size = batch_size or self.batch_size
         model_name = model_name or settings.EMBEDDING_API_MODEL_NAME
+        albert = AlbertAI()
         doc_batches = self.search_documents(
             query={
                 "bool": {
@@ -452,13 +464,19 @@ class IndexerTaskService:
             ) as actions:
                 for doc in docs:
                     try:
-                        embedding = embed_text(format_document(doc.title, doc.content))
-
-                        if embedding is None:
-                            raise IndexerError(
-                                "Unable to build embedding for the document", _id=doc.id
+                        # V2 : Use asyncio loop to parallelize embedding
+                        embedding = albert.embedding(
+                            text=format_document(doc.title, doc.content),
+                            model=model_name,
+                        )
+                    except AlbertAIError as e:
+                        errors.append(
+                            IndexerError(
+                                f"Unable to build embedding for the document : {e.message}",
+                                _id=doc.id,
                             )
-
+                        )
+                    else:
                         actions.update(
                             doc.id,
                             data={
@@ -470,8 +488,6 @@ class IndexerTaskService:
                             if_seq_no=doc.hit["_seq_no"],
                             if_primary_term=doc.hit["_primary_term"],
                         )
-                    except IndexerError as e:
-                        errors.append(e)
 
             errors.extend(actions.errors())
 
@@ -490,14 +506,20 @@ class IndexerTaskService:
         ) as actions:
             for doc in documents:
                 if doc.content_uri and not doc.content:
+                    # Without content and a dowload uri : set WAIT status
                     doc.content_status = enums.ContentStatusEnum.WAIT
                 elif not is_allowed_mimetype(doc.mimetype, INDEXABLE_MIMETYPES):
+                    # A content but not directly indexable (e.g xml or html content) : process them
                     try:
-                        doc.content = self.process_content(doc, StringIO(doc.content))
+                        doc.content = self.process_content(doc, doc.content)
                         doc.content_status = enums.ContentStatusEnum.READY
                     except IndexContentError as err:
+                        # If process has failed, set LOADED status for a retry.
+                        # V2 : Add retry mechanism ?
+                        doc.content_status = enums.ContentStatusEnum.LOADED
                         errors.append(IndexBulkError(str(err), _id=doc.id))
                 else:
+                    # The content exists and is indexable : set READY
                     doc.content_status = enums.ContentStatusEnum.READY
 
                 actions.index_document(doc)

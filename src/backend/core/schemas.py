@@ -7,8 +7,8 @@ from django.utils.text import slugify
 
 from pydantic import (
     UUID4,
-    AwareDatetime,
     AnyUrl,
+    AwareDatetime,
     BaseModel,
     BeforeValidator,
     ConfigDict,

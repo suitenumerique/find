@@ -258,6 +258,10 @@ class Base(Configuration):
         default=1, environ_name="INDEXER_TASK_COUNTDOWN", environ_prefix=None
     )
 
+    ALBERT_PARSE_ENDPOINT = values.Value(
+        default=None, environ_name="ALBERT_PARSE_ENDPOINT", environ_prefix=None
+    )
+
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",
         "DESCRIPTION": "This is the find API schema.",
@@ -574,6 +578,7 @@ class Test(Base):
 
     CELERY_TASK_ALWAYS_EAGER = values.BooleanValue(True)
     INDEXER_FORCE_REFRESH = True
+    HYBRID_SEARCH_ENABLED = False
 
     def __init__(self):
         # pylint: disable=invalid-name

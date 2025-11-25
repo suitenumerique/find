@@ -230,6 +230,7 @@ def format_document(title, content):
 def embed_text(text):
     """
     Get embedding vector for the given text from any OpenAI-compatible embedding API
+    V2 : Deprecated, use AlbertAI.embedding() instead.
     """
     response = requests.post(
         settings.EMBEDDING_API_PATH,
