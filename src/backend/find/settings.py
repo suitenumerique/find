@@ -123,17 +123,16 @@ class Base(Configuration):
     # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
     # Languages
-    SUPPORTED_LANGUAGES = ["fr-fr", "en-us", "de-de", "nl"]
-    LANGUAGE_CODE = values.Value("en-us")
-
-    # Careful! Languages should be ordered by priority, as this tuple is used to get
-    # fallback/default languages throughout the app.
+    DEFAULT_LANGUAGE_CODE = values.Value("en-us")
     LANGUAGES = values.SingleNestedTupleValue(
         (
             ("en-us", _("English")),
             ("fr-fr", _("French")),
+            ("de-de", _("German")),
+            ("nl-nl", _("Dutch")),
         )
     )
+    SUPPORTED_LANGUAGE_CODES = tuple(language_code for language_code, _ in LANGUAGES.value)
 
     LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
 

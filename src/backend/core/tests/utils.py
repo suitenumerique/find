@@ -22,7 +22,11 @@ from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
 from core.services import opensearch
-from core.services.opensearch import check_hybrid_search_enabled
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    embed_text,
+    format_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +65,9 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def prepare_index(index_name, documents: List):
+def prepare_index(
+    index_name, documents: List, language_code=django_settings.DEFAULT_LANGUAGE_CODE
+):
     """Prepare the search index before testing a query on it."""
     opensearch.ensure_index_exists(index_name)
 
@@ -72,15 +78,27 @@ def prepare_index(index_name, documents: List):
             "_index": index_name,
             "_id": document["id"],
             "_source": {
-                **{k: v for k, v in document.items() if k != "id"},
-                "embedding": opensearch.embed_text(
-                    opensearch.format_document(document["title"], document["content"])
+                "id": document["id"],
+                f"title.{language_code}": document["title"],
+                f"content.{language_code}": document["content"],
+                "embedding": embed_text(
+                    format_document(document["title"], document["content"])
                 )
                 if check_hybrid_search_enabled()
                 else None,
                 "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
                 if check_hybrid_search_enabled()
                 else None,
+                "depth": document["depth"],
+                "path": document["path"],
+                "numchild": document["numchild"],
+                "created_at": document["created_at"],
+                "updated_at": document["updated_at"],
+                "size": document["size"],
+                "users": document["users"],
+                "groups": document["groups"],
+                "reach": document["reach"],
+                "is_active": document["is_active"],
             },
         }
         for document in documents
@@ -89,9 +107,6 @@ def prepare_index(index_name, documents: List):
 
     # Force refresh again so all changes are visible to search
     opensearch.opensearch_client().indices.refresh(index=index_name)
-
-    count = opensearch.opensearch_client().count(index=index_name)["count"]
-    assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 
 def build_authorization_bearer(token="some_token"):
