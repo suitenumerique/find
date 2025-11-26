@@ -135,6 +135,12 @@ class Base(Configuration):
     SUPPORTED_LANGUAGE_CODES = tuple(
         language_code for language_code, _ in LANGUAGES.value
     )
+    LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD = values.FloatValue(
+        default=0.75,
+        environ_name="LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD",
+        environ_prefix=None,
+    )
+    UNDETERMINED_LANGUAGE_CODE = "und"
 
     LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
 

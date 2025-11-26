@@ -2,7 +2,6 @@
 
 from typing import Annotated, List, Literal, Optional
 
-from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -110,20 +109,9 @@ class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
     q: str
-    language_code: Literal[settings.SUPPORTED_LANGUAGE_CODES] = Field(
-        default_factory=lambda: settings.DEFAULT_LANGUAGE_CODE
-    )
     services: StringListParameter = Field(default_factory=list)
     visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
-
-
-class IndexQueryParametersSchema(BaseModel):
-    """Schema for validating query parameters on the index API endpoint"""
-
-    language_code: Literal[settings.SUPPORTED_LANGUAGE_CODES] = Field(
-        default_factory=lambda: settings.DEFAULT_LANGUAGE_CODE
-    )

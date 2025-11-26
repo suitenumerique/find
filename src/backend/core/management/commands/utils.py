@@ -37,18 +37,14 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def prepare_index(
-    index_name, documents: List, language_code=django_settings.DEFAULT_LANGUAGE_CODE
-):
+def prepare_index(index_name, documents: List):
     """Prepare the search index."""
     logger.info(f"prepare_index {index_name} with {len(documents)} documents")
     opensearch_client_ = opensearch.opensearch_client()
 
     actions = []
     for document in documents:
-        document_dict = prepare_document_for_indexing(
-            document, language_code=language_code
-        )
+        document_dict = prepare_document_for_indexing(document)
         _id = document_dict.pop("id")
         actions.append({"index": {"_id": _id}})
         actions.append(document_dict)

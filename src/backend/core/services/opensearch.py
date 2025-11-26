@@ -8,6 +8,7 @@ from django.conf import settings
 import requests
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
+from py3langid.langid import MODEL_FILE, LanguageIdentifier
 from rest_framework.exceptions import ValidationError
 
 from core import enums
@@ -27,6 +28,8 @@ REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_PASSWORD",
     "OPENSEARCH_USE_SSL",
 ]
+LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
+LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 
 @cache
@@ -54,7 +57,6 @@ def opensearch_client():
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def search(  # noqa : PLR0913
     q,
-    language_code,
     nb_results,
     order_by,
     order_direction,
@@ -67,7 +69,6 @@ def search(  # noqa : PLR0913
     """Perform an OpenSearch search"""
     query = get_query(
         q=q,
-        language_code=language_code,
         nb_results=nb_results,
         reach=reach,
         visited=visited,
@@ -100,7 +101,7 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, language_code, nb_results, reach, visited, user_sub, groups
+    q, nb_results, reach, visited, user_sub, groups
 ):
     """Build OpenSearch query body based on parameters"""
     filter_ = get_filter(reach, visited, user_sub, groups)
@@ -124,7 +125,7 @@ def get_query(  # noqa : PLR0913
         logger.info("Performing full-text search without embedding: %s", q)
         return {
             "bool": {
-                "must": get_full_text_query(q, language_code),
+                "must": get_full_text_query(q),
                 "filter": filter_,
             }
         }
@@ -135,7 +136,7 @@ def get_query(  # noqa : PLR0913
             "queries": [
                 {
                     "bool": {
-                        "must": get_full_text_query(q, language_code),
+                        "must": get_full_text_query(q),
                         "filter": filter_,
                     }
                 },
@@ -157,7 +158,7 @@ def get_query(  # noqa : PLR0913
     }
 
 
-def get_full_text_query(q, language_code):
+def get_full_text_query(q):
     """Build OpenSearch full-text query"""
     return {
         "bool": {
@@ -166,8 +167,8 @@ def get_full_text_query(q, language_code):
                     "multi_match": {
                         "query": q,
                         "fields": [
-                            f"title.{language_code}.text^3",
-                            f"content.{language_code}",
+                            "title.*.text^3",
+                            "content.*",
                         ],
                     }
                 },
@@ -175,8 +176,8 @@ def get_full_text_query(q, language_code):
                     "multi_match": {
                         "query": q,
                         "fields": [
-                            f"title.{language_code}.text.trigrams^3",
-                            f"content.{language_code}.trigrams",
+                            "title.*.text.trigrams^3",
+                            "content.*.trigrams",
                         ],
                         "boost": settings.TRIGRAMS_BOOST,
                         "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
@@ -281,8 +282,10 @@ def embed_text(text):
     return embedding
 
 
-def prepare_document_for_indexing(document, language_code):
+def prepare_document_for_indexing(document):
     """Prepare document for indexing using nested language structure and handle embedding"""
+
+    language_code = detect_language_code(f"{document['title']} {document['content']}")
     return {
         "id": document["id"],
         f"title.{language_code}": document["title"],
@@ -304,6 +307,16 @@ def prepare_document_for_indexing(document, language_code):
         "reach": document["reach"],
         "is_active": document["is_active"],
     }
+
+
+def detect_language_code(text):
+    """Detect the language code of the document content."""
+
+    code_mapping = {"fr": "fr-fr", "en": "en-us", "de": "de-de", "nl": "nl-nl"}
+    detected_code, confidence = LANGUAGE_IDENTIFIER.classify(text)
+    if confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD:
+        return settings.UNDETERMINED_LANGUAGE_CODE
+    return code_mapping.get(detected_code, settings.UNDETERMINED_LANGUAGE_CODE)
 
 
 def ensure_index_exists(index_name):

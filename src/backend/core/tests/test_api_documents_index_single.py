@@ -106,16 +106,13 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
 
-def test_api_documents_index_language_params(settings):
+def test_api_documents_index_language_params():
     """language_code query param should control which language is indexed."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
 
-    language_code = "de-de"
-    other_language_code = "fr-fr"
-    assert language_code != settings.DEFAULT_LANGUAGE_CODE
     response = APIClient().post(
-        f"/api/v1.0/documents/index/?language_code={language_code}",
+        "/api/v1.0/documents/index/",
         document,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
         format="json",
@@ -127,6 +124,7 @@ def test_api_documents_index_language_params(settings):
     new_indexed_document = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )
+    language_code = "en-us"
     assert (
         new_indexed_document["_source"][f"title.{language_code}"]
         == document["title"].strip().lower()
@@ -135,32 +133,9 @@ def test_api_documents_index_language_params(settings):
         new_indexed_document["_source"][f"content.{language_code}"]
         == document["content"]
     )
+    other_language_code = "fr-fr"
     # only the requested language is indexed
     assert not f"content.{other_language_code}" in new_indexed_document["_source"]
-
-
-def test_api_documents_index_wrong_language_params():
-    """using unrecognised language_code query should throw an error."""
-    service = factories.ServiceFactory()
-    document = factories.DocumentSchemaFactory.build()
-
-    language_code = "es-es"  # unsupported language
-    response = APIClient().post(
-        f"/api/v1.0/documents/index/?language_code={language_code}",
-        document,
-        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
-    )
-    assert response.status_code == 400
-    assert response.json() == {
-        "errors": [
-            {
-                "msg": "Input should be 'en-us', 'fr-fr', 'de-de' or 'nl-nl'",
-                "type": "literal_error",
-                "loc": ["language_code"],
-            }
-        ]
-    }
 
 
 def test_api_documents_index_single_hybrid_disabled_success(settings):
@@ -194,7 +169,7 @@ def test_api_documents_index_single_hybrid_disabled_success(settings):
     assert new_indexed_document["_source"]["embedding"] is None
 
 
-def test_api_documents_index_single_ensure_index(settings):
+def test_api_documents_index_single_ensure_index():
     """A registered service should be create the opensearch index if need."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
@@ -219,119 +194,50 @@ def test_api_documents_index_single_ensure_index(settings):
     assert data[service.index_name]["mappings"] == {
         "dynamic": "strict",
         "properties": {
-            "id": {"type": "keyword"},
-            "title": {
-                "properties": {
-                    "de-de": {
-                        "fields": {
-                            "text": {
-                                "analyzer": "german_analyzer",
-                                "fields": {
-                                    "trigrams": {
-                                        "analyzer": "trigram_analyzer",
-                                        "type": "text",
-                                    }
-                                },
-                                "type": "text",
-                            }
-                        },
-                        "type": "keyword",
-                    },
-                    "en-us": {
-                        "fields": {
-                            "text": {
-                                "analyzer": "english_analyzer",
-                                "fields": {
-                                    "trigrams": {
-                                        "analyzer": "trigram_analyzer",
-                                        "type": "text",
-                                    }
-                                },
-                                "type": "text",
-                            }
-                        },
-                        "type": "keyword",
-                    },
-                    "fr-fr": {
-                        "fields": {
-                            "text": {
-                                "analyzer": "french_analyzer",
-                                "fields": {
-                                    "trigrams": {
-                                        "analyzer": "trigram_analyzer",
-                                        "type": "text",
-                                    }
-                                },
-                                "type": "text",
-                            }
-                        },
-                        "type": "keyword",
-                    },
-                    "nl-nl": {
-                        "fields": {
-                            "text": {
-                                "analyzer": "dutch_analyzer",
-                                "fields": {
-                                    "trigrams": {
-                                        "analyzer": "trigram_analyzer",
-                                        "type": "text",
-                                    }
-                                },
-                                "type": "text",
-                            }
-                        },
-                        "type": "keyword",
-                    },
-                }
-            },
             "content": {
                 "properties": {
                     "de-de": {
-                        "analyzer": "german_analyzer",
-                        "fields": {
-                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
-                        },
                         "type": "text",
+                        "fields": {
+                            "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
+                        },
+                        "analyzer": "german_analyzer",
                     },
                     "en-us": {
-                        "analyzer": "english_analyzer",
-                        "fields": {
-                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
-                        },
                         "type": "text",
+                        "fields": {
+                            "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
+                        },
+                        "analyzer": "english_analyzer",
                     },
                     "fr-fr": {
-                        "analyzer": "french_analyzer",
-                        "fields": {
-                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
-                        },
                         "type": "text",
+                        "fields": {
+                            "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
+                        },
+                        "analyzer": "french_analyzer",
                     },
                     "nl-nl": {
-                        "analyzer": "dutch_analyzer",
-                        "fields": {
-                            "trigrams": {"analyzer": "trigram_analyzer", "type": "text"}
-                        },
                         "type": "text",
+                        "fields": {
+                            "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
+                        },
+                        "analyzer": "dutch_analyzer",
+                    },
+                    "und": {
+                        "type": "text",
+                        "fields": {
+                            "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
+                        },
+                        "analyzer": "undetermined_language_analyzer",
                     },
                 }
             },
-            "depth": {"type": "integer"},
-            "path": {
-                "type": "keyword",
-                "fields": {"text": {"type": "text"}},
-            },
-            "numchild": {"type": "integer"},
             "created_at": {"type": "date"},
-            "updated_at": {"type": "date"},
-            "size": {"type": "long"},
-            "users": {"type": "keyword"},
-            "groups": {"type": "keyword"},
-            "reach": {"type": "keyword"},
-            "is_active": {"type": "boolean"},
+            "depth": {"type": "integer"},
             "embedding": {
                 "type": "knn_vector",
-                "dimension": settings.EMBEDDING_DIMENSION,
+                "dimension": 1024,
                 "method": {
                     "engine": "lucene",
                     "space_type": "l2",
@@ -340,6 +246,94 @@ def test_api_documents_index_single_ensure_index(settings):
                 },
             },
             "embedding_model": {"type": "keyword"},
+            "groups": {"type": "keyword"},
+            "id": {"type": "keyword"},
+            "is_active": {"type": "boolean"},
+            "numchild": {"type": "integer"},
+            "path": {"type": "keyword", "fields": {"text": {"type": "text"}}},
+            "reach": {"type": "keyword"},
+            "size": {"type": "long"},
+            "title": {
+                "properties": {
+                    "de-de": {
+                        "type": "keyword",
+                        "fields": {
+                            "text": {
+                                "type": "text",
+                                "fields": {
+                                    "trigrams": {
+                                        "type": "text",
+                                        "analyzer": "trigram_analyzer",
+                                    }
+                                },
+                                "analyzer": "german_analyzer",
+                            }
+                        },
+                    },
+                    "en-us": {
+                        "type": "keyword",
+                        "fields": {
+                            "text": {
+                                "type": "text",
+                                "fields": {
+                                    "trigrams": {
+                                        "type": "text",
+                                        "analyzer": "trigram_analyzer",
+                                    }
+                                },
+                                "analyzer": "english_analyzer",
+                            }
+                        },
+                    },
+                    "fr-fr": {
+                        "type": "keyword",
+                        "fields": {
+                            "text": {
+                                "type": "text",
+                                "fields": {
+                                    "trigrams": {
+                                        "type": "text",
+                                        "analyzer": "trigram_analyzer",
+                                    }
+                                },
+                                "analyzer": "french_analyzer",
+                            }
+                        },
+                    },
+                    "nl-nl": {
+                        "type": "keyword",
+                        "fields": {
+                            "text": {
+                                "type": "text",
+                                "fields": {
+                                    "trigrams": {
+                                        "type": "text",
+                                        "analyzer": "trigram_analyzer",
+                                    }
+                                },
+                                "analyzer": "dutch_analyzer",
+                            }
+                        },
+                    },
+                    "und": {
+                        "type": "keyword",
+                        "fields": {
+                            "text": {
+                                "type": "text",
+                                "fields": {
+                                    "trigrams": {
+                                        "type": "text",
+                                        "analyzer": "trigram_analyzer",
+                                    }
+                                },
+                                "analyzer": "undetermined_language_analyzer",
+                            }
+                        },
+                    },
+                }
+            },
+            "updated_at": {"type": "date"},
+            "users": {"type": "keyword"},
         },
     }
 
