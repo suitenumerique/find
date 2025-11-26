@@ -1,8 +1,7 @@
-# ruff: noqa: S311
 """create_demo management command"""
 
 import logging
-import random
+import secrets
 import time
 from uuid import uuid4
 
@@ -131,10 +130,10 @@ def generate_document():
         "content": "\n".join(fake.paragraphs(nb=5)),
         "created_at": created_at,
         "updated_at": updated_at,
-        "size": random.randint(0, 100 * 1024**2),
+        "size": secrets.randbelow(100 * 1024**2),
         "users": [str(uuid4()) for _ in range(3)],
         "groups": [slugify(fake.word()) for _ in range(3)],
-        "reach": random.choice(list(enums.ReachEnum)).value,
+        "reach": secrets.choice(list(enums.ReachEnum)).value,
     }
 
 
@@ -151,29 +150,29 @@ def create_demo(stdout):
         )
 
         for service in services:
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
+            ensure_index_exists(service.index_name)
+            opensearch_client_.indices.refresh(index=service.index_name)
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
         for _ in range(defaults.NB_OBJECTS["documents"]):
-            service = random.choice(services)
+            service = secrets.choice(services)
             document = generate_document()
-            actions.push(service.name, uuid4(), document)
+            actions.push(service.index_name, uuid4(), document)
         actions.flush()
 
     with Timeit(stdout, "Creating dev services"):
         for conf in defaults.DEV_SERVICES:
             service = factories.ServiceFactory(**conf)
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
+            ensure_index_exists(service.index_name)
+            opensearch_client_.indices.refresh(index=service.index_name)
 
     # Check and report on indexed documents
     total_indexed = 0
     for service in services:
-        opensearch_client_.indices.refresh(index=service.name)
-        indexed = opensearch_client_.count(index=service.name)["count"]
-        stdout.write(f"  - {service.name:s}: {indexed:d} documents")
+        opensearch_client_.indices.refresh(index=service.index_name)
+        indexed = opensearch_client_.count(index=service.index_name)["count"]
+        stdout.write(f"  - {service.index_name:s}: {indexed:d} documents")
         total_indexed += indexed
 
     stdout.write(f"  TOTAL: {total_indexed:d} documents")
