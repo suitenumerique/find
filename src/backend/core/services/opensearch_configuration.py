@@ -44,6 +44,14 @@ ANALYZERS = {
             "dutch_stemmer",
         ],
     },
+    "undetermined_language_analyzer": {
+        "type": "custom",
+        "tokenizer": "standard",
+        "filter": [
+            "lowercase",
+            "asciifolding",
+        ],
+    },
     "trigram_analyzer": {
         "type": "custom",
         "tokenizer": "standard",
@@ -215,6 +223,32 @@ MAPPINGS = {
         "content.nl-nl": {
             "type": "text",
             "analyzer": "dutch_analyzer",
+            "fields": {
+                "trigrams": {
+                    "type": "text",
+                    "analyzer": "trigram_analyzer",
+                }
+            },
+        },
+        # Undetermined language
+        "title.und": {
+            "type": "keyword",
+            "fields": {
+                "text": {
+                    "type": "text",
+                    "analyzer": "undetermined_language_analyzer",
+                    "fields": {
+                        "trigrams": {
+                            "type": "text",
+                            "analyzer": "trigram_analyzer",
+                        }
+                    },
+                }
+            },
+        },
+        "content.und": {
+            "type": "text",
+            "analyzer": "undetermined_language_analyzer",
             "fields": {
                 "trigrams": {
                     "type": "text",

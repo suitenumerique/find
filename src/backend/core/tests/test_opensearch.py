@@ -13,6 +13,7 @@ from core import factories
 from core.services import opensearch
 from core.services.opensearch import (
     check_hybrid_search_enabled,
+    detect_language_code,
     embed_text,
     ensure_index_exists,
     opensearch_client,
@@ -41,7 +42,6 @@ def search_params(service):
     """Build opensearch.search() parameters for tests using the service index name"""
     return {
         "nb_results": 20,
-        "language_code": DEFAULT_LANGUAGE_CODE,
         "order_by": "relevance",
         "order_direction": "desc",
         "search_indices": {service.index_name},
@@ -169,7 +169,12 @@ def test_hybrid_search_without_embedded_index(settings, caplog):
 
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == q
+    assert (
+        result["hits"]["hits"][0]["_source"][
+            f"title.{settings.UNDETERMINED_LANGUAGE_CODE}"
+        ]
+        == q
+    )
 
 
 def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplog):
@@ -371,60 +376,6 @@ def test_hybrid_search_number_of_matches(settings):
     for nb_results in [1, 2, 3]:  # semantic should match k documents
         result = search(q=q, **{**search_params(service), "nb_results": nb_results})
         assert len(result["hits"]["hits"]) == nb_results
-
-
-@responses.activate
-def test_language_code():
-    """
-    Searching a document by its content should work as expected.
-    Search, like indexing, defaults to settings.DEFAULT_LANGUAGE_CODE.
-    """
-    service = factories.ServiceFactory(name=SERVICE_NAME)
-    english_code = "en-us"
-    french_code = "fr-fr"
-    prepare_index(
-        service.index_name,
-        bulk_create_documents(
-            [
-                {"title": "The quick brown fox", "content": "the wolf"},
-                {"title": "The blue fox", "content": "the wolf"},
-                {"title": "The brown goat", "content": "the wolf"},
-            ]
-        ),
-        language_code=english_code,
-    )
-    prepare_index(
-        service.index_name,
-        bulk_create_documents(
-            [
-                {"title": "Le rapide renard brun", "content": "le loup"},
-                {"title": "Le renard bleu", "content": "le loup"},
-                {"title": "La chèvre brune", "content": "le loup"},
-            ]
-        ),
-        language_code=french_code,
-    )
-
-    french_query = "renard"
-
-    # search french documents in french
-    result = search(
-        q=french_query, **{**search_params(service), "language_code": french_code}
-    )
-    # find the corresponding documents
-    assert len(result["hits"]["hits"]) == 2
-    assert [
-        document["_source"][f"title.{french_code}"]
-        for document in result["hits"]["hits"]
-    ] == ["Le renard bleu", "Le rapide renard brun"]
-    assert not f"title.{english_code}" in result["hits"]["hits"][0]["_source"]
-
-    # search french documents in english
-    result = search(
-        q=french_query, **{**search_params(service), "language_code": english_code}
-    )
-    # can not find them
-    assert len(result["hits"]["hits"]) == 0
 
 
 @responses.activate
@@ -674,3 +625,21 @@ def test_opensearch_analyzers(
 
     assert expected_language_analyzer_tokens == language_analyzer_tokens
     assert expected_trigram_analyzer_tokens == trigram_analyzer_tokens
+
+
+@pytest.mark.parametrize(
+    "text, expected_language_code",
+    [
+        ("This is a test sentence.", "en-us"),
+        ("Ceci est une phrase de test.", "fr-fr"),
+        ("Dies ist ein Testsatz.", "de-de"),
+        ("Dit is een testzin.", "nl-nl"),
+        ("Esta es una oración de prueba.", "und"),  # Spanish, unsupported
+        ("", "und"),
+        ("zefk,l", "und"),
+    ],
+)
+def test_detect_language_code(text, expected_language_code):
+    """Test detect_language_code function"""
+
+    assert detect_language_code(text) == expected_language_code

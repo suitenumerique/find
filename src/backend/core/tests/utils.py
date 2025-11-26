@@ -64,9 +64,7 @@ def delete_search_pipeline():
         logger.info("Search pipeline not found, nothing to delete.")
 
 
-def prepare_index(
-    index_name, documents: List, language_code=django_settings.DEFAULT_LANGUAGE_CODE
-):
+def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
     opensearch.ensure_index_exists(index_name)
 
@@ -76,9 +74,7 @@ def prepare_index(
             "_op_type": "index",
             "_index": index_name,
             "_id": document["id"],
-            "_source": prepare_document_for_indexing(
-                document, language_code=language_code
-            ),
+            "_source": prepare_document_for_indexing(document),
         }
         for document in documents
     ]
