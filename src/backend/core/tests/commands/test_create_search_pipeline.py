@@ -25,7 +25,6 @@ def before_each():
 
 def test_create_search_pipeline(settings, caplog):
     """Test command create search pipeline"""
-    # create documents and index them with hybrid search disabled
 
     enable_hybrid_search(settings)
 
@@ -43,7 +42,6 @@ def test_create_search_pipeline(settings, caplog):
 
 def test_create_search_pipeline_but_it_exists_already(settings, caplog):
     """Test command create search pipeline but it already exists"""
-    # create documents and index them with hybrid search disabled
 
     opensearch_client().transport.perform_request(
         method="PUT",
