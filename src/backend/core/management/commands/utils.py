@@ -55,7 +55,7 @@ def prepare_index(index_name, documents: List):
     """Prepare the search index."""
     logger.info(f"prepare_index {index_name} with {len(documents)} documents")
     opensearch_client_ = opensearch.opensearch_client()
-
+    opensearch.ensure_index_exists(index_name)
     actions = []
     for document in documents:
         document_dict = {
@@ -74,6 +74,7 @@ def prepare_index(index_name, documents: List):
         actions.append(document_dict)
 
     opensearch_client_.bulk(index=index_name, body=actions)
+    opensearch_client_.indices.refresh(index=index_name)
     count = opensearch_client_.count(index=index_name)["count"]
     if count != len(documents):
         raise ValueError(

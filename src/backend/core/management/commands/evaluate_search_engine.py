@@ -6,7 +6,6 @@ import importlib
 import logging
 import math
 import os
-import re
 import unicodedata
 
 from django.conf import settings
@@ -116,10 +115,10 @@ class Command(BaseCommand):
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
-        if (
-            not opensearch_client().indices.exists(index=self.index_name)
-            or force_reindex
-        ):
+        if not opensearch_client().indices.exists(index=self.index_name):
+            prepare_index(self.index_name, bulk_create_documents(self.documents))
+        elif force_reindex:
+            opensearch_client().indices.delete(index=self.index_name)
             prepare_index(self.index_name, bulk_create_documents(self.documents))
 
     def load_documents(self, dataset_name: str):

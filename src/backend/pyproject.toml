@@ -44,7 +44,7 @@ dependencies = [
     "requests==2.32.4",
     "sentry-sdk==2.32.0",
     "url-normalize==1.4.3",
-    "opensearch-py==2.8.0",
+    "opensearch-py==3.1.0",
     "whitenoise==6.8.2",
 ]
 
