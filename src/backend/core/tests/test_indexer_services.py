@@ -159,7 +159,7 @@ def test_services_openbulk__raise_on_status():
     )
 
 
-def test_services_process_content():
+def test_services_convert_content():
     """Should convert the document content with the according converter"""
     service = factories.ServiceFactory()
     indexer = IndexerTaskService(service, force_refresh=True)
@@ -168,9 +168,9 @@ def test_services_process_content():
         indexer.converters = {"application/pdf": mock_pdf}
 
         assert (
-            indexer.process_content(
-                factories.IndexDocumentFactory(mimetype="text/plain"),
+            indexer.convert_content(
                 StringIO("This is a test"),
+                document=factories.IndexDocumentFactory(mimetype="text/plain"),
             )
             == "This is a test"
         )
@@ -178,8 +178,9 @@ def test_services_process_content():
         mock_pdf.assert_not_called()
 
         assert (
-            indexer.process_content(
-                factories.IndexDocumentFactory(mimetype="text/plain"), "This is a test"
+            indexer.convert_content(
+                "This is a test",
+                document=factories.IndexDocumentFactory(mimetype="text/plain"),
             )
             == "This is a test"
         )
@@ -188,9 +189,9 @@ def test_services_process_content():
 
         mock_pdf.return_value = "This a converted PDF test"
         assert (
-            indexer.process_content(
-                factories.IndexDocumentFactory(mimetype="application/pdf"),
+            indexer.convert_content(
                 "This is a test",
+                document=factories.IndexDocumentFactory(mimetype="application/pdf"),
             )
             == "This a converted PDF test"
         )
@@ -198,7 +199,7 @@ def test_services_process_content():
         mock_pdf.assert_called_once()
 
 
-def test_services_process_content__error():
+def test_services_convert_content__error():
     """Document content process should raise an error"""
     service = factories.ServiceFactory()
     indexer = IndexerTaskService(service, force_refresh=True)
@@ -208,10 +209,50 @@ def test_services_process_content__error():
         mock_pdf.side_effect = KeyError()
 
         with pytest.raises(IndexContentError):
-            indexer.process_content(
-                factories.IndexDocumentFactory(mimetype="application/pdf"),
+            indexer.convert_content(
                 StringIO("This is a test"),
+                document=factories.IndexDocumentFactory(mimetype="application/pdf"),
             )
+
+
+def test_services_process_content():
+    """Should process the document content"""
+    service = factories.ServiceFactory()
+    indexer = IndexerTaskService(service, force_refresh=True)
+
+    def _processor_a(document):
+        document.content = f"A({document.content})"
+        return document
+
+    def _processor_b(document):
+        document.content = f"B({document.content})"
+        return document
+
+    indexer.processors = [_processor_a, _processor_b]
+
+    doc = indexer.process_document(
+        factories.IndexDocumentFactory(mimetype="text/plain", content="This is a test"),
+    )
+
+    assert doc.content == "B(A(This is a test))"
+
+
+def test_services_process_content__error():
+    """Document content process should raise an error"""
+    service = factories.ServiceFactory()
+    indexer = IndexerTaskService(service, force_refresh=True)
+
+    def _processor(document):
+        raise ValueError("Cannot preprocess it")
+
+    indexer.processors = [_processor]
+
+    with pytest.raises(IndexContentError):
+        indexer.process_document(
+            document=factories.IndexDocumentFactory(
+                mimetype="application/pdf", content="This is a test"
+            ),
+        )
 
 
 def test_services_search_documents():
@@ -305,7 +346,7 @@ def test_services_index(content_uri, content, mimetype, processed, status):
     assert indexed_doc.content_status == status
 
 
-def test_services_index__process_errors():
+def test_services_index__convert_errors():
     """
     Documents with unsupported mimetypes or conversion issues should appear in
     the index() error list
@@ -335,8 +376,46 @@ def test_services_index__process_errors():
         ),
     ]
 
+    # we only add the text doc to the index
     indexed_docs = list(indexer.search_documents({"match_all": {}}))
-    assert len(indexed_docs) == 3
+    assert len(indexed_docs) == 1
+    assert indexed_docs[0].id == text_doc.id
+
+
+def test_services_index__process_errors():
+    """
+    Documents with failed preprocessing should appear in the index() error list
+    """
+    service = factories.ServiceFactory()
+    indexer = IndexerTaskService(service, force_refresh=True)
+    pdf_doc = factories.IndexDocumentFactory(
+        mimetype="application/pdf", content="this is a pdf"
+    )
+    text_doc = factories.IndexDocumentFactory(
+        mimetype="text/plain", content="this is a text"
+    )
+
+    def _preprocess(document):
+        if document.mimetype == "application/pdf":
+            raise ValueError("Not supported")
+
+        return document
+
+    indexer.processors = [_preprocess]
+
+    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
+        mock_pdf.return_value = "processed content"
+        indexer.converters = {"application/pdf": mock_pdf}
+        errors = indexer.index([pdf_doc, text_doc])
+
+    assert [(e.id, e.message) for e in errors] == [
+        (pdf_doc.id, "Unable to process content : Not supported"),
+    ]
+
+    # we only add the text doc to the index
+    indexed_docs = list(indexer.search_documents({"match_all": {}}))
+    assert len(indexed_docs) == 1
+    assert indexed_docs[0].id == text_doc.id
 
 
 def test_services_index__bulk_errors():
@@ -484,11 +563,17 @@ def test_services_load_n_process_all__errors():
         content_uri="http://localhost/invalid",
         content_status=enums.ContentStatusEnum.WAIT,
     )
+    unsupported_doc = factories.IndexDocumentFactory(
+        mimetype="text/unsupported",
+        content_uri="http://localhost/mydoc",
+        content_status=enums.ContentStatusEnum.WAIT,
+    )
 
     with openbulk(service.index_name, refresh=True) as actions:
         actions.index_document(pdf_doc)
         actions.index_document(unknown_doc)
         actions.index_document(invalid_uri_doc)
+        actions.index_document(unsupported_doc)
 
     responses.add(
         responses.GET,
@@ -503,12 +588,18 @@ def test_services_load_n_process_all__errors():
         status=400,
     )
 
+    def _invalid_process(document):
+        if document.mimetype == "text/unsupported":
+            raise ValueError("unsupported format")
+
+    indexer.processors = [_invalid_process]
+
     with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
         mock_pdf.side_effect = Exception()
         indexer.converters = {"application/pdf": mock_pdf}
         errors = indexer.load_n_process_all()
 
-    assert len(errors) == 3
+    assert len(errors) == 4
     assert sorted(((e.id, e.message) for e in errors)) == sorted(
         [
             (pdf_doc.id, "Unable to convert content with the mimetype application/pdf"),
@@ -520,6 +611,10 @@ def test_services_load_n_process_all__errors():
                 invalid_uri_doc.id,
                 "400 Client Error: Bad Request for url: http://localhost/invalid",
             ),
+            (
+                unsupported_doc.id,
+                "Unable to process content : unsupported format",
+            ),
         ]
     )
 
@@ -529,6 +624,7 @@ def test_services_load_n_process_all__errors():
             (pdf_doc.id, enums.ContentStatusEnum.WAIT),
             (unknown_doc.id, enums.ContentStatusEnum.WAIT),
             (invalid_uri_doc.id, enums.ContentStatusEnum.WAIT),
+            (unsupported_doc.id, enums.ContentStatusEnum.LOADED),
         ]
     )
 
@@ -614,7 +710,7 @@ def test_services_load_n_process_all__bulk_errors():
             "text/plain",
             True,
             {
-                "content": "initial content",
+                "content": "data:text/plain;initial content",
                 "status": enums.ContentStatusEnum.READY,
             },
         ),
@@ -623,7 +719,7 @@ def test_services_load_n_process_all__bulk_errors():
             "application/pdf",
             True,
             {
-                "content": "processed content",
+                "content": "data:application/pdf;initial content",
                 "status": enums.ContentStatusEnum.READY,
             },
         ),
@@ -656,22 +752,17 @@ def test_services_process_all(status, mimetype, is_active, expected):
         for doc in docs:
             actions.index_document(doc)
 
-    responses.add(
-        responses.GET,
-        "http://localhost/mydoc",
-        body="loaded content",
-        status=200,
-    )
-
     indexed_docs = list(indexer.search_documents({"match_all": {}}))
     assert [d.content_status for d in indexed_docs] == [status] * 3
     assert [d.is_active for d in indexed_docs] == [is_active] * 3
 
-    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
-        mock_pdf.return_value = "processed content"
-        indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.process_all()
+    def _process(document):
+        document.content = f"data:{document.mimetype};{document.content}"
+        return document
 
+    indexer.processors = [_process]
+
+    errors = indexer.process_all()
     assert len(errors) == 0
 
     indexed_docs = list(indexer.search_documents({"match_all": {}}))
@@ -696,26 +787,27 @@ def test_services_process_all__errors():
         actions.index_document(pdf_doc)
         actions.index_document(unknown_doc)
 
-    with mock.patch("core.services.converters.pdf_to_markdown") as mock_pdf:
-        mock_pdf.side_effect = Exception()
-        indexer.converters = {"application/pdf": mock_pdf}
-        errors = indexer.process_all()
+    def _process(document):
+        if document.mimetype == "application/unknown":
+            raise ValueError("unsupported format")
 
-    assert len(errors) == 2
+        return document
+
+    indexer.processors = [_process]
+
+    errors = indexer.process_all()
+
+    assert len(errors) == 1
     assert sorted(((e.id, e.message) for e in errors)) == sorted(
         [
-            (pdf_doc.id, "Unable to convert content with the mimetype application/pdf"),
-            (
-                unknown_doc.id,
-                "No such converter for the unindexable mimetype application/unknown",
-            ),
+            (unknown_doc.id, "Unable to process content : unsupported format"),
         ]
     )
 
     indexed_docs = indexer.search_documents({"match_all": {}})
     assert sorted((d.id, d.content_status) for d in indexed_docs) == sorted(
         [
-            (pdf_doc.id, enums.ContentStatusEnum.LOADED),
+            (pdf_doc.id, enums.ContentStatusEnum.READY),
             (unknown_doc.id, enums.ContentStatusEnum.LOADED),
         ]
     )
