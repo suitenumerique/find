@@ -81,20 +81,15 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
         index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
-    # the language field was not passed in the query params.
-    # -> Language defaults to settings.DEFAULT_LANGUAGE_CODE.
+
     assert (
-        new_indexed_document["_source"][f"title.{settings.DEFAULT_LANGUAGE_CODE}"]
+        new_indexed_document["_source"]["title.en-us"]
         == document["title"].strip().lower()
     )
-    assert (
-        new_indexed_document["_source"][f"content.{settings.DEFAULT_LANGUAGE_CODE}"]
-        == document["content"]
-    )
-    other_language_code = "de-de"
-    assert other_language_code != settings.DEFAULT_LANGUAGE_CODE
-    # only the default language is indexed
-    assert not f"content.{other_language_code}" in new_indexed_document["_source"]
+    assert new_indexed_document["_source"]["content.en-us"] == document["content"]
+
+    # only the english fields are indexed
+    assert not "content.fr-fr" in new_indexed_document["_source"]
     # check embedding
     assert (
         new_indexed_document["_source"]["embedding"]
@@ -138,7 +133,7 @@ def test_api_documents_index_language_params():
     assert not f"content.{other_language_code}" in new_indexed_document["_source"]
 
 
-def test_api_documents_index_single_hybrid_disabled_success(settings):
+def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
@@ -159,13 +154,10 @@ def test_api_documents_index_single_hybrid_disabled_success(settings):
     )
     assert new_indexed_document["_version"] == 1
     assert (
-        new_indexed_document["_source"][f"title.{settings.DEFAULT_LANGUAGE_CODE}"]
+        new_indexed_document["_source"]["title.en-us"]
         == document["title"].strip().lower()
     )
-    assert (
-        new_indexed_document["_source"][f"content.{settings.DEFAULT_LANGUAGE_CODE}"]
-        == document["content"]
-    )
+    assert new_indexed_document["_source"]["content.en-us"] == document["content"]
     assert new_indexed_document["_source"]["embedding"] is None
 
 

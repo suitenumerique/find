@@ -30,15 +30,17 @@ OPENSEARCH_INDEX_PREFIX=find
 Find supports french, english, german and dutch. 
 
 Language specific operations are applied to document titles and contents to improve search results. 
-The indexing and search endpoints take an optional 'language_code' query param to identify the language.
-If the language is not provided the language will fall-back to the default language. The default language can
-be control with a DEFAULT_LANGUAGE_CODE environment variable.
+The language is automatically detected  by Find.
+If the language can not be detected no language specific operation are applied and the indexing process is not affected. 
+
+Supported languages are french, english, german and dutch.
+
+Language detection estimates a confidence between 0 and 1. If it is below a threshold the language is considered unrecognized. 
+This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable
 
 ```python
-DEFAULT_LANGUAGE_CODE=en-us
-````
-
-Supported values are 'fr-fr', 'en-us', 'de-de', 'nl-nl'.
+LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
+```
 
 ### Semantic search
 

@@ -35,7 +35,6 @@ pytestmark = pytest.mark.django_db
 
 
 SERVICE_NAME = "test-service"
-DEFAULT_LANGUAGE_CODE = "en-us"
 
 
 def search_params(service):
@@ -101,10 +100,9 @@ def test_hybrid_search_success(settings, caplog):
 
     assert result["hits"]["max_score"] > 0.0
     # hybrid search always returns a response of fixed sized sorted and scored by relevance
-    assert {
-        hit["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"]
-        for hit in result["hits"]["hits"]
-    } == {doc["title"] for doc in documents}
+    assert {hit["_source"]["title.en-us"] for hit in result["hits"]["hits"]} == {
+        doc["title"] for doc in documents
+    }
 
 
 @responses.activate
@@ -206,9 +204,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert (
-        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
-    )
+    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
 
 
 @responses.activate
@@ -245,9 +241,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert (
-        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
-    )
+    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
 
 
 @responses.activate
@@ -279,9 +273,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert (
-        result["hits"]["hits"][0]["_source"][f"title.{DEFAULT_LANGUAGE_CODE}"] == "wolf"
-    )
+    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
 
 
 @responses.activate
