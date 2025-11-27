@@ -14,7 +14,7 @@ from django.core.management.base import BaseCommand
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
-from core.management.commands.utils import (
+from evaluation.management.commands.utils import (
     bulk_create_documents,
     delete_search_pipeline,
     prepare_index,
@@ -44,7 +44,7 @@ class Command(BaseCommand):
         "groups": [],
         "visited": [],
     }
-    base_data_path = "core/management/commands/data/evaluation"
+    base_data_path = "evaluation/data"
     documents = []
     queries = []
     id_to_title = {}
@@ -108,7 +108,7 @@ class Command(BaseCommand):
         self.documents = self.load_documents(dataset_name)
         self.queries = (
             importlib.import_module(
-                f"core.management.commands.data.evaluation.{dataset_name}.queries"
+                f"evaluation.data.{dataset_name}.queries"
             )
         ).queries
         self.overwrite_settings()

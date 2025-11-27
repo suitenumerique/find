@@ -11,7 +11,7 @@ python manage.py evaluate_search_engine <dataset_name> [options]
 ```
 
 ## Required Arguments
-- `dataset_name`: Name of the evaluation dataset to use. Datasets are located in `core/management/commands/data/evaluation/`
+- `dataset_name`: Name of the evaluation dataset to use. Datasets are located in `evaluation/management/commands/data/evaluation/`
 
 ## Optional Arguments
 - `--min_score`: Minimum score threshold; hits below this score are ignored
