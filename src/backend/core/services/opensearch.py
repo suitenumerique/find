@@ -28,6 +28,7 @@ REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_PASSWORD",
     "OPENSEARCH_USE_SSL",
 ]
+# see https://pypi.org/project/py3langid/
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
 LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
