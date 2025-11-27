@@ -224,6 +224,9 @@ class IndexerTaskService:
 
     # V2 : Use settings to define the list of converters
     converters = {"application/pdf": converters.pdf_to_markdown}
+    processors = [
+        # Put prepare_document_for_indexing() here !
+    ]
 
     def __init__(
         self, service: Service, batch_size=100, client=None, force_refresh=None
@@ -249,7 +252,7 @@ class IndexerTaskService:
                 f"No such converter for the unindexable mimetype {mimetype}"
             ) from e
 
-    def process_content(self, document, content):
+    def convert_content(self, content, document):
         """Transforms the document file data into an indexable format"""
         try:
             converter = self.get_converter(document.mimetype)
@@ -271,6 +274,25 @@ class IndexerTaskService:
         except Exception as e:
             raise IndexContentError(
                 f"Unable to convert content with the mimetype {document.mimetype}",
+                _id=document.id,
+            ) from e
+
+    def process_document(self, document):
+        """Transforms the document file data into an indexable format"""
+        try:
+            processors = list(self.processors)
+            processors.reverse()
+
+            while len(processors) > 0:
+                document = processors.pop()(document)
+
+            return document
+        except IndexContentError as e:
+            e.id = document.id
+            raise e
+        except Exception as e:
+            raise IndexContentError(
+                f"Unable to process content : {e}",
                 _id=document.id,
             ) from e
 
@@ -346,13 +368,13 @@ class IndexerTaskService:
                 for doc in docs:
                     try:
                         # V2 : Use asyncio loop to parallelize conversion
-                        content = self.process_content(doc, doc.content)
+                        doc = self.process_document(doc)  # noqa : PLW2901
 
                         actions.update(
                             doc.id,
                             data={
                                 "content_status": enums.ContentStatusEnum.READY.value,
-                                "content": content,
+                                "content": doc.content,
                             },
                             # if_seq_no and if_primary_term ensure we only update indexes
                             # if the document hasn't changed
@@ -398,21 +420,31 @@ class IndexerTaskService:
                 for doc in docs:
                     try:
                         # V2 : Use asyncio loop to parallelize downloads
-                        content = self.process_content(doc, self.stream_content(doc))
+                        content = self.stream_content(doc)
+                        doc.content = self.convert_content(content, doc)
+                        doc.content_status = enums.ContentStatusEnum.LOADED
+                    except IndexerError as e:
+                        # V2 ; handle retry here and remove the entry if not working
+                        errors.append(e)
+                        continue
 
-                        actions.update(
-                            doc.id,
-                            data={
-                                "content_status": enums.ContentStatusEnum.READY.value,
-                                "content": content,
-                            },
-                            # if_seq_no and if_primary_term ensure we only update indexes
-                            # if the document hasn't changed
-                            if_seq_no=doc.hit["_seq_no"],
-                            if_primary_term=doc.hit["_primary_term"],
-                        )
+                    try:
+                        doc = self.process_document(doc)  # noqa : PLW2901
+                        doc.content_status = enums.ContentStatusEnum.READY
                     except IndexerError as e:
                         errors.append(e)
+
+                    actions.update(
+                        doc.id,
+                        data={
+                            "content_status": doc.content_status.value,
+                            "content": doc.content,
+                        },
+                        # if_seq_no and if_primary_term ensure we only update indexes
+                        # if the document hasn't changed
+                        if_seq_no=doc.hit["_seq_no"],
+                        if_primary_term=doc.hit["_primary_term"],
+                    )
 
             errors.extend(actions.errors())
 
@@ -505,23 +537,30 @@ class IndexerTaskService:
             self.service.index_name, client=self.client, refresh=self.force_refresh
         ) as actions:
             for doc in documents:
+                # Without content and a dowload uri : set WAIT status
                 if doc.content_uri and not doc.content:
-                    # Without content and a dowload uri : set WAIT status
                     doc.content_status = enums.ContentStatusEnum.WAIT
-                elif not is_allowed_mimetype(doc.mimetype, INDEXABLE_MIMETYPES):
-                    # A content but not directly indexable (e.g xml or html content) : process them
-                    try:
-                        doc.content = self.process_content(doc, doc.content)
-                        doc.content_status = enums.ContentStatusEnum.READY
-                    except IndexContentError as err:
-                        # If process has failed, set LOADED status for a retry.
-                        # V2 : Add retry mechanism ?
-                        doc.content_status = enums.ContentStatusEnum.LOADED
-                        errors.append(IndexBulkError(str(err), _id=doc.id))
-                else:
-                    # The content exists and is indexable : set READY
-                    doc.content_status = enums.ContentStatusEnum.READY
+                    actions.index_document(doc)
+                    continue
 
+                # A content but not directly indexable (e.g xml or html content) : convert them
+                if not is_allowed_mimetype(doc.mimetype, INDEXABLE_MIMETYPES):
+                    try:
+                        doc.content = self.convert_content(doc.content, doc)
+                    except IndexContentError as err:
+                        errors.append(IndexBulkError(str(err), _id=doc.id))
+                        continue
+
+                # Preprocess the content of the document
+                try:
+                    doc = self.process_document(doc)  # noqa: PLW2901
+                except IndexContentError as err:
+                    # V2 : Add retry mechanism with LOADED status ?
+                    errors.append(IndexBulkError(str(err), _id=doc.id))
+                    continue
+
+                # The content exists and is indexable : set READY
+                doc.content_status = enums.ContentStatusEnum.READY
                 actions.index_document(doc)
 
         errors.extend(actions.errors())
