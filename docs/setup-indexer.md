@@ -27,16 +27,17 @@ OPENSEARCH_INDEX_PREFIX=find
 ```
 
 ### Language
-Find supports french, english, german and dutch. 
 
 Language specific operations are applied to document titles and contents to improve search results. 
 The language is automatically detected  by Find.
-If the language can not be detected no language specific operation are applied and the indexing process is not affected. 
+If the language can not be detected no language specific operation are applied and the indexing process is not affected.
 
-Supported languages are french, english, german and dutch.
+Find supports french, english, german and dutch. 
 
-Language detection estimates a confidence between 0 and 1. If it is below a threshold the language is considered unrecognized. 
-This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable
+The search process is not language specific, a query can get documents of any language.
+
+Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
+This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
 
 ```python
 LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
@@ -75,8 +76,8 @@ TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
 ````
 
 `TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
-`TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It
-either an absolute number or proportion as the default value.
+`TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
+either an absolute number or proportion.
 
 ## Setup indexation API
 
