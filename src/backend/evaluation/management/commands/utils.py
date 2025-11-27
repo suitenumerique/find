@@ -6,6 +6,7 @@ from typing import List
 from django.conf import settings as django_settings
 
 from opensearchpy.exceptions import NotFoundError
+
 from core import factories
 from core.services import opensearch
 from core.services.opensearch import (
@@ -36,6 +37,16 @@ def delete_search_pipeline():
         )
     except NotFoundError:
         logger.info("Search pipeline not found, nothing to delete.")
+
+
+def delete_index(index_name):
+    """Delete the hybrid search pipeline if it exists"""
+    logger.info(f"Deleting Index {index_name}")
+
+    try:
+        opensearch.opensearch_client().indices.delete(index=index_name)
+    except NotFoundError:
+        logger.info("Search pipeline %s not found, nothing to delete.", index_name)
 
 
 def prepare_index(index_name, documents: List):

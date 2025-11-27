@@ -14,15 +14,17 @@ from django.core.management.base import BaseCommand
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
-from evaluation.management.commands.utils import (
-    bulk_create_documents,
-    delete_search_pipeline,
-    prepare_index,
-)
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
     search,
+)
+
+from evaluation.management.commands.utils import (
+    bulk_create_documents,
+    delete_index,
+    delete_search_pipeline,
+    prepare_index,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,9 +109,7 @@ class Command(BaseCommand):
         """Initialize evaluation by preparing index and mapping."""
         self.documents = self.load_documents(dataset_name)
         self.queries = (
-            importlib.import_module(
-                f"evaluation.data.{dataset_name}.queries"
-            )
+            importlib.import_module(f"evaluation.data.{dataset_name}.queries")
         ).queries
         self.overwrite_settings()
         check_hybrid_search_enabled.cache_clear()
@@ -118,7 +118,7 @@ class Command(BaseCommand):
         if not opensearch_client().indices.exists(index=self.index_name):
             prepare_index(self.index_name, bulk_create_documents(self.documents))
         elif force_reindex:
-            opensearch_client().indices.delete(index=self.index_name)
+            delete_index(self.index_name)
             prepare_index(self.index_name, bulk_create_documents(self.documents))
 
     def load_documents(self, dataset_name: str):
@@ -250,7 +250,7 @@ class Command(BaseCommand):
         """Delete the evaluation index."""
         delete_search_pipeline()
         if not keep_index:
-            self.opensearch_client_.indices.delete(index=self.index_name)
+            delete_index(self.index_name)
 
     @staticmethod
     def overwrite_settings():
