@@ -38,7 +38,7 @@ def test_create_search_pipeline(settings, caplog):
     )
 
     # calling get works without raising NotFoundError
-    opensearch_client().search_pipeline.get(settings.HYBRID_SEARCH_PIPELINE_ID)
+    opensearch_client().search_pipeline.get(id=settings.HYBRID_SEARCH_PIPELINE_ID)
 
 
 def test_create_search_pipeline_but_it_exists_already(settings, caplog):
@@ -75,4 +75,4 @@ def test_create_search_pipeline_but_it_exists_already(settings, caplog):
     )
 
     # the pipeline is still here
-    opensearch_client().search_pipeline.get(settings.HYBRID_SEARCH_PIPELINE_ID)
+    opensearch_client().search_pipeline.get(id=settings.HYBRID_SEARCH_PIPELINE_ID)

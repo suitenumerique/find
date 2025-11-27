@@ -28,7 +28,7 @@ class Command(BaseCommand):
 def ensure_search_pipeline_exists():
     """Create search pipeline for hybrid search if it does not exist"""
     try:
-        opensearch_client().search_pipeline.get(settings.HYBRID_SEARCH_PIPELINE_ID)
+        opensearch_client().search_pipeline.get(id=settings.HYBRID_SEARCH_PIPELINE_ID)
         logger.info("Search pipeline exists already")
     except NotFoundError:
         logger.info("Creating search pipeline: %s", settings.HYBRID_SEARCH_PIPELINE_ID)
@@ -40,12 +40,13 @@ def ensure_search_pipeline_exists():
                 "phase_results_processors": [
                     {
                         "normalization-processor": {
+                            "normalization": {"technique": "min_max"},
                             "combination": {
                                 "technique": "arithmetic_mean",
                                 "parameters": {
                                     "weights": settings.HYBRID_SEARCH_WEIGHTS
                                 },
-                            }
+                            },
                         }
                     }
                 ],

@@ -143,7 +143,7 @@ def create_demo(stdout):
     Create a database with demo data for developers to work in a realistic environment.
     """
     opensearch_client_ = opensearch_client()
-    opensearch_client_.indices.delete("*")
+    opensearch_client_.indices.delete(index="*")
 
     with Timeit(stdout, "Creating services"):
         services = factories.ServiceFactory.create_batch(
