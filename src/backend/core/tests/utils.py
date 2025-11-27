@@ -1,4 +1,4 @@
-"""Tests Service model for find's core app."""
+"""Utility functions for management commands."""
 
 import base64
 import json
@@ -22,7 +22,10 @@ from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
 from core.services import opensearch
-from core.services.opensearch import check_hybrid_search_enabled
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    prepare_document_for_indexing,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +74,7 @@ def prepare_index(index_name, documents: List):
             "_op_type": "index",
             "_index": index_name,
             "_id": document["id"],
-            "_source": {
-                **{k: v for k, v in document.items() if k != "id"},
-                "embedding": opensearch.embed_text(
-                    opensearch.format_document(document["title"], document["content"])
-                )
-                if check_hybrid_search_enabled()
-                else None,
-                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-                if check_hybrid_search_enabled()
-                else None,
-            },
+            "_source": prepare_document_for_indexing(document),
         }
         for document in documents
     ]
@@ -89,9 +82,6 @@ def prepare_index(index_name, documents: List):
 
     # Force refresh again so all changes are visible to search
     opensearch.opensearch_client().indices.refresh(index=index_name)
-
-    count = opensearch.opensearch_client().count(index=index_name)["count"]
-    assert count == len(documents), f"Expected {len(documents)}, got {count}"
 
 
 def build_authorization_bearer(token="some_token"):

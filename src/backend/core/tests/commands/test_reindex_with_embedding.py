@@ -104,8 +104,8 @@ def test_reindex_with_embedding_command(settings):
         ]
         assert len(initial_hits) == 1
         initial_source = initial_hits[0]["_source"]
-        assert initial_source["title"] == embedded_source["title"]
-        assert initial_source["content"] == embedded_source["content"]
+        assert initial_source["title.en-us"] == embedded_source["title.en-us"]
+        assert initial_source["content.en-us"] == embedded_source["content.en-us"]
         assert initial_source["created_at"] == embedded_source["created_at"]
         assert initial_source["users"] == embedded_source["users"]
 
@@ -204,7 +204,7 @@ def test_reindex_can_fail_and_restart(settings):
 def test_reindex_preserves_concurrent_updates(settings):
     """
     Test that concurrent document updates don't get overwritten by reindexing.
-    This test simulates the fallowing scenario:
+    This test simulates the following scenario:
     • the hybrid search is disabled
     • documents are created and indexed without indexing
     • the hybrid search is enabled
@@ -237,7 +237,7 @@ def test_reindex_preserves_concurrent_updates(settings):
             id=documents[1]["id"],
             body={
                 "doc": {
-                    "title": updated_title,
+                    "title.en-us": updated_title,
                     "embedding": updated_embedding,
                     "embedding_model": settings.EMBEDDING_API_MODEL_NAME,
                 }
@@ -263,7 +263,7 @@ def test_reindex_preserves_concurrent_updates(settings):
     dog_doc = [
         hit
         for hit in embedded_index["hits"]["hits"]
-        if hit["_source"]["title"] == updated_title
+        if hit["_source"]["title.en-us"] == updated_title
     ]
     assert len(dog_doc) == 1
     assert dog_doc[0]["_source"]["embedding"] == updated_embedding
