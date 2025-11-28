@@ -193,6 +193,12 @@ def test_api_documents_index_bulk_ensure_index():
             "bool_parsing",
             "Input should be a valid boolean, unable to interpret input",
         ),
+        (
+            "content_uri",
+            "notanurl",
+            "url_parsing",
+            "Input should be a valid URL, relative URL without a base",
+        ),
     ],
 )
 def test_api_documents_index_bulk_invalid_document(
@@ -391,13 +397,20 @@ def test_api_documents_index_opensearch_errors():
     with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
         mock_bulk.return_value = {
             "items": [
-                {"index": {"status": 201}},
+                {"index": {"_id": documents[0]["id"], "status": 201}},
                 {
                     "index": {
+                        "_id": documents[1]["id"],
                         "status": 400,
                     }
                 },
-                {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
+                {
+                    "index": {
+                        "_id": documents[2]["id"],
+                        "status": 403,
+                        "error": {"reason": "This is forbidden"},
+                    }
+                },
             ]
         }
 

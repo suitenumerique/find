@@ -230,6 +230,7 @@ def format_document(title, content):
 def embed_text(text):
     """
     Get embedding vector for the given text from any OpenAI-compatible embedding API
+    V2 : Deprecated, use AlbertAI.embedding() instead.
     """
     response = requests.post(
         settings.EMBEDDING_API_PATH,
@@ -283,6 +284,8 @@ def ensure_index_exists(index_name):
                         },
                         "numchild": {"type": "integer"},
                         "content": {"type": "text"},
+                        "content_uri": {"type": "text", "index": False},
+                        "content_status": {"type": "keyword", "index": False},
                         "created_at": {"type": "date"},
                         "updated_at": {"type": "date"},
                         "size": {"type": "long"},
@@ -290,6 +293,7 @@ def ensure_index_exists(index_name):
                         "groups": {"type": "keyword"},
                         "reach": {"type": "keyword"},
                         "is_active": {"type": "boolean"},
+                        "mimetype": {"type": "keyword", "index": False},
                         "embedding": {
                             # for simplicity, embedding is always present but is empty
                             # when hybrid search is disabled

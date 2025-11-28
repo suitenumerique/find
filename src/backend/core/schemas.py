@@ -7,6 +7,7 @@ from django.utils.text import slugify
 
 from pydantic import (
     UUID4,
+    AnyUrl,
     AwareDatetime,
     BaseModel,
     BeforeValidator,
@@ -29,6 +30,7 @@ class DocumentSchema(BaseModel):
     path: Annotated[str, Field(max_length=300)]
     numchild: Annotated[int, Field(ge=0)]
     content: Annotated[str, Field(min_length=0)]
+    content_uri: Annotated[Optional[AnyUrl], Field(None)]
     created_at: AwareDatetime
     updated_at: AwareDatetime
     size: Annotated[int, Field(ge=0, le=100 * 1024**3)]  # File size limited to 100GB
@@ -38,6 +40,7 @@ class DocumentSchema(BaseModel):
     )
     reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
     is_active: bool
+    mimetype: Annotated[str, Field(default="text/plain")]
 
     model_config = ConfigDict(
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True
