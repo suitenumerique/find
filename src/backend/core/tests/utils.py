@@ -73,12 +73,13 @@ def prepare_index(index_name, documents: List):
             "_id": document["id"],
             "_source": {
                 **{k: v for k, v in document.items() if k != "id"},
-                "embedding": opensearch.embed_text(
-                    opensearch.format_document(document["title"], document["content"])
-                )
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
                 if check_hybrid_search_enabled()
                 else None,
-                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                "chunks": opensearch.chunk_document(
+                    document["title"],
+                    document["content"],
+                )
                 if check_hybrid_search_enabled()
                 else None,
             },

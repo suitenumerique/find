@@ -6,6 +6,7 @@ from functools import cache
 from django.conf import settings
 
 import requests
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
 from rest_framework.exceptions import ValidationError
@@ -22,6 +23,12 @@ REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_PASSWORD",
     "OPENSEARCH_USE_SSL",
 ]
+
+
+TEXT_SPLITTER = RecursiveCharacterTextSplitter(
+    chunk_size=settings.CHUNK_SIZE,
+    chunk_overlap=settings.CHUNK_OVERLAP,
+)
 
 
 @cache
@@ -109,55 +116,59 @@ def get_query(  # noqa : PLR0913
 
     hybrid_search_enabled = check_hybrid_search_enabled()
     if hybrid_search_enabled:
-        embedding = embed_text(q)
+        q_vector = embed_text(q)
     else:
-        embedding = None
+        q_vector = None
 
-    if not embedding:
+    if not q_vector:
         logger.info("Performing full-text search without embedding: %s", q)
-        return {
-            "bool": {
-                "must": {
-                    "multi_match": {
-                        "query": q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                },
-                "filter": filter_,
-            }
-        }
+        return get_full_text_query(q, filter_)
 
     logger.info("Performing hybrid search with embedding: %s", q)
     return {
         "hybrid": {
             "queries": [
-                {
-                    "bool": {
-                        "must": {
-                            "multi_match": {
-                                "query": q,
-                                # Give title more importance over content by a power of 3
-                                "fields": ["title.text^3", "content"],
+                get_full_text_query(q, filter_),
+                get_semantic_search_query(q_vector, filter_, nb_results),
+            ],
+        }
+    }
+
+
+def get_semantic_search_query(q_vector, filter_, nb_results):
+    """Build semantic search OpenSearch query"""
+    return {
+        "bool": {
+            "must": {
+                "nested": {
+                    "path": "chunks",
+                    "score_mode": "max",
+                    "query": {
+                        "knn": {
+                            "chunks.embedding": {
+                                "vector": q_vector,
+                                "k": nb_results,
                             }
-                        },
-                        "filter": filter_,
-                    }
-                },
-                {
-                    "bool": {
-                        "must": {
-                            "knn": {
-                                "embedding": {
-                                    "vector": embedding,
-                                    "k": nb_results,
-                                }
-                            }
-                        },
-                        "filter": filter_,
-                    }
-                },
-            ]
+                        }
+                    },
+                }
+            },
+            "filter": filter_,
+        }
+    }
+
+
+def get_full_text_query(q, filter_):
+    """Build full-text OpenSearch query"""
+    return {
+        "bool": {
+            "must": {
+                "multi_match": {
+                    "query": q,
+                    "fields": ["title.text^3", "content"],
+                }
+            },
+            "filter": filter_,
         }
     }
 
@@ -220,6 +231,35 @@ def get_params(query_keys):
 def embed_document(document):
     """Get embedding vector for a given document"""
     return embed_text(format_document(document.title, document.content))
+
+
+def chunk_document(title, content):
+    """
+    Chunk a document into multiple pieces and embed them.
+    """
+    chunks = []
+    for idx, chunked_content in enumerate(TEXT_SPLITTER.split_text(content)):
+        embedding = embed_text(format_document(title, chunked_content))
+
+        if not embedding:
+            logger.warning(
+                "Failed to embed chunk %d of document '%s'. Document embedding is skipped",
+                idx,
+                title,
+            )
+            # if embedding fails for any chunk, we skip chunking the document
+            return None
+
+        chunks.append(
+            {
+                "index": idx,
+                "content": chunked_content,
+                "embedding": embedding,
+            }
+        )
+
+    logger.info("Document %s chunked into %d pieces", title, len(chunks))
+    return chunks
 
 
 def format_document(title, content):
@@ -290,19 +330,24 @@ def ensure_index_exists(index_name):
                         "groups": {"type": "keyword"},
                         "reach": {"type": "keyword"},
                         "is_active": {"type": "boolean"},
-                        "embedding": {
-                            # for simplicity, embedding is always present but is empty
-                            # when hybrid search is disabled
-                            "type": "knn_vector",
-                            "dimension": settings.EMBEDDING_DIMENSION,
-                            "method": {
-                                "engine": "lucene",
-                                "space_type": "l2",
-                                "name": "hnsw",
-                                "parameters": {},
+                        "embedding_model": {"type": "keyword"},
+                        "chunks": {
+                            "type": "nested",
+                            "properties": {
+                                "index": {"type": "integer"},
+                                "content": {"type": "text"},
+                                "embedding": {
+                                    "type": "knn_vector",
+                                    "dimension": settings.EMBEDDING_DIMENSION,
+                                    "method": {
+                                        "engine": "lucene",
+                                        "space_type": "l2",
+                                        "name": "hnsw",
+                                        "parameters": {},
+                                    },
+                                },
                             },
                         },
-                        "embedding_model": {"type": "keyword"},
                     },
                 },
             },

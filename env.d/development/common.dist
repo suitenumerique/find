@@ -55,3 +55,7 @@ OIDC_RS_ENCRYPTION_KEY_TYPE="RSA"
 HYBRID_SEARCH_ENABLED=True
 EMBEDDING_API_KEY=ThisIsAnExampleKeyForDevPurposeOnly
 EMBEDDING_API_PATH=https://albert.api.etalab.gouv.fr/v1/embeddings
+
+## Multi-embedding: chunk documents and embed each chunk
+CHUNK_SIZE=512
+CHUNK_OVERLAP=50
