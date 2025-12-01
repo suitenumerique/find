@@ -77,8 +77,9 @@ def prepare_index(index_name, documents: List):
                 if check_hybrid_search_enabled()
                 else None,
                 "chunks": opensearch.chunk_document(
-                    document["title"], document["content"],
-                ) 
+                    document["title"],
+                    document["content"],
+                )
                 if check_hybrid_search_enabled()
                 else None,
             },
