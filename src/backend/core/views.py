@@ -18,6 +18,7 @@ from .permissions import IsAuthAuthenticated
 from .services.opensearch import (
     check_hybrid_search_enabled,
     embed_document,
+    chunk_document,
     ensure_index_exists,
     opensearch_client,
     search,
@@ -108,13 +109,16 @@ class IndexDocumentView(views.APIView):
                 else:
                     document_dict = {
                         **document.model_dump(),
-                        "embedding": embed_document(document)
+                        "chunks": chunk_document(
+                            document.title, document.content,
+                        )
                         if check_hybrid_search_enabled()
                         else None,
                         "embedding_model": settings.EMBEDDING_API_MODEL_NAME
                         if check_hybrid_search_enabled()
                         else None,
                     }
+
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -142,13 +146,17 @@ class IndexDocumentView(views.APIView):
         document = schemas.DocumentSchema(**request.data)
         document_dict = {
             **document.model_dump(),
-            "embedding": embed_document(document)
+            "chunks": chunk_document(
+                document.title,
+                document.content,
+            )
             if check_hybrid_search_enabled()
             else None,
             "embedding_model": settings.EMBEDDING_API_MODEL_NAME
             if check_hybrid_search_enabled()
             else None,
         }
+
         _id = document_dict.pop("id")
 
         # Build index if needed.

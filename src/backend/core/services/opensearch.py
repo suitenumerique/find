@@ -8,6 +8,7 @@ from django.conf import settings
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import requests
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
@@ -39,6 +40,7 @@ TEXT_SPLITTER = RecursiveCharacterTextSplitter(
     chunk_size=settings.CHUNK_SIZE,
     chunk_overlap=settings.CHUNK_OVERLAP,
 )
+
 
 @cache
 def opensearch_client():
@@ -143,32 +145,6 @@ def get_query(  # noqa : PLR0913
         }
     }
 
-    logger.info("Performing hybrid search with embedding: %s", q)
-    return {
-        "hybrid": {
-            "queries": [
-                {
-                    "bool": {
-                        "must": get_full_text_query(q),
-                        "filter": filter_,
-                    }
-                },
-                {
-                    "bool": {
-                        "must": {
-                            "knn": {
-                                "embedding": {
-                                    "vector": embedding,
-                                    "k": nb_results,
-                                }
-                            }
-                        },
-                        "filter": filter_,
-                    }
-                },
-            ]
-        }
-    }
 
 def get_semantic_search_query(q_vector, filter_, nb_results):
     return {
@@ -223,7 +199,7 @@ def get_full_text_query(q, filter_):
                     "minimum_should_match": 1,
                 },
             },
-            "filter": filter,
+            "filter": filter_,
         }
     }
 
@@ -290,18 +266,30 @@ def embed_document(document):
 
 def chunk_document(title, content):
     """
-    Chunk a document into multiple pieces.
+    Chunk a document into multiple pieces and embed them.
     """
-    chunks = [
-        {
-            'index': idx,
-            'content': f"Title: {title}\n\n{chunked_content}",
-            'embedding': embed_text(f"Title: {title}\n\n{chunked_content}")
-        }
-        for idx, chunked_content in enumerate(TEXT_SPLITTER.split_text(content))
-    ]
+    chunks = []
+    for idx, chunked_content in enumerate(TEXT_SPLITTER.split_text(content)):
+        embedding = embed_text(format_document(title, chunked_content))
 
-    logger.info(f"Document '{title}' chunked into {len(chunks)} pieces")
+        if not embedding:
+            logger.warning(
+                "Failed to embed chunk %d of document '%s'. Document embedding is skipped",
+                idx,
+                title,
+            )
+            # if embedding fails for any chunk, we skip chunking the document
+            return None
+
+        chunks.append(
+            {
+                "index": idx,
+                "content": chunked_content,
+                "embedding": embedding,
+            }
+        )
+
+    logger.info("Document %s chunked into %d pieces", title, len(chunks))
     return chunks
 
 
@@ -356,7 +344,7 @@ def prepare_document_for_indexing(document):
         else None,
         "chunks": chunk_document(
             document["title"], document["content"],
-        ) 
+        )
         if check_hybrid_search_enabled()
         else None,
         "depth": document["depth"],

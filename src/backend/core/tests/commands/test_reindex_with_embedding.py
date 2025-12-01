@@ -64,7 +64,7 @@ def test_reindex_with_embedding_command(settings):
     )
     assert len(initial_index["hits"]["hits"]) == 3
     for embedded_hit in initial_index["hits"]["hits"]:
-        assert embedded_hit["_source"]["embedding"] == None
+        assert embedded_hit["_source"]["chunks"] == None
         assert embedded_hit["_source"]["embedding_model"] is None
 
     # enable hybrid search
@@ -89,8 +89,9 @@ def test_reindex_with_embedding_command(settings):
     for embedded_hit in embedded_index["hits"]["hits"]:
         embedded_source = embedded_hit["_source"]
         # the index contains a embedding and embedding_model
+        assert len(embedded_source["chunks"]) == 1
         assert (
-            embedded_source["embedding"]
+            embedded_source["chunks"][0]["embedding"]
             == albert_embedding_response.response["data"][0]["embedding"]
         )
         assert embedded_source["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
@@ -161,7 +162,7 @@ def test_reindex_can_fail_and_restart(settings):
     embedded_count = 0
     not_embedded_count = 0
     for hit in embedded_index["hits"]["hits"]:
-        if hit["_source"].get("embedding"):
+        if hit["_source"].get("chunks"):
             embedded_count += 1
             assert (
                 hit["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
@@ -191,10 +192,11 @@ def test_reindex_can_fail_and_restart(settings):
         index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     for hit in embedded_index["hits"]["hits"]:
-        assert (
-            hit["_source"]["embedding"]
-            == albert_embedding_response.response["data"][0]["embedding"]
-        )
+        for chunk in hit["_source"]["chunks"]:
+            assert (
+                chunk["embedding"]
+                == albert_embedding_response.response["data"][0]["embedding"]
+            )
         assert hit["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
 
 
@@ -224,10 +226,6 @@ def test_reindex_preserves_concurrent_updates(settings):
     enable_hybrid_search(settings)
 
     updated_title = "updated dog"
-    updated_embedding = [
-        1.0
-    ] * settings.EMBEDDING_DIMENSION  # dummy embedding to simulate concurrent update
-    # add a side_effect on the search to simulate a concurrent update
     patch(
         "core.services.opensearch.opensearch_client_.search",
         side_effect=opensearch_client_.update(
@@ -256,14 +254,14 @@ def test_reindex_preserves_concurrent_updates(settings):
         index=index_name, size=2, body={"query": {"match_all": {}}}
     )
     # Check that the latest update is preserved
-    dog_doc = [
+    dog_document = [
         hit
         for hit in embedded_index["hits"]["hits"]
-        if hit["_source"]["title.en"] == updated_title
+        if hit["_source"]["title"] == updated_title
     ]
-    assert len(dog_doc) == 1
-    assert dog_doc[0]["_source"]["embedding"] is None
-    assert dog_doc[0]["_source"]["embedding_model"] is None
+    assert len(dog_document) == 1
+    assert dog_document[0]["_source"]["chunks"] is None
+    assert dog_document[0]["_source"]["embedding_model"] is None
 
 
 def test_reindex_command_but_hybrid_search_is_disabled():

@@ -53,8 +53,7 @@ def test_api_documents_index_single_invalid_token():
 def test_api_documents_index_single_hybrid_enabled_success(settings):
     """
     A registered service should be able to index document with a valid token.
-    If hybrid search is enabled, the indexing should have embedding of
-    dimension settings.EMBEDDING_DIMENSION.
+    If hybrid search is enabled, the documents are chunked and embedded.
     """
     service = factories.ServiceFactory()
     enable_hybrid_search(settings)
@@ -66,7 +65,9 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
     document = factories.DocumentSchemaFactory.build()
-    document["content"] = "a long text to embed." * 100  # Ensure content is long enough
+    document["content"] = (
+        "a long text to embed." * 100
+    )  # Ensure content is long enough for chunking
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -102,13 +103,18 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     # Check that the document has been chunked correctly
     assert (
         len(new_indexed_document["_source"]["chunks"])
-        == int(len(document["content"]) /  (settings.CHUNK_SIZE - settings.CHUNK_OVERLAP)) + 1
+        == int(
+            len(document["content"]) / (settings.CHUNK_SIZE - settings.CHUNK_OVERLAP)
+        )
+        + 1
     )
-    assert (
-        new_indexed_document["_source"]["chunks"][0]["embedding"]
-        == albert_embedding_response.response["data"][0]["embedding"]
-    )
-    assert new_indexed_document["_source"]["chunks"][0]["content"].startswith(f"Title: {document['title'].lower()}\n\n{document['content'][:10]}")
+    for chunk in new_indexed_document["_source"]["chunks"]:
+        assert (
+            chunk["embedding"]
+            == albert_embedding_response.response["data"][0]["embedding"]
+        )
+        assert chunk["content"] in document["content"]
+        assert len(chunk["content"]) < len(document["content"])
 
 
 def test_api_documents_index_language_params():
@@ -194,6 +200,15 @@ def test_api_documents_index_and_reindex_same_document():
     assert "content.und" not in new_indexed_document["_source"]
 
 
+    for chunk in new_indexed_document["_source"]["chunks"]:
+        assert (
+            chunk["embedding"]
+            == albert_embedding_response.response["data"][0]["embedding"]
+        )
+        assert chunk["content"] in document["content"]
+        assert len(chunk["content"]) < len(document["content"])
+
+
 def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory()
@@ -267,6 +282,23 @@ def test_api_documents_index_single_ensure_index(settings):
             "groups": {"type": "keyword"},
             "reach": {"type": "keyword"},
             "is_active": {"type": "boolean"},
+            "chunks": {
+                "properties": {
+                    "content": {"type": "text"},
+                    "embedding": {
+                        "dimension": 1024,
+                        "method": {
+                            "engine": "lucene",
+                            "name": "hnsw",
+                            "parameters": {},
+                            "space_type": "l2",
+                        },
+                        "type": "knn_vector",
+                    },
+                    "index": {"type": "integer"},
+                },
+                "type": "nested",
+            },
             'chunks': {
                 'properties': {
                 'content': {'type': 'text'},

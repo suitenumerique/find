@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 from functools import partial
+from typing import List
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -11,6 +12,11 @@ from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
+from django.conf import settings as django_settings
+from core.services import opensearch
+from opensearchpy.exceptions import NotFoundError
+from opensearchpy.helpers import bulk
+from core import factories
 
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
@@ -68,12 +74,13 @@ def prepare_index(index_name, documents: List):
             "_id": document["id"],
             "_source": {
                 **{k: v for k, v in document.items() if k != "id"},
-                "embedding": opensearch.embed_text(
-                    opensearch.format_document(document["title"], document["content"])
-                )
+                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
                 if check_hybrid_search_enabled()
                 else None,
-                "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
+                "chunks": opensearch.chunk_document(
+                    document["title"],
+                    document["content"],
+                )
                 if check_hybrid_search_enabled()
                 else None,
             },

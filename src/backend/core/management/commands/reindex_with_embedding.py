@@ -12,8 +12,7 @@ from opensearchpy.exceptions import NotFoundError
 from core.models import get_opensearch_index_name
 from core.services.opensearch import (
     check_hybrid_search_enabled,
-    embed_text,
-    format_document,
+    chunk_document,
     opensearch_client,
 )
 
@@ -69,14 +68,27 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
             "query": {
                 "bool": {
                     "should": [
-                        {"bool": {"must_not": {"exists": {"field": "embedding"}}}},
                         {
                             "bool": {
-                                "must_not": {
-                                    "term": {
-                                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+                                "must_not": [
+                                    {
+                                        "nested": {
+                                            "path": "chunks",
+                                            "query": {"match_all": {}},
+                                        }
                                     }
-                                }
+                                ]
+                            }
+                        },
+                        {
+                            "bool": {
+                                "must_not": [
+                                    {
+                                        "term": {
+                                            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+                                        }
+                                    }
+                                ]
                             }
                         },
                     ],
@@ -85,17 +97,14 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
             }
         },
     )
-
     nb_failed_embedding = 0
     nb_success_embedding = 0
     while len(page["hits"]["hits"]) > 0:
         actions = []
         for hit in page["hits"]["hits"]:
             source = hit["_source"]
-            embedding = embed_text(
-                format_document(source.get("title", ""), source.get("content", ""))
-            )
-            if embedding:
+            chunks = chunk_document(source.get("title", ""), source.get("content", ""))
+            if chunks:
                 actions.append(
                     {
                         "update": {
@@ -110,7 +119,7 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
                 actions.append(
                     {
                         "doc": {
-                            "embedding": embedding,
+                            "chunks": chunks,
                             "embedding_model": settings.EMBEDDING_API_MODEL_NAME,
                         }
                     }
