@@ -133,6 +133,62 @@ def test_api_documents_index_language_params():
     assert not f"content.{other_language_code}" in new_indexed_document["_source"]
 
 
+def test_api_documents_index_and_reindex_same_document():
+    """
+    Indexing the same document twice should update it.
+    If the detected language changes the new language code should be used and the
+    former language code should not be present anymore.
+    """
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    # First indexing with unrecognized language title
+    document["title"] = "planning"
+    APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+    assert new_indexed_document["_version"] == 1
+    assert (
+        new_indexed_document["_source"]["title.und"]
+        == document["title"].strip().lower()
+    )
+    assert (
+        new_indexed_document["_source"]["content.und"]
+        == document["content"].strip()
+    )
+
+    # Index the same document with a french content
+    document["content"] = "du contenu en francais"
+    APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+    assert new_indexed_document["_version"] == 2
+    assert (
+        new_indexed_document["_source"]["title.fr-fr"]
+        == document["title"].strip().lower()
+    )
+    assert (
+        new_indexed_document["_source"]["content.fr-fr"]
+        == document["content"]
+    )
+    assert "title.und" not in new_indexed_document["_source"]
+    assert "content.und" not in new_indexed_document["_source"]
+
+
 def test_api_documents_index_single_hybrid_disabled_success():
     """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
     service = factories.ServiceFactory()
