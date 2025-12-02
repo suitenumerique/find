@@ -132,7 +132,7 @@ class Command(BaseCommand):
         documents = []
         for filename in os.listdir(documents_dir_path):
             if not filename.endswith(".txt"):
-                raise logger.warning(
+                logger.warning(
                     f"Unexpected file format for document: {filename}. Only .txt files are supported."
                 )
 
