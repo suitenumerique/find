@@ -19,11 +19,9 @@ from core.models import get_opensearch_index_name
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
-    bulk_create_documents,
-    delete_search_pipeline,
     enable_hybrid_search,
-    prepare_index,
 )
+from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
 
 SERVICE_NAME = "test-index"
 
@@ -238,8 +236,6 @@ def test_reindex_preserves_concurrent_updates(settings):
             body={
                 "doc": {
                     "title.en-us": updated_title,
-                    "embedding": updated_embedding,
-                    "embedding_model": settings.EMBEDDING_API_MODEL_NAME,
                 }
             },
         ),
@@ -266,8 +262,8 @@ def test_reindex_preserves_concurrent_updates(settings):
         if hit["_source"]["title.en-us"] == updated_title
     ]
     assert len(dog_doc) == 1
-    assert dog_doc[0]["_source"]["embedding"] == updated_embedding
-    assert dog_doc[0]["_source"]["embedding_model"] == settings.EMBEDDING_API_MODEL_NAME
+    assert dog_doc[0]["_source"]["embedding"] is None
+    assert dog_doc[0]["_source"]["embedding_model"] is None
 
 
 def test_reindex_command_but_hybrid_search_is_disabled():

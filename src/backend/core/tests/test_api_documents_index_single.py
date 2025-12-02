@@ -159,10 +159,7 @@ def test_api_documents_index_and_reindex_same_document():
         new_indexed_document["_source"]["title.und"]
         == document["title"].strip().lower()
     )
-    assert (
-        new_indexed_document["_source"]["content.und"]
-        == document["content"].strip()
-    )
+    assert new_indexed_document["_source"]["content.und"] == document["content"].strip()
 
     # Index the same document with a french content
     document["content"] = "du contenu en francais"
@@ -181,10 +178,7 @@ def test_api_documents_index_and_reindex_same_document():
         new_indexed_document["_source"]["title.fr-fr"]
         == document["title"].strip().lower()
     )
-    assert (
-        new_indexed_document["_source"]["content.fr-fr"]
-        == document["content"]
-    )
+    assert new_indexed_document["_source"]["content.fr-fr"] == document["content"]
     assert "title.und" not in new_indexed_document["_source"]
     assert "content.und" not in new_indexed_document["_source"]
 

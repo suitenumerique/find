@@ -19,11 +19,11 @@ from core.services.opensearch import (
     opensearch_client,
     search,
 )
-
-from evaluation.management.commands.utils import (
+from core.utils import (
     bulk_create_documents,
     delete_index,
     delete_search_pipeline,
+    get_language_value,
     prepare_index,
 )
 
@@ -165,7 +165,7 @@ class Command(BaseCommand):
             for document_id in query["expected_document_ids"]
         ]
         retrieved_ordered_titles = [
-            result["_source"]["title"]
+            get_language_value(result["_source"], "title")
             for result in results["hits"]["hits"]
             if result["_score"] >= min_score
         ]
@@ -173,7 +173,7 @@ class Command(BaseCommand):
         metrics = self.calculate_metrics(expected_titles, retrieved_ordered_titles)
 
         self.stdout.write(
-            f"\n[QUERY EVALUATION]\n"
+            f"  [QUERY EVALUATION]\n"
             f"  q: {query['q']}\n"
             f"  expect: {list(expected_titles)}\n"
             f"  result: {list(retrieved_ordered_titles)}\n"

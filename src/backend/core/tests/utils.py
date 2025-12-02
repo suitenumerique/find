@@ -4,9 +4,6 @@ import base64
 import json
 import logging
 from functools import partial
-from typing import List
-
-from django.conf import settings as django_settings
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -14,16 +11,12 @@ from joserfc import jwe as jose_jwe
 from joserfc import jwt as jose_jwt
 from joserfc.jwk import RSAKey
 from jwt.utils import to_base64url_uint
-from opensearchpy.exceptions import NotFoundError
 
-from core import factories
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
-from core.services import opensearch
 from core.services.opensearch import (
     check_hybrid_search_enabled,
-    prepare_document_for_indexing,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,50 +36,6 @@ def enable_hybrid_search(settings):
     # Clear the cache here or the hybrid search will remain disabled
     check_hybrid_search_enabled.cache_clear()
     ensure_search_pipeline_exists()
-
-
-def bulk_create_documents(document_payloads):
-    """Create documents in bulk from payloads"""
-    return [
-        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
-        for document_payload in document_payloads
-    ]
-
-
-def delete_search_pipeline():
-    """Delete the hybrid search pipeline if it exists"""
-    logger.info(
-        "Deleting search pipeline %s", django_settings.HYBRID_SEARCH_PIPELINE_ID
-    )
-
-    try:
-        opensearch.opensearch_client().transport.perform_request(
-            method="DELETE",
-            url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
-    except NotFoundError:
-        logger.info("Search pipeline not found, nothing to delete.")
-
-
-def prepare_index(index_name, documents: List):
-    """Prepare the search index before testing a query on it."""
-    logger.info("prepare_index %s with %d documents", index_name, len(documents))
-    opensearch_client_ = opensearch.opensearch_client()
-    opensearch.ensure_index_exists(index_name)
-
-    # Index new documents
-    actions = [
-        {
-            "_op_type": "index",
-            "_index": index_name,
-            "_id": document["id"],
-            "_source": prepare_document_for_indexing(document),
-        }
-        for document in documents
-    ]
-    if not actions:
-        return
-    bulk(opensearch.opensearch_client(), actions)
 
 
 def build_authorization_bearer(token="some_token"):

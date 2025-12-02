@@ -19,16 +19,14 @@ from core.services.opensearch import (
     opensearch_client,
     search,
 )
+from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
 
 from .mock import albert_embedding_response
 from .utils import (
-    bulk_create_documents,
-    delete_search_pipeline,
-    enable_hybrid_search,
-    prepare_index,
+    check_hybrid_search_enabled as check_hybrid_search_enabled_utils,
 )
 from .utils import (
-    check_hybrid_search_enabled as check_hybrid_search_enabled_utils,
+    enable_hybrid_search,
 )
 
 pytestmark = pytest.mark.django_db
@@ -590,7 +588,7 @@ def test_opensearch_analyzers(
     expected_language_analyzer_tokens,
     expected_trigram_analyzer_tokens,
 ):
-    """Test the french_analyzer is correctly configured in OpenSearch"""
+    """Test the analyzers are correctly configured in OpenSearch"""
     enable_hybrid_search(settings)
     ensure_index_exists(SERVICE_NAME)
 

@@ -17,13 +17,12 @@ from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
 )
+from core.utils import bulk_create_documents, prepare_index
 
 from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
-    bulk_create_documents,
     enable_hybrid_search,
-    prepare_index,
     setup_oicd_resource_server,
 )
 

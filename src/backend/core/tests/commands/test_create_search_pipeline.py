@@ -10,9 +10,9 @@ import pytest
 
 from core.services.opensearch import opensearch_client
 from core.tests.utils import (
-    delete_search_pipeline,
     enable_hybrid_search,
 )
+from core.utils import delete_search_pipeline
 
 
 @pytest.fixture(autouse=True)
