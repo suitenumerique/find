@@ -127,7 +127,7 @@ MAPPINGS = {
     "properties": {
         "id": {"type": "keyword"},
         # French
-        "title.fr-fr": {
+        "title.fr": {
             "type": "keyword",
             "fields": {
                 "text": {
@@ -142,7 +142,7 @@ MAPPINGS = {
                 }
             },
         },
-        "content.fr-fr": {
+        "content.fr": {
             "type": "text",
             "analyzer": "french_analyzer",
             "fields": {
@@ -153,7 +153,7 @@ MAPPINGS = {
             },
         },
         # English
-        "title.en-us": {
+        "title.en": {
             "type": "keyword",
             "fields": {
                 "text": {
@@ -168,7 +168,7 @@ MAPPINGS = {
                 }
             },
         },
-        "content.en-us": {
+        "content.en": {
             "type": "text",
             "analyzer": "english_analyzer",
             "fields": {
@@ -179,7 +179,7 @@ MAPPINGS = {
             },
         },
         # German
-        "title.de-de": {
+        "title.de": {
             "type": "keyword",
             "fields": {
                 "text": {
@@ -194,7 +194,7 @@ MAPPINGS = {
                 }
             },
         },
-        "content.de-de": {
+        "content.de": {
             "type": "text",
             "analyzer": "german_analyzer",
             "fields": {
@@ -205,7 +205,7 @@ MAPPINGS = {
             },
         },
         # Dutch
-        "title.nl-nl": {
+        "title.nl": {
             "type": "keyword",
             "fields": {
                 "text": {
@@ -220,7 +220,7 @@ MAPPINGS = {
                 }
             },
         },
-        "content.nl-nl": {
+        "content.nl": {
             "type": "text",
             "analyzer": "dutch_analyzer",
             "fields": {

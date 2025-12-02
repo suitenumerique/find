@@ -125,10 +125,10 @@ class Base(Configuration):
     # Languages
     LANGUAGES = values.SingleNestedTupleValue(
         (
-            ("en-us", _("English")),
-            ("fr-fr", _("French")),
-            ("de-de", _("German")),
-            ("nl-nl", _("Dutch")),
+            ("fr", _("French")),
+            ("en", _("English")),
+            ("de", _("German")),
+            ("nl", _("Dutch")),
         )
     )
     SUPPORTED_LANGUAGE_CODES = tuple(

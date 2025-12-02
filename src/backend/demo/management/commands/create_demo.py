@@ -127,8 +127,8 @@ def generate_document():
     )
 
     return {
-        "title.en-us": fake.sentence(nb_words=10, variable_nb_words=True),
-        "content.en-us": "\n".join(fake.paragraphs(nb=5)),
+        "title.en": fake.sentence(nb_words=10, variable_nb_words=True),
+        "content.en": "\n".join(fake.paragraphs(nb=5)),
         "created_at": created_at,
         "updated_at": updated_at,
         "size": random.randint(0, 100 * 1024**2),

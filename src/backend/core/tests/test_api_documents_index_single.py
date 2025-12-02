@@ -83,13 +83,13 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     assert new_indexed_document["_version"] == 1
 
     assert (
-        new_indexed_document["_source"]["title.en-us"]
+        new_indexed_document["_source"]["title.en"]
         == document["title"].strip().lower()
     )
-    assert new_indexed_document["_source"]["content.en-us"] == document["content"]
-
+    assert new_indexed_document["_source"]["content.en"] == document["content"]
     # only the english fields are indexed
-    assert not "content.fr-fr" in new_indexed_document["_source"]
+    assert not "content.fr" in new_indexed_document["_source"]
+    
     # check embedding
     assert (
         new_indexed_document["_source"]["embedding"]
@@ -119,7 +119,7 @@ def test_api_documents_index_language_params():
     new_indexed_document = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )
-    language_code = "en-us"
+    language_code = "en"
     assert (
         new_indexed_document["_source"][f"title.{language_code}"]
         == document["title"].strip().lower()
@@ -128,7 +128,7 @@ def test_api_documents_index_language_params():
         new_indexed_document["_source"][f"content.{language_code}"]
         == document["content"]
     )
-    other_language_code = "fr-fr"
+    other_language_code = "fr"
     # only the requested language is indexed
     assert not f"content.{other_language_code}" in new_indexed_document["_source"]
 
@@ -174,11 +174,13 @@ def test_api_documents_index_and_reindex_same_document():
         index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 2
+    # the document is detected as french
     assert (
-        new_indexed_document["_source"]["title.fr-fr"]
+        new_indexed_document["_source"]["title.fr"]
         == document["title"].strip().lower()
     )
-    assert new_indexed_document["_source"]["content.fr-fr"] == document["content"]
+    assert new_indexed_document["_source"]["content.fr"] == document["content"]
+    # und field are removed
     assert "title.und" not in new_indexed_document["_source"]
     assert "content.und" not in new_indexed_document["_source"]
 
@@ -204,10 +206,10 @@ def test_api_documents_index_single_hybrid_disabled_success():
     )
     assert new_indexed_document["_version"] == 1
     assert (
-        new_indexed_document["_source"]["title.en-us"]
+        new_indexed_document["_source"]["title.en"]
         == document["title"].strip().lower()
     )
-    assert new_indexed_document["_source"]["content.en-us"] == document["content"]
+    assert new_indexed_document["_source"]["content.en"] == document["content"]
     assert new_indexed_document["_source"]["embedding"] is None
 
 
@@ -238,28 +240,28 @@ def test_api_documents_index_single_ensure_index():
         "properties": {
             "content": {
                 "properties": {
-                    "de-de": {
+                    "de": {
                         "type": "text",
                         "fields": {
                             "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
                         },
                         "analyzer": "german_analyzer",
                     },
-                    "en-us": {
+                    "en": {
                         "type": "text",
                         "fields": {
                             "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
                         },
                         "analyzer": "english_analyzer",
                     },
-                    "fr-fr": {
+                    "fr": {
                         "type": "text",
                         "fields": {
                             "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
                         },
                         "analyzer": "french_analyzer",
                     },
-                    "nl-nl": {
+                    "nl": {
                         "type": "text",
                         "fields": {
                             "trigrams": {"type": "text", "analyzer": "trigram_analyzer"}
@@ -297,7 +299,7 @@ def test_api_documents_index_single_ensure_index():
             "size": {"type": "long"},
             "title": {
                 "properties": {
-                    "de-de": {
+                    "de": {
                         "type": "keyword",
                         "fields": {
                             "text": {
@@ -312,7 +314,7 @@ def test_api_documents_index_single_ensure_index():
                             }
                         },
                     },
-                    "en-us": {
+                    "en": {
                         "type": "keyword",
                         "fields": {
                             "text": {
@@ -327,7 +329,7 @@ def test_api_documents_index_single_ensure_index():
                             }
                         },
                     },
-                    "fr-fr": {
+                    "fr": {
                         "type": "keyword",
                         "fields": {
                             "text": {
@@ -342,7 +344,7 @@ def test_api_documents_index_single_ensure_index():
                             }
                         },
                     },
-                    "nl-nl": {
+                    "nl": {
                         "type": "keyword",
                         "fields": {
                             "text": {

@@ -313,11 +313,12 @@ def prepare_document_for_indexing(document):
 def detect_language_code(text):
     """Detect the language code of the document content."""
 
-    code_mapping = {"fr": "fr-fr", "en": "en-us", "de": "de-de", "nl": "nl-nl"}
     detected_code, confidence = LANGUAGE_IDENTIFIER.classify(text)
+
     if confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD:
         return settings.UNDETERMINED_LANGUAGE_CODE
-    return code_mapping.get(detected_code, settings.UNDETERMINED_LANGUAGE_CODE)
+    
+    return detected_code 
 
 
 def ensure_index_exists(index_name):

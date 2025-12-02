@@ -102,8 +102,8 @@ def test_reindex_with_embedding_command(settings):
         ]
         assert len(initial_hits) == 1
         initial_source = initial_hits[0]["_source"]
-        assert initial_source["title.en-us"] == embedded_source["title.en-us"]
-        assert initial_source["content.en-us"] == embedded_source["content.en-us"]
+        assert initial_source["title.en"] == embedded_source["title.en"]
+        assert initial_source["content.en"] == embedded_source["content.en"]
         assert initial_source["created_at"] == embedded_source["created_at"]
         assert initial_source["users"] == embedded_source["users"]
 
@@ -235,7 +235,7 @@ def test_reindex_preserves_concurrent_updates(settings):
             id=documents[1]["id"],
             body={
                 "doc": {
-                    "title.en-us": updated_title,
+                    "title.en": updated_title,
                 }
             },
         ),
@@ -259,7 +259,7 @@ def test_reindex_preserves_concurrent_updates(settings):
     dog_doc = [
         hit
         for hit in embedded_index["hits"]["hits"]
-        if hit["_source"]["title.en-us"] == updated_title
+        if hit["_source"]["title.en"] == updated_title
     ]
     assert len(dog_doc) == 1
     assert dog_doc[0]["_source"]["embedding"] is None

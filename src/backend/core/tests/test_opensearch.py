@@ -98,7 +98,7 @@ def test_hybrid_search_success(settings, caplog):
 
     assert result["hits"]["max_score"] > 0.0
     # hybrid search always returns a response of fixed sized sorted and scored by relevance
-    assert {hit["_source"]["title.en-us"] for hit in result["hits"]["hits"]} == {
+    assert {hit["_source"]["title.en"] for hit in result["hits"]["hits"]} == {
         doc["title"] for doc in documents
     }
 
@@ -202,7 +202,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
+    assert result["hits"]["hits"][0]["_source"]["title.en"] == "wolf"
 
 
 @responses.activate
@@ -239,7 +239,7 @@ def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
+    assert result["hits"]["hits"][0]["_source"]["title.en"] == "wolf"
 
 
 @responses.activate
@@ -271,7 +271,7 @@ def test_fall_back_on_full_text_search_if_variable_are_missing(settings, caplog)
     )
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
-    assert result["hits"]["hits"][0]["_source"]["title.en-us"] == "wolf"
+    assert result["hits"]["hits"][0]["_source"]["title.en"] == "wolf"
 
 
 @responses.activate
@@ -620,7 +620,7 @@ def test_opensearch_analyzers(
 @pytest.mark.parametrize(
     "text, expected_language_code",
     [
-        ("This is a test sentence.", "en-us"),
+        ("This is a test sentence.", "en"),
         ("Ceci est une phrase de test.", "fr-fr"),
         ("Dies ist ein Testsatz.", "de-de"),
         ("Dit is een testzin.", "nl-nl"),
