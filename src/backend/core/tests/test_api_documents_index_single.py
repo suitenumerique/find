@@ -83,13 +83,12 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     assert new_indexed_document["_version"] == 1
 
     assert (
-        new_indexed_document["_source"]["title.en"]
-        == document["title"].strip().lower()
+        new_indexed_document["_source"]["title.en"] == document["title"].strip().lower()
     )
     assert new_indexed_document["_source"]["content.en"] == document["content"]
     # only the english fields are indexed
     assert not "content.fr" in new_indexed_document["_source"]
-    
+
     # check embedding
     assert (
         new_indexed_document["_source"]["embedding"]
@@ -176,8 +175,7 @@ def test_api_documents_index_and_reindex_same_document():
     assert new_indexed_document["_version"] == 2
     # the document is detected as french
     assert (
-        new_indexed_document["_source"]["title.fr"]
-        == document["title"].strip().lower()
+        new_indexed_document["_source"]["title.fr"] == document["title"].strip().lower()
     )
     assert new_indexed_document["_source"]["content.fr"] == document["content"]
     # und field are removed
@@ -206,8 +204,7 @@ def test_api_documents_index_single_hybrid_disabled_success():
     )
     assert new_indexed_document["_version"] == 1
     assert (
-        new_indexed_document["_source"]["title.en"]
-        == document["title"].strip().lower()
+        new_indexed_document["_source"]["title.en"] == document["title"].strip().lower()
     )
     assert new_indexed_document["_source"]["content.en"] == document["content"]
     assert new_indexed_document["_source"]["embedding"] is None

@@ -317,8 +317,8 @@ def detect_language_code(text):
 
     if confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD:
         return settings.UNDETERMINED_LANGUAGE_CODE
-    
-    return detected_code 
+
+    return detected_code
 
 
 def ensure_index_exists(index_name):

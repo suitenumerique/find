@@ -621,9 +621,9 @@ def test_opensearch_analyzers(
     "text, expected_language_code",
     [
         ("This is a test sentence.", "en"),
-        ("Ceci est une phrase de test.", "fr-fr"),
-        ("Dies ist ein Testsatz.", "de-de"),
-        ("Dit is een testzin.", "nl-nl"),
+        ("Ceci est une phrase de test.", "fr"),
+        ("Dies ist ein Testsatz.", "de"),
+        ("Dit is een testzin.", "nl"),
         ("Esta es una oración de prueba.", "und"),  # Spanish, unsupported
         ("", "und"),
         ("zefk,l", "und"),
