@@ -26,9 +26,26 @@ OPENSEARCH_USE_SSL=True
 OPENSEARCH_INDEX_PREFIX=find
 ```
 
+### Language
+
+Language specific operations are applied to document titles and contents to improve search results. 
+The language is automatically detected  by Find.
+If the language can not be detected no language specific operation are applied and the indexing process is not affected.
+
+Find supports french, english, german and dutch. 
+
+The search process is not language specific, a query can get documents of any language.
+
+Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
+This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
+
+```python
+LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
+```
+
 ### Semantic search
 
-Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the fallowing settings. 
+Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the following settings. 
 
 ```python
 # Enable flag
@@ -48,6 +65,19 @@ EMBEDDING_DIMENSION = 1024
 The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 
 
 You need to use an embedding api similar to https://albert.api.etalab.gouv.fr/documentation#tag/Embeddings/operation/embeddings_v1_embeddings_post. 
+
+## trigrams
+
+Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 
+
+````
+TRIGRAMS_BOOST=0.25
+TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
+````
+
+`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
+`TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
+either an absolute number or proportion.
 
 ## Setup indexation API
 

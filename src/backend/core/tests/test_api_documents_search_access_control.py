@@ -11,11 +11,11 @@ from rest_framework.test import APIClient
 
 from core import enums, factories
 from core.services.opensearch import opensearch_client
+from core.utils import prepare_index
 
 from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
-    prepare_index,
     setup_oicd_resource_server,
 )
 

@@ -13,8 +13,7 @@ import responses
 
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
-
-from evaluation.management.commands.utils import delete_index, delete_search_pipeline
+from core.utils import delete_index, delete_search_pipeline
 
 logger = logging.getLogger(__name__)
 

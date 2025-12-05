@@ -8,9 +8,15 @@ from django.conf import settings
 import requests
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
+from py3langid.langid import MODEL_FILE, LanguageIdentifier
 from rest_framework.exceptions import ValidationError
 
 from core import enums
+from core.services.opensearch_configuration import (
+    ANALYZERS,
+    FILTERS,
+    MAPPINGS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +28,9 @@ REQUIRED_ENV_VARIABLES = [
     "OPENSEARCH_PASSWORD",
     "OPENSEARCH_USE_SSL",
 ]
+# see https://pypi.org/project/py3langid/
+LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
+LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 
 @cache
@@ -117,13 +126,7 @@ def get_query(  # noqa : PLR0913
         logger.info("Performing full-text search without embedding: %s", q)
         return {
             "bool": {
-                "must": {
-                    "multi_match": {
-                        "query": q,
-                        # Give title more importance over content by a power of 3
-                        "fields": ["title.text^3", "content"],
-                    }
-                },
+                "must": get_full_text_query(q),
                 "filter": filter_,
             }
         }
@@ -134,13 +137,7 @@ def get_query(  # noqa : PLR0913
             "queries": [
                 {
                     "bool": {
-                        "must": {
-                            "multi_match": {
-                                "query": q,
-                                # Give title more importance over content by a power of 3
-                                "fields": ["title.text^3", "content"],
-                            }
-                        },
+                        "must": get_full_text_query(q),
                         "filter": filter_,
                     }
                 },
@@ -158,6 +155,37 @@ def get_query(  # noqa : PLR0913
                     }
                 },
             ]
+        }
+    }
+
+
+def get_full_text_query(q):
+    """Build OpenSearch full-text query"""
+    return {
+        "bool": {
+            "should": [
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": [
+                            "title.*.text^3",
+                            "content.*",
+                        ],
+                    }
+                },
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": [
+                            "title.*.text.trigrams^3",
+                            "content.*.trigrams",
+                        ],
+                        "boost": settings.TRIGRAMS_BOOST,
+                        "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
+                    }
+                },
+            ],
+            "minimum_should_match": 1,
         }
     }
 
@@ -217,11 +245,6 @@ def get_params(query_keys):
     return {}
 
 
-def embed_document(document):
-    """Get embedding vector for a given document"""
-    return embed_text(format_document(document.title, document.content))
-
-
 def format_document(title, content):
     """Get the embedding input format for a document"""
     return f"<{title}>:<{content}>"
@@ -260,6 +283,44 @@ def embed_text(text):
     return embedding
 
 
+def prepare_document_for_indexing(document):
+    """Prepare document for indexing using nested language structure and handle embedding"""
+
+    language_code = detect_language_code(f"{document['title']} {document['content']}")
+    return {
+        "id": document["id"],
+        f"title.{language_code}": document["title"],
+        f"content.{language_code}": document["content"],
+        "embedding": embed_text(format_document(document["title"], document["content"]))
+        if check_hybrid_search_enabled()
+        else None,
+        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
+        if check_hybrid_search_enabled()
+        else None,
+        "depth": document["depth"],
+        "path": document["path"],
+        "numchild": document["numchild"],
+        "created_at": document["created_at"],
+        "updated_at": document["updated_at"],
+        "size": document["size"],
+        "users": document["users"],
+        "groups": document["groups"],
+        "reach": document["reach"],
+        "is_active": document["is_active"],
+    }
+
+
+def detect_language_code(text):
+    """Detect the language code of the document content."""
+
+    detected_code, confidence = LANGUAGE_IDENTIFIER.classify(text)
+
+    if confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD:
+        return settings.UNDETERMINED_LANGUAGE_CODE
+
+    return detected_code
+
+
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
@@ -269,44 +330,14 @@ def ensure_index_exists(index_name):
         opensearch_client().indices.create(
             index=index_name,
             body={
-                "settings": {"index.knn": True},
-                "mappings": {
-                    "dynamic": "strict",
-                    "properties": {
-                        "id": {"type": "keyword"},
-                        "title": {
-                            "type": "keyword",
-                            "fields": {"text": {"type": "text"}},
-                        },
-                        "depth": {"type": "integer"},
-                        "path": {
-                            "type": "keyword",
-                            "fields": {"text": {"type": "text"}},
-                        },
-                        "numchild": {"type": "integer"},
-                        "content": {"type": "text"},
-                        "created_at": {"type": "date"},
-                        "updated_at": {"type": "date"},
-                        "size": {"type": "long"},
-                        "users": {"type": "keyword"},
-                        "groups": {"type": "keyword"},
-                        "reach": {"type": "keyword"},
-                        "is_active": {"type": "boolean"},
-                        "embedding": {
-                            # for simplicity, embedding is always present but is empty
-                            # when hybrid search is disabled
-                            "type": "knn_vector",
-                            "dimension": settings.EMBEDDING_DIMENSION,
-                            "method": {
-                                "engine": "lucene",
-                                "space_type": "l2",
-                                "name": "hnsw",
-                                "parameters": {},
-                            },
-                        },
-                        "embedding_model": {"type": "keyword"},
+                "settings": {
+                    "index.knn": True,
+                    "analysis": {
+                        "analyzer": ANALYZERS,
+                        "filter": FILTERS,
                     },
                 },
+                "mappings": MAPPINGS,
             },
         )
 

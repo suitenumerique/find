@@ -6,13 +6,12 @@ from typing import List
 from django.conf import settings as django_settings
 
 from opensearchpy.exceptions import NotFoundError
+from opensearchpy.helpers import bulk
 
 from core import factories
 from core.services import opensearch
 from core.services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_text,
-    format_document,
+    prepare_document_for_indexing,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,9 @@ def bulk_create_documents(document_payloads):
 
 def delete_search_pipeline():
     """Delete the hybrid search pipeline if it exists"""
-    logger.info(f"Deleting search pipeline {django_settings.HYBRID_SEARCH_PIPELINE_ID}")
+    logger.info(
+        "Deleting search pipeline %s", django_settings.HYBRID_SEARCH_PIPELINE_ID
+    )
 
     try:
         opensearch.opensearch_client().transport.perform_request(
@@ -41,7 +42,7 @@ def delete_search_pipeline():
 
 def delete_index(index_name):
     """Delete the hybrid search pipeline if it exists"""
-    logger.info(f"Deleting Index {index_name}")
+    logger.info("Deleting Index %s", index_name)
 
     try:
         opensearch.opensearch_client().indices.delete(index=index_name)
@@ -50,31 +51,34 @@ def delete_index(index_name):
 
 
 def prepare_index(index_name, documents: List):
-    """Prepare the search index."""
-    logger.info(f"prepare_index {index_name} with {len(documents)} documents")
+    """Prepare the search index before testing a query on it."""
+    logger.info("prepare_index %s with %d documents", index_name, len(documents))
     opensearch_client_ = opensearch.opensearch_client()
     opensearch.ensure_index_exists(index_name)
-    actions = []
-    for document in documents:
-        document_dict = {
-            **document,
-            "embedding": embed_text(
-                format_document(document["title"], document["content"])
-            )
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": django_settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
-        _id = document_dict.pop("id")
-        actions.append({"index": {"_id": _id}})
-        actions.append(document_dict)
 
-    opensearch_client_.bulk(index=index_name, body=actions)
+    # Index new documents
+    actions = [
+        {
+            "_op_type": "index",
+            "_index": index_name,
+            "_id": document["id"],
+            "_source": prepare_document_for_indexing(document),
+        }
+        for document in documents
+    ]
+
+    if not actions:
+        return
+
+    bulk(opensearch_client_, actions)
     opensearch_client_.indices.refresh(index=index_name)
-    count = opensearch_client_.count(index=index_name)["count"]
-    if count != len(documents):
-        raise ValueError(
-            f"Indexing error: expected {len(documents)} documents, but found {count} in index {index_name}"
-        )
+
+
+def get_language_value(source, language_field):
+    """extract the value of the language field with the correct language_code extension"""
+    for language_code in django_settings.SUPPORTED_LANGUAGE_CODES:
+        if f"{language_field}.{language_code}" in source:
+            return source[f"{language_field}.{language_code}"]
+    raise ValueError(
+        f"No '{language_field}' field with any supported language code in object"
+    )
