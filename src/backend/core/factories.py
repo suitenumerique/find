@@ -30,6 +30,7 @@ class DocumentSchemaFactory(factory.DictFactory):
     users = factory.LazyFunction(lambda: [str(uuid4()) for _ in range(3)])
     groups = factory.LazyFunction(lambda: [slugify(fake.word()) for _ in range(3)])
     reach = factory.Iterator(list(enums.ReachEnum))
+    tags = factory.LazyFunction(lambda: [])
     depth = 1
     numchild = 0
     is_active = True

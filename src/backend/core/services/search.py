@@ -23,6 +23,7 @@ def search(  # noqa : PLR0913
     visited,
     user_sub,
     groups,
+    tags,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -32,6 +33,7 @@ def search(  # noqa : PLR0913
         visited=visited,
         user_sub=user_sub,
         groups=groups,
+        tags=tags,
     )
     return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
@@ -59,10 +61,10 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, nb_results, reach, visited, user_sub, groups
+    q, nb_results, reach, visited, user_sub, groups, tags
 ):
     """Build OpenSearch query body based on parameters"""
-    filter_ = get_filter(reach, visited, user_sub, groups)
+    filter_ = get_filter(reach, visited, user_sub, groups, tags)
 
     if q == "*":
         logger.info("Performing match_all query")
@@ -153,7 +155,7 @@ def get_full_text_query(q, filter_):
     }
 
 
-def get_filter(reach, visited, user_sub, groups):
+def get_filter(reach, visited, user_sub, groups, tags):
     """Build OpenSearch filter"""
     filters = [
         {"term": {"is_active": True}},  # filter out inactive documents
@@ -184,6 +186,10 @@ def get_filter(reach, visited, user_sub, groups):
     # Optional reach filter
     if reach is not None:
         filters.append({"term": {enums.REACH: reach}})
+
+    # Optional tags filter
+    if tags:
+        filters.append({"terms": {"tags": tags}})
 
     return filters
 

@@ -268,6 +268,7 @@ MAPPINGS = {
         "users": {"type": "keyword"},
         "groups": {"type": "keyword"},
         "reach": {"type": "keyword"},
+        "tags": {"type": "keyword"},
         "is_active": {"type": "boolean"},
         "chunks": {
             "type": "nested",

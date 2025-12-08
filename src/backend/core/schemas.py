@@ -37,6 +37,7 @@ class DocumentSchema(BaseModel):
         default_factory=list
     )
     reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
+    tags: List[Annotated[str, Field(max_length=100)]] = Field(default_factory=list)
     is_active: bool
 
     model_config = ConfigDict(
@@ -112,6 +113,7 @@ class SearchQueryParametersSchema(BaseModel):
     services: StringListParameter = Field(default_factory=list)
     visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
+    tags: StringListParameter = Field(default_factory=list)
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
