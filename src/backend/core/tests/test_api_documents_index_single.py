@@ -6,6 +6,7 @@ from django.utils import timezone
 
 import pytest
 import responses
+from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
@@ -233,7 +234,7 @@ def test_api_documents_index_single_ensure_index(settings):
     document = factories.DocumentSchemaFactory.build()
     opensearch_client_ = opensearch.opensearch_client()
 
-    with pytest.raises(opensearch.NotFoundError):
+    with pytest.raises(NotFoundError):
         opensearch_client_.indices.get(index=service.index_name)
 
     response = APIClient().post(

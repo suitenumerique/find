@@ -1,5 +1,5 @@
 """
-Test suite for opensearch service
+Test suite for opensearch search service
 """
 
 import logging
@@ -11,14 +11,8 @@ import responses
 
 from core import factories
 from core.services import opensearch
-from core.services.opensearch import (
-    check_hybrid_search_enabled,
-    detect_language_code,
-    embed_text,
-    ensure_index_exists,
-    opensearch_client,
-    search,
-)
+from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
+from core.services.search import search
 from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
 
 from .mock import albert_embedding_response
@@ -30,7 +24,6 @@ from .utils import (
 )
 
 pytestmark = pytest.mark.django_db
-
 
 SERVICE_NAME = "test-service"
 
@@ -208,6 +201,7 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
 @responses.activate
 def test_fall_back_on_full_text_search_if_embedding_api_fails(settings, caplog):
     """Test the full-text search is done when the embedding api fails"""
+
     enable_hybrid_search(settings)
     responses.add(
         responses.POST,
@@ -366,270 +360,3 @@ def test_hybrid_search_number_of_matches(settings):
     for nb_results in [1, 2, 3]:  # semantic should match k documents
         result = search(q=q, **{**search_params(service), "nb_results": nb_results})
         assert len(result["hits"]["hits"]) == nb_results
-
-
-@responses.activate
-def test_embed_text_success(settings):
-    """Test embed_text retrieval is successful"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    text = "canine pet"
-
-    embedding = embed_text(text)
-
-    assert embedding == albert_embedding_response.response["data"][0]["embedding"]
-
-
-@responses.activate
-def test_embed_401_http_error(settings, caplog):
-    """Test embed_text does not crash and returns None on 401 error"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        status=401,
-        body=json_dumps({"message": "Authentication failed."}),
-    )
-    text = "canine pet"
-
-    with caplog.at_level(logging.WARNING):
-        embedding = embed_text(text)
-
-    assert any(
-        "embedding API request failed: 401 Client Error: Unauthorized" in message
-        for message in caplog.messages
-    )
-
-    assert embedding is None
-
-
-@responses.activate
-def test_embed_500_http_error(settings, caplog):
-    """Test embed_text does not crash and returns None on 500 error"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        status=500,
-        body=json_dumps({"message": "Internal server error."}),
-    )
-    text = "canine pet"
-
-    with caplog.at_level(logging.WARNING):
-        embedding = embed_text(text)
-
-    assert any(
-        "embedding API request failed: 500 Server Error: Internal Server Error"
-        in message
-        for message in caplog.messages
-    )
-
-    assert embedding is None
-
-
-@responses.activate
-def test_embed_wrong_format(settings, caplog):
-    """Test embed_text does not crash and returns None if api returns a wrong format"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json={"wrong": "format"},
-        status=200,
-    )
-    text = "canine pet"
-
-    with caplog.at_level(logging.WARNING):
-        embedding = embed_text(text)
-
-    assert any(
-        "unexpected embedding response format" in message for message in caplog.messages
-    )
-
-    assert embedding is None
-
-
-@pytest.mark.parametrize(
-    "text, analyzer_name, expected_language_analyzer_tokens, expected_trigram_analyzer_tokens",
-    [
-        (
-            "l'éléphant a couru avec les Gens",
-            "french_analyzer",
-            # lowercase is applied ("Gens" -> "gens")
-            # asciifolding is applied ("éléphant" -> "elephant")
-            # stop words are removed ('avec', 'les')
-            # elisions are removed ("l'")
-            # stemming is applied ("gens" -> "gen")
-            ["elephant", "a", "couru", "gen"],
-            # lowercase is applied ("Gens" -> "gens")
-            # asciifolding is applied ("éléphant" -> "elephant")
-            # words smaller than 3 characters are removed ("a")
-            # trigrams are generated
-            [
-                "l'e",
-                "'el",
-                "ele",
-                "lep",
-                "eph",
-                "pha",
-                "han",
-                "ant",
-                "cou",
-                "our",
-                "uru",
-                "ave",
-                "vec",
-                "les",
-                "gen",
-                "ens",
-            ],
-        ),
-        (
-            "The Elephant is running into a café",
-            "english_analyzer",
-            # lowercase is applied ("Elephant" -> "elephant")
-            # asciifolding is applied ("café" -> "cafe")
-            # stop words are removed ("The", "into", "a")
-            # stemming is applied ("running" -> "run", "elephant" -> "eleph")
-            ["eleph", "run", "cafe"],
-            # lowercase is applied ("Gens" -> "gens")
-            # asciifolding is applied ("café" -> "cafe")
-            # trigrams are generated
-            # words smaller than 3 characters are removed ("a")
-            [
-                "the",
-                "ele",
-                "lep",
-                "eph",
-                "pha",
-                "han",
-                "ant",
-                "run",
-                "unn",
-                "nni",
-                "nin",
-                "ing",
-                "int",
-                "nto",
-                "caf",
-                "afe",
-            ],
-        ),
-        (
-            "Der Käfer läuft über die Straße",
-            "german_analyzer",
-            # lowercase is applied ("Der" -> "der", "Käfer" -> "käfer", "Straße" -> "straße")
-            # asciifolding is applied ("käfer" -> "kafer", "straße" -> "strass")
-            # stop words are removed ("Der", "die")
-            # stemming is applied ("kafer" -> "kaf")
-            ["kaf", "lauft", "uber", "strass"],
-            # lowercase is applied
-            # asciifolding is applied ("käfer" -> "kafer", "straße" -> "strasse")
-            # trigrams are generated
-            [
-                "der",
-                "kaf",
-                "afe",
-                "fer",
-                "lau",
-                "auf",
-                "uft",
-                "ube",
-                "ber",
-                "die",
-                "str",
-                "tra",
-                "ras",
-                "ass",
-                "sse",
-            ],
-        ),
-        (
-            "De Kinderen lopen naar de bakkerij",
-            "dutch_analyzer",
-            # lowercase is applied ("De" -> "de", "Kinderen" -> "kinderen")
-            # stop words are removed ("De", "naar", "de")
-            # stemming is applied ("kinderen" -> "kinder", "lopen" -> "lop")
-            ["kinder", "lop", "bakkerij"],
-            # lowercase is applied
-            # words smaller than 3 characters are removed ("de")
-            # trigrams are generated
-            [
-                "kin",
-                "ind",
-                "nde",
-                "der",
-                "ere",
-                "ren",
-                "lop",
-                "ope",
-                "pen",
-                "naa",
-                "aar",
-                "bak",
-                "akk",
-                "kke",
-                "ker",
-                "eri",
-                "rij",
-            ],
-        ),
-    ],
-)
-def test_opensearch_analyzers(
-    settings,
-    text,
-    analyzer_name,
-    expected_language_analyzer_tokens,
-    expected_trigram_analyzer_tokens,
-):
-    """Test the analyzers are correctly configured in OpenSearch"""
-    enable_hybrid_search(settings)
-    ensure_index_exists(SERVICE_NAME)
-
-    language_analyzer_response = opensearch_client().indices.analyze(
-        index=SERVICE_NAME,
-        body={
-            "analyzer": analyzer_name,
-            "text": text,
-        },
-    )
-    language_analyzer_tokens = [
-        token_info["token"] for token_info in language_analyzer_response["tokens"]
-    ]
-    response_trigram_analyzer = opensearch_client().indices.analyze(
-        index=SERVICE_NAME,
-        body={
-            "analyzer": "trigram_analyzer",
-            "text": text,
-        },
-    )
-    trigram_analyzer_tokens = [
-        token_info["token"] for token_info in response_trigram_analyzer["tokens"]
-    ]
-
-    assert expected_language_analyzer_tokens == language_analyzer_tokens
-    assert expected_trigram_analyzer_tokens == trigram_analyzer_tokens
-
-
-@pytest.mark.parametrize(
-    "text, expected_language_code",
-    [
-        ("This is a test sentence.", "en"),
-        ("Ceci est une phrase de test.", "fr"),
-        ("Dies ist ein Testsatz.", "de"),
-        ("Dit is een testzin.", "nl"),
-        ("Esta es una oración de prueba.", "und"),  # Spanish, unsupported
-        ("", "und"),
-        ("zefk,l", "und"),
-    ],
-)
-def test_detect_language_code(text, expected_language_code):
-    """Test detect_language_code function"""
-
-    assert detect_language_code(text) == expected_language_code

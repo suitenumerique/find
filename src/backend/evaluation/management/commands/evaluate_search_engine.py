@@ -17,6 +17,8 @@ from core.management.commands.create_search_pipeline import (
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
+)
+from core.services.search import (
     search,
 )
 from core.utils import (

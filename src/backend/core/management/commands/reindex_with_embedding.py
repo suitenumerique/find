@@ -10,11 +10,8 @@ from django.core.management.base import BaseCommand, CommandError
 from opensearchpy.exceptions import NotFoundError
 
 from core.models import get_opensearch_index_name
-from core.services.opensearch import (
-    check_hybrid_search_enabled,
-    chunk_document,
-    opensearch_client,
-)
+from core.services.indexing import chunk_document
+from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.utils import get_language_value
 
 logger = logging.getLogger(__name__)

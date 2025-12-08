@@ -14,12 +14,9 @@ from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
-from .services.opensearch import (
-    ensure_index_exists,
-    opensearch_client,
-    prepare_document_for_indexing,
-    search,
-)
+from .services.indexing import ensure_index_exists, prepare_document_for_indexing
+from .services.opensearch import opensearch_client
+from .services.search import search
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,6 @@ class IndexDocumentView(views.APIView):
     authentication_classes = [ServiceTokenAuthentication]
     permission_classes = [IsAuthAuthenticated]
 
-    # pylint: disable=too-many-locals
     def post(self, request, *args, **kwargs):
         """
         API view for indexing documents into OpenSearch index of the authenticated service.
@@ -88,59 +84,92 @@ class IndexDocumentView(views.APIView):
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
-            # Bulk indexing several documents
-            results = []
-            actions = []
-            has_errors = False
+            return self.bulk_index(request, index_name, opensearch_client_)
 
-            for i, document_data in enumerate(request.data):
-                try:
-                    document = schemas.DocumentSchema(**document_data)
-                except PydanticValidationError as excpt:
-                    errors = [
-                        {key: error[key] for key in ("msg", "type", "loc")}
-                        for error in excpt.errors()
-                    ]
-                    results.append({"index": i, "status": "error", "errors": errors})
-                    has_errors = True
-                else:
-                    document_dict = prepare_document_for_indexing(document.model_dump())
+        return self.single_index(request, index_name, opensearch_client_)
 
-                    _id = document_dict.pop("id")
-                    actions.append({"index": {"_id": _id}})
-                    actions.append(document_dict)
-                    results.append({"index": i, "_id": _id, "status": "valid"})
+    def single_index(self, request, index_name, opensearch_client_):
+        """
+        Index a single document into OpenSearch.
 
-            if has_errors:
-                return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        Args:
+            request: The HTTP request containing document data.
+            index_name: The name of the OpenSearch index.
+            opensearch_client_: The OpenSearch client instance.
 
-            ensure_index_exists(index_name)
-            response = opensearch_client_.bulk(index=index_name, body=actions)
-            for i, item in enumerate(response["items"]):
-                if item["index"]["status"] != 201:
-                    results[i]["status"] = "error"
-                    results[i]["message"] = (
-                        item["index"].get("error", {}).get("reason", "Unknown error")
-                    )
-                else:
-                    results[i]["status"] = "success"
+        Returns:
+            Response: HTTP response with status and document ID.
+                - 201 Created: Returns the indexed document ID.
+                - 400 Bad Request: Returns an error message if the document is invalid.
+        """
 
-            return Response(results, status=status.HTTP_201_CREATED)
-
-        document = schemas.DocumentSchema(**request.data)
-        document_dict = prepare_document_for_indexing(document.model_dump())
+        document_dict = prepare_document_for_indexing(
+            schemas.DocumentSchema(**request.data).model_dump()
+        )
         _id = document_dict.pop("id")
 
         ensure_index_exists(index_name)
         opensearch_client_.index(
             index=index_name,
-            body=prepare_document_for_indexing(document.model_dump()),
+            body=document_dict,
             id=_id,
         )
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
         )
+
+    # pylint: disable=too-many-locals
+    def bulk_index(self, request, index_name, opensearch_client_):
+        """
+        Index multiple documents into OpenSearch in bulk.
+
+        Args:
+            request: The HTTP request containing a list of documents.
+            index_name: The name of the OpenSearch index.
+            opensearch_client_: The OpenSearch client instance.
+
+        Returns:
+            Response: HTTP response with detailed status for each document.
+                - 201 Created: Returns status for all documents.
+                - 400 Bad Request: Returns errors if document validation fails.
+        """
+        results = []
+        actions = []
+        has_errors = False
+
+        for i, document_data in enumerate(request.data):
+            try:
+                document = schemas.DocumentSchema(**document_data)
+            except PydanticValidationError as excpt:
+                errors = [
+                    {key: error[key] for key in ("msg", "type", "loc")}
+                    for error in excpt.errors()
+                ]
+                results.append({"index": i, "status": "error", "errors": errors})
+                has_errors = True
+            else:
+                document_dict = prepare_document_for_indexing(document.model_dump())
+                _id = document_dict.pop("id")
+                actions.append({"index": {"_id": _id}})
+                actions.append(document_dict)
+                results.append({"index": i, "_id": _id, "status": "valid"})
+
+        if has_errors:
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+
+        ensure_index_exists(index_name)
+        response = opensearch_client_.bulk(index=index_name, body=actions)
+        for i, item in enumerate(response["items"]):
+            if item["index"]["status"] != 201:
+                results[i]["status"] = "error"
+                results[i]["message"] = (
+                    item["index"].get("error", {}).get("reason", "Unknown error")
+                )
+            else:
+                results[i]["status"] = "success"
+
+        return Response(results, status=status.HTTP_201_CREATED)
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):

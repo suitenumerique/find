@@ -9,10 +9,8 @@ from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
 from core import factories
-from core.services import opensearch
-from core.services.opensearch import (
-    prepare_document_for_indexing,
-)
+from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
+from core.services.opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,7 @@ def delete_search_pipeline():
     )
 
     try:
-        opensearch.opensearch_client().transport.perform_request(
+        opensearch_client().transport.perform_request(
             method="DELETE",
             url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
         )
@@ -45,7 +43,7 @@ def delete_index(index_name):
     logger.info("Deleting Index %s", index_name)
 
     try:
-        opensearch.opensearch_client().indices.delete(index=index_name)
+        opensearch_client().indices.delete(index=index_name)
     except NotFoundError:
         logger.info("Search pipeline %s not found, nothing to delete.", index_name)
 
@@ -54,7 +52,7 @@ def prepare_index(index_name, documents: List):
     """Prepare the search index before testing a query on it."""
     logger.info("Preparing index %s with %d documents", index_name, len(documents))
 
-    opensearch.ensure_index_exists(index_name)
+    ensure_index_exists(index_name)
     actions = [
         {
             "_op_type": "index",
@@ -64,8 +62,8 @@ def prepare_index(index_name, documents: List):
         }
         for document in documents
     ]
-    bulk(opensearch.opensearch_client(), actions)
-    opensearch.opensearch_client().indices.refresh(index=index_name)
+    bulk(opensearch_client(), actions)
+    opensearch_client().indices.refresh(index=index_name)
 
 
 def get_language_value(source, language_field):
