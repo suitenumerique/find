@@ -2,7 +2,6 @@
 
 import logging
 
-from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
@@ -16,10 +15,9 @@ from .authentication import ServiceTokenAuthentication
 from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
 from .services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_document,
     ensure_index_exists,
     opensearch_client,
+    prepare_document_for_indexing,
     search,
 )
 
@@ -86,6 +84,7 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
+
         index_name = request.auth.index_name
         opensearch_client_ = opensearch_client()
 
@@ -106,15 +105,7 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = {
-                        **document.model_dump(),
-                        "embedding": embed_document(document)
-                        if check_hybrid_search_enabled()
-                        else None,
-                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-                        if check_hybrid_search_enabled()
-                        else None,
-                    }
+                    document_dict = prepare_document_for_indexing(document.model_dump())
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
                     actions.append(document_dict)
@@ -140,15 +131,7 @@ class IndexDocumentView(views.APIView):
 
         # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = {
-            **document.model_dump(),
-            "embedding": embed_document(document)
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
+        document_dict = prepare_document_for_indexing(document.model_dump())
         _id = document_dict.pop("id")
 
         # Build index if needed.
@@ -260,5 +243,4 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             user_sub=user_sub,
             groups=groups,
         )
-
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

@@ -13,14 +13,16 @@ import responses
 from rest_framework.test import APIClient
 
 from core import enums, factories
-from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
+from core.services.opensearch import (
+    check_hybrid_search_enabled,
+    opensearch_client,
+)
+from core.utils import bulk_create_documents, prepare_index
 
 from .mock import albert_embedding_response
 from .utils import (
     build_authorization_bearer,
-    bulk_create_documents,
     enable_hybrid_search,
-    prepare_index,
     setup_oicd_resource_server,
 )
 
@@ -243,7 +245,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -265,7 +267,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -275,7 +277,9 @@ def test_api_documents_full_text_search_query_title(settings):
 
 @responses.activate
 def test_api_documents_full_text_search(settings):
-    """Searching a document by its content should work as expected"""
+    """
+    Searching a document by its content should work as expected.
+    """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     token = build_authorization_bearer()
 
@@ -312,7 +316,7 @@ def test_api_documents_full_text_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -335,7 +339,7 @@ def test_api_documents_full_text_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -392,7 +396,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
-        "title": fox_document["title"],
+        "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -415,7 +419,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
-        "title": other_fox_document["title"],
+        "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -440,7 +444,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": no_fox_document["created_at"].isoformat(),
         "updated_at": no_fox_document["updated_at"].isoformat(),
         "reach": no_fox_document["reach"],
-        "title": no_fox_document["title"],
+        "title.en": no_fox_document["title"],
     }
     assert no_fox_response["fields"] == {
         "number_of_users": [1],
@@ -466,8 +470,6 @@ def test_api_documents_search_ordering_by_fields(settings):
     prepare_index(service.index_name, documents)
 
     parameters = [
-        (enums.TITLE, "asc"),
-        (enums.TITLE, "desc"),
         (enums.CREATED_AT, "asc"),
         (enums.CREATED_AT, "desc"),
         (enums.UPDATED_AT, "asc"),

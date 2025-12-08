@@ -123,16 +123,23 @@ class Base(Configuration):
     # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
     # Languages
-    LANGUAGE_CODE = values.Value("en-us")
-
-    # Careful! Languages should be ordered by priority, as this tuple is used to get
-    # fallback/default languages throughout the app.
     LANGUAGES = values.SingleNestedTupleValue(
         (
-            ("en-us", _("English")),
-            ("fr-fr", _("French")),
+            ("fr", _("French")),
+            ("en", _("English")),
+            ("de", _("German")),
+            ("nl", _("Dutch")),
         )
     )
+    SUPPORTED_LANGUAGE_CODES = tuple(
+        language_code for language_code, _ in LANGUAGES.value
+    )
+    LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD = values.FloatValue(
+        default=0.75,
+        environ_name="LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD",
+        environ_prefix=None,
+    )
+    UNDETERMINED_LANGUAGE_CODE = "und"
 
     LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
 
@@ -265,6 +272,14 @@ class Base(Configuration):
     }
 
     AUTH_USER_MODEL = "core.User"
+
+    # Trigrams search settings
+    TRIGRAMS_BOOST = values.Value(
+        default=0.25, environ_name="TRIGRAMS_BOOST", environ_prefix=None
+    )
+    TRIGRAMS_MINIMUM_SHOULD_MATCH = values.Value(
+        default="75%", environ_name="TRIGRAMS_MINIMUM_SHOULD_MATCH", environ_prefix=None
+    )
 
     # Hybrid Search settings
     HYBRID_SEARCH_ENABLED = values.BooleanValue(
