@@ -47,6 +47,7 @@ class Command(BaseCommand):
         "user_sub": "user_sub",
         "groups": [],
         "visited": [],
+        "tags": [],
     }
     base_data_path = "evaluation/data"
     documents = []
