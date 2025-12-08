@@ -21,7 +21,12 @@ from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
     enable_hybrid_search,
 )
-from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
+from core.utils import (
+    bulk_create_documents,
+    delete_search_pipeline,
+    get_language_value,
+    prepare_index,
+)
 
 SERVICE_NAME = "test-index"
 
@@ -254,14 +259,15 @@ def test_reindex_preserves_concurrent_updates(settings):
         index=index_name, size=2, body={"query": {"match_all": {}}}
     )
     # Check that the latest update is preserved
-    dog_document = [
+    updated_document = [
         hit
         for hit in embedded_index["hits"]["hits"]
-        if hit["_source"]["title"] == updated_title
+        if get_language_value(hit["_source"], "title") == updated_title
     ]
-    assert len(dog_document) == 1
-    assert dog_document[0]["_source"]["chunks"] is None
-    assert dog_document[0]["_source"]["embedding_model"] is None
+    assert len(updated_document) == 1
+    # Check it was not embedded
+    assert updated_document[0]["_source"]["chunks"] is None
+    assert updated_document[0]["_source"]["embedding_model"] is None
 
 
 def test_reindex_command_but_hybrid_search_is_disabled():
@@ -273,7 +279,7 @@ def test_reindex_command_but_hybrid_search_is_disabled():
 
 
 def test_reindex_command_but_index_does_not_exist(settings):
-    """Test the `reindex_with_embedding` command fails when the idex does not exist."""
+    """Test the `reindex_with_embedding` command fails when the index does not exist."""
     wrong_index = "wrong-index-name"
     enable_hybrid_search(settings)
 

@@ -2,11 +2,9 @@
 
 import logging
 from functools import cache
-from typing import List, Dict, Any
 
 from django.conf import settings
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 import requests
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from opensearchpy import OpenSearch
@@ -147,6 +145,7 @@ def get_query(  # noqa : PLR0913
 
 
 def get_semantic_search_query(q_vector, filter_, nb_results):
+    """Build OpenSearch semantic search query"""
     return {
         "bool": {
             "must": {
@@ -173,7 +172,7 @@ def get_full_text_query(q, filter_):
     return {
         "bool": {
             "must": {
-                "bool":{
+                "bool": {
                     "should": [
                         {
                             "multi_match": {
@@ -343,7 +342,8 @@ def prepare_document_for_indexing(document):
         if check_hybrid_search_enabled()
         else None,
         "chunks": chunk_document(
-            document["title"], document["content"],
+            document["title"],
+            document["content"],
         )
         if check_hybrid_search_enabled()
         else None,

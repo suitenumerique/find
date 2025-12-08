@@ -15,6 +15,7 @@ from core.services.opensearch import (
     chunk_document,
     opensearch_client,
 )
+from core.utils import get_language_value
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,10 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
         actions = []
         for hit in page["hits"]["hits"]:
             source = hit["_source"]
-            chunks = chunk_document(source.get("title", ""), source.get("content", ""))
+            chunks = chunk_document(
+                get_language_value(source, "title"),
+                get_language_value(source, "content"),
+            )
             if chunks:
                 actions.append(
                     {

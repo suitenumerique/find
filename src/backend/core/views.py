@@ -2,7 +2,6 @@
 
 import logging
 
-from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
@@ -16,11 +15,9 @@ from .authentication import ServiceTokenAuthentication
 from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
 from .services.opensearch import (
-    check_hybrid_search_enabled,
-    embed_document,
-    chunk_document,
     ensure_index_exists,
     opensearch_client,
+    prepare_document_for_indexing,
     search,
 )
 
@@ -107,17 +104,7 @@ class IndexDocumentView(views.APIView):
                     results.append({"index": i, "status": "error", "errors": errors})
                     has_errors = True
                 else:
-                    document_dict = {
-                        **document.model_dump(),
-                        "chunks": chunk_document(
-                            document.title, document.content,
-                        )
-                        if check_hybrid_search_enabled()
-                        else None,
-                        "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-                        if check_hybrid_search_enabled()
-                        else None,
-                    }
+                    document_dict = prepare_document_for_indexing(document.model_dump())
 
                     _id = document_dict.pop("id")
                     actions.append({"index": {"_id": _id}})
@@ -127,9 +114,7 @@ class IndexDocumentView(views.APIView):
             if has_errors:
                 return Response(results, status=status.HTTP_400_BAD_REQUEST)
 
-            # Build index if needed.
             ensure_index_exists(index_name)
-
             response = opensearch_client_.bulk(index=index_name, body=actions)
             for i, item in enumerate(response["items"]):
                 if item["index"]["status"] != 201:
@@ -142,27 +127,16 @@ class IndexDocumentView(views.APIView):
 
             return Response(results, status=status.HTTP_201_CREATED)
 
-        # Indexing a single document
         document = schemas.DocumentSchema(**request.data)
-        document_dict = {
-            **document.model_dump(),
-            "chunks": chunk_document(
-                document.title,
-                document.content,
-            )
-            if check_hybrid_search_enabled()
-            else None,
-            "embedding_model": settings.EMBEDDING_API_MODEL_NAME
-            if check_hybrid_search_enabled()
-            else None,
-        }
-
+        document_dict = prepare_document_for_indexing(document.model_dump())
         _id = document_dict.pop("id")
 
-        # Build index if needed.
         ensure_index_exists(index_name)
-
-        opensearch_client_.index(index=index_name, body=document_dict, id=_id)
+        opensearch_client_.index(
+            index=index_name,
+            body=prepare_document_for_indexing(document.model_dump()),
+            id=_id,
+        )
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED

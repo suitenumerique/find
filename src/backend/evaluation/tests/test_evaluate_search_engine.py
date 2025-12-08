@@ -128,11 +128,11 @@ def test_evaluate_search_engine_min_score_filter(settings, mock_embedding_api):
     """Test that min_score filters out low-scoring results"""
 
     out = io.StringIO()
-    super_hight_score = 1000.0
+    super_high_score = 1000.0
     call_command(
         "evaluate_search_engine",
         "v0",
-        min_score=super_hight_score,
+        min_score=super_high_score,
         stdout=out,
     )
 
