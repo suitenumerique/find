@@ -15,7 +15,8 @@ from faker import Faker
 from opensearchpy.helpers import bulk
 
 from core import enums, factories
-from core.services.opensearch import ensure_index_exists, opensearch_client
+from core.services.indexing import ensure_index_exists
+from core.services.opensearch import opensearch_client
 
 from demo import defaults
 

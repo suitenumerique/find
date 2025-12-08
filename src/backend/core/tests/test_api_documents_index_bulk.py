@@ -6,6 +6,7 @@ from unittest import mock
 from django.utils import timezone
 
 import pytest
+from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
@@ -59,12 +60,12 @@ def test_api_documents_index_bulk_success():
 
 
 def test_api_documents_index_bulk_ensure_index():
-    """A registered service should be create the opensearch index if need."""
+    """A registered service should be created the opensearch index if needed."""
     opensearch_client_ = opensearch.opensearch_client()
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    with pytest.raises(opensearch.NotFoundError):
+    with pytest.raises(NotFoundError):
         opensearch_client_.indices.get(index=service.index_name)
 
     response = APIClient().post(

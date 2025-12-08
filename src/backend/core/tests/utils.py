@@ -1,16 +1,9 @@
-"""Utility functions for management commands."""
+"""Utility functions for Test."""
 
 import base64
 import json
 import logging
 from functools import partial
-
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from joserfc import jwe as jose_jwe
-from joserfc import jwt as jose_jwt
-from joserfc.jwk import RSAKey
-from jwt.utils import to_base64url_uint
 
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
@@ -24,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 def enable_hybrid_search(settings):
     """Enable hybrid search settings for tests."""
-    logger.info("Enabling hybrid search for tests")
     settings.HYBRID_SEARCH_ENABLED = True
     settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
     settings.EMBEDDING_API_KEY = "test-api-key"
@@ -49,116 +41,6 @@ def build_authorization_bearer(token="some_token"):
     )
     """
     return base64.b64encode(token.encode("utf-8")).decode("utf-8")
-
-
-def setup_oicd_jwt_resource_server(
-    responses,
-    settings,
-    sub="some_sub",
-    audience="some_client_id",
-):
-    """
-    Setup settings for a resource server with JWT backend.
-    Simulate an encrypted token introspection.
-    NOTE : Use it with @responses.activate or the fake introspection view will not work.
-    """
-    token_data = {
-        "sub": sub,
-        "iss": "https://oidc.example.com",
-        "aud": audience,
-        "client_id": "some_service_provider",
-        "scope": "docs",
-        "active": True,
-    }
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-    unencrypted_pem_private_key = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-
-    pem_public_key = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-    settings.OIDC_RS_PRIVATE_KEY_STR = unencrypted_pem_private_key.decode("utf-8")
-    settings.OIDC_RS_ENCRYPTION_KEY_TYPE = "RSA"
-    settings.OIDC_RS_ENCRYPTION_ENCODING = "A256GCM"
-    settings.OIDC_RS_ENCRYPTION_ALGO = "RSA-OAEP"
-    settings.OIDC_RS_SIGNING_ALGO = "RS256"
-    settings.OIDC_RS_CLIENT_ID = audience
-    settings.OIDC_RS_CLIENT_SECRET = "some_client_secret"
-    settings.OIDC_RS_SCOPES = ["openid", "docs", "email"]
-
-    settings.OIDC_OP_URL = "https://oidc.example.com"
-    settings.OIDC_OP_JWKS_ENDPOINT = "https://oidc.example.com/jwks"
-    settings.OIDC_OP_INTROSPECTION_ENDPOINT = "https://oidc.example.com/introspect"
-
-    settings.OIDC_VERIFY_SSL = False
-    settings.OIDC_TIMEOUT = 5
-    settings.OIDC_PROXY = None
-    settings.OIDC_CREATE_USER = False
-
-    # Mock the JWKS endpoint
-    public_numbers = private_key.public_key().public_numbers()
-    responses.add(
-        responses.GET,
-        settings.OIDC_OP_JWKS_ENDPOINT,
-        body=json.dumps(
-            {
-                "keys": [
-                    {
-                        "kty": settings.OIDC_RS_ENCRYPTION_KEY_TYPE,
-                        "alg": settings.OIDC_RS_SIGNING_ALGO,
-                        "use": "sig",
-                        "kid": "1234567890",
-                        "n": to_base64url_uint(public_numbers.n).decode("ascii"),
-                        "e": to_base64url_uint(public_numbers.e).decode("ascii"),
-                    }
-                ]
-            }
-        ),
-    )
-
-    def encrypt_jwt(json_data):
-        """Encrypt the JWT token for the backend to decrypt."""
-        token = jose_jwt.encode(
-            {
-                "kid": "1234567890",
-                "alg": settings.OIDC_RS_SIGNING_ALGO,
-            },
-            json_data,
-            RSAKey.import_key(unencrypted_pem_private_key),
-            algorithms=[settings.OIDC_RS_SIGNING_ALGO],
-        )
-
-        return jose_jwe.encrypt_compact(
-            protected={
-                "alg": settings.OIDC_RS_ENCRYPTION_ALGO,
-                "enc": settings.OIDC_RS_ENCRYPTION_ENCODING,
-            },
-            plaintext=token,
-            public_key=RSAKey.import_key(pem_public_key),
-            algorithms=[
-                settings.OIDC_RS_ENCRYPTION_ALGO,
-                settings.OIDC_RS_ENCRYPTION_ENCODING,
-            ],
-        )
-
-    responses.add(
-        responses.POST,
-        "https://oidc.example.com/introspect",
-        body=encrypt_jwt(
-            {
-                "iss": "https://oidc.example.com",
-                "aud": audience,  # settings.OIDC_RS_CLIENT_ID
-                "token_introspection": token_data,
-            }
-        ),
-    )
 
 
 def setup_oicd_resource_server(

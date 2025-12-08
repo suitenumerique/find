@@ -5,6 +5,7 @@ from faker import Faker
 from lasuite.oidc_resource_server.authentication import (
     get_resource_server_backend,
 )
+from opensearchpy.exceptions import NotFoundError
 
 from core.services import opensearch
 
@@ -47,5 +48,5 @@ def cleanup_test_index(settings):
 
     try:
         client.indices.delete(index=f"{prefix}-*")
-    except opensearch.NotFoundError:
+    except NotFoundError:
         pass

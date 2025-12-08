@@ -269,16 +269,21 @@ MAPPINGS = {
         "groups": {"type": "keyword"},
         "reach": {"type": "keyword"},
         "is_active": {"type": "boolean"},
-        "embedding": {
-            # for simplicity, embedding is always present but is empty
-            # when hybrid search is disabled
-            "type": "knn_vector",
-            "dimension": settings.EMBEDDING_DIMENSION,
-            "method": {
-                "engine": "lucene",
-                "space_type": "l2",
-                "name": "hnsw",
-                "parameters": {},
+        "chunks": {
+            "type": "nested",
+            "properties": {
+                "index": {"type": "integer"},
+                "content": {"type": "text"},
+                "embedding": {
+                    "type": "knn_vector",
+                    "dimension": settings.EMBEDDING_DIMENSION,
+                    "method": {
+                        "engine": "lucene",
+                        "space_type": "l2",
+                        "name": "hnsw",
+                        "parameters": {},
+                    },
+                },
             },
         },
         "embedding_model": {"type": "keyword"},

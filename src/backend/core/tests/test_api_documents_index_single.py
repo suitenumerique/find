@@ -6,6 +6,7 @@ from django.utils import timezone
 
 import pytest
 import responses
+from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
@@ -53,8 +54,7 @@ def test_api_documents_index_single_invalid_token():
 def test_api_documents_index_single_hybrid_enabled_success(settings):
     """
     A registered service should be able to index document with a valid token.
-    If hybrid search is enabled, the indexing should have embedding of
-    dimension settings.EMBEDDING_DIMENSION.
+    If hybrid search is enabled, the documents are chunked and embedded.
     """
     service = factories.ServiceFactory()
     enable_hybrid_search(settings)
@@ -66,6 +66,9 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
 
     document = factories.DocumentSchemaFactory.build()
+    document["content"] = (
+        "a long text to embed." * 100
+    )  # Ensure content is long enough for chunking
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -91,13 +94,28 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
 
     # check embedding
     assert (
-        new_indexed_document["_source"]["embedding"]
+        new_indexed_document["_source"]["chunks"][0]["embedding"]
         == albert_embedding_response.response["data"][0]["embedding"]
     )
     assert (
         new_indexed_document["_source"]["embedding_model"]
         == settings.EMBEDDING_API_MODEL_NAME
     )
+    # Check that the document has been chunked correctly
+    assert (
+        len(new_indexed_document["_source"]["chunks"])
+        == int(
+            len(document["content"]) / (settings.CHUNK_SIZE - settings.CHUNK_OVERLAP)
+        )
+        + 1
+    )
+    for chunk in new_indexed_document["_source"]["chunks"]:
+        assert (
+            chunk["embedding"]
+            == albert_embedding_response.response["data"][0]["embedding"]
+        )
+        assert chunk["content"] in document["content"]
+        assert len(chunk["content"]) < len(document["content"])
 
 
 def test_api_documents_index_language_params():
@@ -207,16 +225,16 @@ def test_api_documents_index_single_hybrid_disabled_success():
         new_indexed_document["_source"]["title.en"] == document["title"].strip().lower()
     )
     assert new_indexed_document["_source"]["content.en"] == document["content"]
-    assert new_indexed_document["_source"]["embedding"] is None
+    assert new_indexed_document["_source"]["chunks"] is None
 
 
-def test_api_documents_index_single_ensure_index():
-    """A registered service should be create the opensearch index if need."""
+def test_api_documents_index_single_ensure_index(settings):
+    """A registered service should be created the opensearch index if needed."""
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build()
     opensearch_client_ = opensearch.opensearch_client()
 
-    with pytest.raises(opensearch.NotFoundError):
+    with pytest.raises(NotFoundError):
         opensearch_client_.indices.get(index=service.index_name)
 
     response = APIClient().post(
@@ -235,6 +253,23 @@ def test_api_documents_index_single_ensure_index():
     assert data[service.index_name]["mappings"] == {
         "dynamic": "strict",
         "properties": {
+            "chunks": {
+                "type": "nested",
+                "properties": {
+                    "content": {"type": "text"},
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": settings.EMBEDDING_DIMENSION,
+                        "method": {
+                            "engine": "lucene",
+                            "space_type": "l2",
+                            "name": "hnsw",
+                            "parameters": {},
+                        },
+                    },
+                    "index": {"type": "integer"},
+                },
+            },
             "content": {
                 "properties": {
                     "de": {
@@ -276,16 +311,6 @@ def test_api_documents_index_single_ensure_index():
             },
             "created_at": {"type": "date"},
             "depth": {"type": "integer"},
-            "embedding": {
-                "type": "knn_vector",
-                "dimension": 1024,
-                "method": {
-                    "engine": "lucene",
-                    "space_type": "l2",
-                    "name": "hnsw",
-                    "parameters": {},
-                },
-            },
             "embedding_model": {"type": "keyword"},
             "groups": {"type": "keyword"},
             "id": {"type": "keyword"},
