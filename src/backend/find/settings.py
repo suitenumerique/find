@@ -64,7 +64,7 @@ class Base(Configuration):
     * DB_USER
     """
 
-    DEBUG = False
+    DEBUG = True
     USE_SWAGGER = False
 
     API_VERSION = "v1.0"
