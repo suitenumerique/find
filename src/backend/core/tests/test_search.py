@@ -39,6 +39,7 @@ def search_params(service):
         "user_sub": "user_sub",
         "groups": [],
         "visited": [],
+        "tags": [],
     }
 
 
@@ -360,3 +361,105 @@ def test_hybrid_search_number_of_matches(settings):
     for nb_results in [1, 2, 3]:  # semantic should match k documents
         result = search(q=q, **{**search_params(service), "nb_results": nb_results})
         assert len(result["hits"]["hits"]) == nb_results
+
+
+def test_search_filtering_by_single_tag():
+    """Test filtering documents by a single tag"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Document with python tag",
+                "content": "This is about Python programming",
+                "tags": ["python", "programming"],
+            },
+            {
+                "title": "Document with javascript tag",
+                "content": "This is about JavaScript",
+                "tags": ["javascript", "programming"],
+            },
+            {
+                "title": "Document with no tags",
+                "content": "This has no tags",
+                "tags": [],
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    # Search for documents with python tag
+    result = search(q="*", **{**search_params(service), "tags": ["python"]})
+
+    assert result["hits"]["total"]["value"] == 1
+    assert result["hits"]["hits"][0]["_id"] == str(documents[0]["id"])
+
+
+def test_search_filtering_by_multiple_tags():
+    """Test filtering documents by multiple tags (OR logic)"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Document with python tag",
+                "content": "This is about Python programming",
+                "tags": ["python", "backend"],
+            },
+            {
+                "title": "Document with javascript tag",
+                "content": "This is about JavaScript",
+                "tags": ["javascript", "frontend"],
+            },
+            {
+                "title": "Document with java tag",
+                "content": "This is about Java",
+                "tags": ["java", "backend"],
+            },
+            {
+                "title": "Document with no tags",
+                "content": "This has no tags",
+                "tags": [],
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    # Search for documents with python OR javascript tags
+    result = search(
+        q="*", **{**search_params(service), "tags": ["python", "javascript"]}
+    )
+
+    assert result["hits"]["total"]["value"] == 2
+    returned_ids = {hit["_id"] for hit in result["hits"]["hits"]}
+    assert str(documents[0]["id"]) in returned_ids
+    assert str(documents[1]["id"]) in returned_ids
+
+
+def test_search_no_tags_filter_returns_all():
+    """Test that not providing tags filter returns all documents"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Document with tags",
+                "content": "Tagged document",
+                "tags": ["python"],
+            },
+            {
+                "title": "Document without tags",
+                "content": "Untagged document",
+                "tags": [],
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    # Search without tags filter
+    result = search(q="*", **search_params(service))
+
+    assert result["hits"]["total"]["value"] == 2

@@ -319,6 +319,7 @@ def test_api_documents_index_single_ensure_index(settings):
             "path": {"type": "keyword", "fields": {"text": {"type": "text"}}},
             "reach": {"type": "keyword"},
             "size": {"type": "long"},
+            "tags": {"type": "keyword"},
             "title": {
                 "properties": {
                     "de": {

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # see https://pypi.org/project/py3langid/
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
-LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
+LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])  # use settings ?
 
 TEXT_SPLITER = RecursiveCharacterTextSplitter(
     chunk_size=settings.CHUNK_SIZE,
@@ -76,6 +76,7 @@ def prepare_document_for_indexing(document):
         "users": document["users"],
         "groups": document["groups"],
         "reach": document["reach"],
+        "tags": document.get("tags", []),
         "is_active": document["is_active"],
     }
 
