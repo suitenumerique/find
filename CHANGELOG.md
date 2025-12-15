@@ -27,9 +27,9 @@ and this project adheres to
 - ✨(backend) add demo service for Drive.
 - ✨(backend) Add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
               issues if the opensearch database is shared between apps.
-- ✨(backend) Add tags
+- ✨(backend) add tags
 
 ## Fixed
 
 - 🐛(backend) fix missing index creation in 'index/' view
-- 🐛(backend) Fix parallel test execution issues
+- 🐛(backend) fix parallel test execution issues

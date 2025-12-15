@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # see https://pypi.org/project/py3langid/
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
-LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])  # use settings ?
+LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 TEXT_SPLITER = RecursiveCharacterTextSplitter(
     chunk_size=settings.CHUNK_SIZE,

@@ -189,6 +189,7 @@ def get_filter(reach, visited, user_sub, groups, tags):
 
     # Optional tags filter
     if tags:
+        # logical or: if tags are provided the matching documents should have at least one of them
         filters.append({"terms": {"tags": tags}})
 
     return filters
