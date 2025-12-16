@@ -21,6 +21,7 @@ PATH = "path"
 NUMCHILD = "numchild"
 REACH = "reach"
 SIZE = "size"
+TAGS = "tags"
 TITLE = "title"
 UPDATED_AT = "updated_at"
 USERS = "users"
@@ -29,4 +30,14 @@ GROUPS = "groups"
 RELEVANCE = "relevance"
 
 ORDER_BY_OPTIONS = (RELEVANCE, TITLE, CREATED_AT, UPDATED_AT, SIZE, REACH)
-SOURCE_FIELDS = (TITLE, SIZE, DEPTH, PATH, NUMCHILD, CREATED_AT, UPDATED_AT, REACH)
+SOURCE_FIELDS = (
+    TITLE,
+    SIZE,
+    DEPTH,
+    PATH,
+    NUMCHILD,
+    CREATED_AT,
+    UPDATED_AT,
+    REACH,
+    TAGS,
+)

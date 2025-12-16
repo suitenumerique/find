@@ -102,7 +102,6 @@ class IndexDocumentView(views.APIView):
                 - 201 Created: Returns the indexed document ID.
                 - 400 Bad Request: Returns an error message if the document is invalid.
         """
-
         document_dict = prepare_document_for_indexing(
             schemas.DocumentSchema(**request.data).model_dump()
         )
@@ -221,6 +220,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             The search query string. This is a required parameter.
         reach : str, optional
             Filter results based on the 'reach' field.
+        tags : List[str], optional
+            Filter results based on the 'tags' field. Documents matching any of the
+            provided tags will be returned.
         order_by : str, optional
             Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
             Defaults to 'relevance' if not specified.
@@ -247,9 +249,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
         groups = []
-        # //////////////////////////////////////////////////
-
-        # Extract and validate query parameters using Pydantic schema
         params = schemas.SearchQueryParametersSchema(**request.data)
 
         # Get index list for search query
@@ -270,6 +269,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             visited=params.visited,
             user_sub=user_sub,
             groups=groups,
+            tags=params.tags,
         )
 
         return Response(response["hits"]["hits"], status=status.HTTP_200_OK)

@@ -245,6 +245,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
+        "tags": [],
         "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
@@ -267,6 +268,7 @@ def test_api_documents_full_text_search_query_title(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
+        "tags": [],
         "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
@@ -316,6 +318,7 @@ def test_api_documents_full_text_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
+        "tags": [],
         "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
@@ -339,6 +342,7 @@ def test_api_documents_full_text_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
+        "tags": [],
         "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
@@ -396,6 +400,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
+        "tags": [],
         "title.en": fox_document["title"],
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
@@ -419,6 +424,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
+        "tags": [],
         "title.en": other_fox_document["title"],
     }
     assert other_fox_response["fields"] == {
@@ -444,6 +450,7 @@ def test_api_documents_hybrid_search(settings):
         "created_at": no_fox_document["created_at"].isoformat(),
         "updated_at": no_fox_document["updated_at"].isoformat(),
         "reach": no_fox_document["reach"],
+        "tags": [],
         "title.en": no_fox_document["title"],
     }
     assert no_fox_response["fields"] == {
@@ -807,3 +814,100 @@ def test_api_documents_search_nb_results_with_filtering(settings):
     )
     assert response.status_code == 200
     assert [r["_id"] for r in response.json()] == public_ids[0:nb_results]
+
+
+@responses.activate
+def test_api_documents_search_filtering_by_tags(settings):
+    """Test filtering documents by a single tag via API"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    service = factories.ServiceFactory()
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Python document",
+                "content": "About Python",
+                "tags": ["python", "programming"],
+            },
+            {
+                "title": "JavaScript document",
+                "content": "About JavaScript",
+                "tags": ["javascript", "programming"],
+            },
+            {
+                "title": "Untagged document",
+                "content": "No tags here",
+                "tags": [],
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {
+            "q": "*",
+            "tags": ["python"],
+            "visited": [doc["id"] for doc in documents],
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["_id"] == str(documents[0]["id"])
+    assert response.json()[0]["_source"]["tags"] == ["python", "programming"]
+
+
+@responses.activate
+def test_api_documents_search_without_tags_filter(settings):
+    """Test that search works normally when no tags filter is provided"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    service = factories.ServiceFactory()
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Document with tags",
+                "content": "Tagged content",
+                "tags": ["python"],
+            },
+            {
+                "title": "Document without tags",
+                "content": "Untagged content",
+                "tags": [],
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    # Search without tags parameter - should return all documents
+    response = APIClient().post(
+        "/api/v1.0/documents/search/",
+        {
+            "q": "*",
+            "visited": [doc["id"] for doc in documents],
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 2

@@ -76,6 +76,7 @@ def prepare_document_for_indexing(document):
         "users": document["users"],
         "groups": document["groups"],
         "reach": document["reach"],
+        "tags": document.get("tags", []),
         "is_active": document["is_active"],
     }
 
