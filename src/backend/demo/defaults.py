@@ -13,4 +13,9 @@ DEV_SERVICES = (
         "client_id": "drive",
         "token": "find-api-key-for-driv-with-exactly-50-chars-length",
     },
+    {
+        "name": "conversations",
+        "client_id": "conversations",
+        "token": "find-api-key-for-conv-with-exactly-50-chars-length",
+    },
 )

@@ -238,6 +238,7 @@ def test_api_documents_full_text_search_query_title(settings):
     assert list(fox_response.keys()) == ["_index", "_id", "_score", "_source", "fields"]
     assert fox_response["_id"] == str(documents[0]["id"])
     assert fox_response["_source"] == {
+        "content.en": "the wolf",
         "depth": 1,
         "numchild": 0,
         "path": fox_document["path"],
@@ -261,6 +262,7 @@ def test_api_documents_full_text_search_query_title(settings):
     ]
     assert other_fox_response["_id"] == str(other_fox_document["id"])
     assert other_fox_response["_source"] == {
+        "content.en": fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -311,6 +313,7 @@ def test_api_documents_full_text_search(settings):
     assert fox_response["_id"] == str(fox_document["id"])
     assert fox_response["_score"] > 0
     assert fox_response["_source"] == {
+        "content.en": "the wolf",
         "depth": 1,
         "numchild": 0,
         "path": fox_document["path"],
@@ -335,6 +338,7 @@ def test_api_documents_full_text_search(settings):
     assert other_fox_response["_id"] == str(other_fox_document["id"])
     assert other_fox_response["_score"] > 0
     assert other_fox_response["_source"] == {
+        "content.en": fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -393,6 +397,7 @@ def test_api_documents_hybrid_search(settings):
     assert fox_response["_id"] == str(fox_document["id"])
     assert fox_response["_score"] > 0
     assert fox_response["_source"] == {
+        "content.en": fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": fox_document["path"],
@@ -417,6 +422,7 @@ def test_api_documents_hybrid_search(settings):
     assert other_fox_response["_id"] == str(other_fox_document["id"])
     assert other_fox_response["_score"] > 0
     assert other_fox_response["_source"] == {
+        "content.en": fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -443,6 +449,7 @@ def test_api_documents_hybrid_search(settings):
     ]
     assert no_fox_response["_id"] == str(no_fox_document["id"])
     assert no_fox_response["_source"] == {
+        "content.en": fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": no_fox_document["path"],
