@@ -20,14 +20,13 @@ and this project adheres to
 - ✨(backend) allow indexation of documents with either empty content or title.
 - ✨(api) new fulltext 'search/' view with OIDC resource server authentication
 - ✨(backend) limit access to documents : public & authenticated with a
-              linkreach & owned ones
-- ✨(backend) limit search to the calling app (audience) and a configured
               list of services
 - 🔧(compose) rename docker network 'lasuite-net' as 'lasuite-network'
 - ✨(backend) add demo service for Drive.
-- ✨(backend) Add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
+- ✨(backend) add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
               issues if the opensearch database is shared between apps.
 - ✨(backend) add tags
+- ✨(backend) adapt to conversation RAG
 
 ## Fixed
 

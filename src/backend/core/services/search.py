@@ -54,7 +54,7 @@ def search(  # noqa : PLR0913
         },
         params=get_params(query_keys=query.keys()),
         # disable=unexpected-keyword-arg because
-        # ignore_unavailable is not in the the method declaration
+        # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
     )
 

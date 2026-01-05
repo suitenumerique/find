@@ -17,6 +17,7 @@ from .permissions import IsAuthAuthenticated
 from .services.indexing import ensure_index_exists, prepare_document_for_indexing
 from .services.opensearch import opensearch_client
 from .services.search import search
+from .utils import get_language_value
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,11 @@ class IndexDocumentView(views.APIView):
             schemas.DocumentSchema(**request.data).model_dump()
         )
         _id = document_dict.pop("id")
+        logger.info(
+            "Indexing single document %s on index %s",
+            get_language_value(document_dict, "title"),
+            index_name,
+        )
 
         ensure_index_exists(index_name)
         opensearch_client_.index(
@@ -149,6 +155,11 @@ class IndexDocumentView(views.APIView):
                 has_errors = True
             else:
                 document_dict = prepare_document_for_indexing(document.model_dump())
+                logger.info(
+                    "Indexing document %s on index %s",
+                    get_language_value(document_dict, "title"),
+                    index_name,
+                )
                 _id = document_dict.pop("id")
                 actions.append({"index": {"_id": _id}})
                 actions.append(document_dict)
@@ -259,7 +270,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        response = search(
+        logger.info("Search '%s' on indices %s", params.q, search_indices)
+        result = search(
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
@@ -270,6 +282,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             user_sub=user_sub,
             groups=groups,
             tags=params.tags,
-        )
+        )["hits"]["hits"]
+        logger.info("found %d results", len(result))
+        logger.debug("results %s", result)
 
-        return Response(response["hits"]["hits"], status=status.HTTP_200_OK)
+        return Response(result, status=status.HTTP_200_OK)
