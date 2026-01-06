@@ -27,6 +27,7 @@ and this project adheres to
               issues if the opensearch database is shared between apps.
 - ✨(backend) add tags
 - ✨(backend) adapt to conversation RAG
+- ✨(backend) add deletion endpoint 
 
 ## Fixed
 
