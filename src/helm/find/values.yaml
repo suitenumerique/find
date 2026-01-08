@@ -92,6 +92,9 @@ backend:
   ## @param backend.migrateJobAnnotations Annotations for the migrate job
   migrateJobAnnotations: {}
 
+  ## @param backend.podSecurityContext Configure backend Pod security context
+  podSecurityContext: null
+
   ## @param backend.securityContext Configure backend Pod security context
   securityContext: null
 

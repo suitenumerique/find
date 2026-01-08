@@ -43,6 +43,7 @@
 | `backend.shareProcessNamespace`                       | Enable share process namespace between containers                                  | `false`                                         |
 | `backend.sidecars`                                    | Add sidecars containers to backend deployment                                      | `[]`                                            |
 | `backend.migrateJobAnnotations`                       | Annotations for the migrate job                                                    | `{}`                                            |
+| `backend.podSecurityContext`                          | Configure backend Pod security context                                             | `nil`                                           |
 | `backend.securityContext`                             | Configure backend Pod security context                                             | `nil`                                           |
 | `backend.envVars`                                     | Configure backend container environment variables                                  | `undefined`                                     |
 | `backend.envVars.BY_VALUE`                            | Example environment variable by setting value directly                             |                                                 |
@@ -58,15 +59,15 @@
 | `backend.migrate.command`                             | backend migrate command                                                            | `["python","manage.py","migrate","--no-input"]` |
 | `backend.migrate.restartPolicy`                       | backend migrate job restart policy                                                 | `Never`                                         |
 | `backend.probes.liveness.path`                        | Configure path for backend HTTP liveness probe                                     | `/__heartbeat__`                                |
-| `backend.probes.liveness.targetPort`                  | Configure port for backend HTTP liveness probe                                     | `undefined`                                     |
+| `backend.probes.liveness.targetPort`                  | Configure port for backend HTTP liveness probe                                     | `nil`                                           |
 | `backend.probes.liveness.initialDelaySeconds`         | Configure initial delay for backend liveness probe                                 | `10`                                            |
 | `backend.probes.liveness.initialDelaySeconds`         | Configure timeout for backend liveness probe                                       | `10`                                            |
-| `backend.probes.startup.path`                         | Configure path for backend HTTP startup probe                                      | `undefined`                                     |
-| `backend.probes.startup.targetPort`                   | Configure port for backend HTTP startup probe                                      | `undefined`                                     |
-| `backend.probes.startup.initialDelaySeconds`          | Configure initial delay for backend startup probe                                  | `undefined`                                     |
-| `backend.probes.startup.initialDelaySeconds`          | Configure timeout for backend startup probe                                        | `undefined`                                     |
+| `backend.probes.startup.path`                         | Configure path for backend HTTP startup probe                                      | `nil`                                           |
+| `backend.probes.startup.targetPort`                   | Configure port for backend HTTP startup probe                                      | `nil`                                           |
+| `backend.probes.startup.initialDelaySeconds`          | Configure initial delay for backend startup probe                                  | `nil`                                           |
+| `backend.probes.startup.initialDelaySeconds`          | Configure timeout for backend startup probe                                        | `nil`                                           |
 | `backend.probes.readiness.path`                       | Configure path for backend HTTP readiness probe                                    | `/__lbheartbeat__`                              |
-| `backend.probes.readiness.targetPort`                 | Configure port for backend HTTP readiness probe                                    | `undefined`                                     |
+| `backend.probes.readiness.targetPort`                 | Configure port for backend HTTP readiness probe                                    | `nil`                                           |
 | `backend.probes.readiness.initialDelaySeconds`        | Configure initial delay for backend readiness probe                                | `10`                                            |
 | `backend.probes.readiness.initialDelaySeconds`        | Configure timeout for backend readiness probe                                      | `10`                                            |
 | `backend.resources`                                   | Resource requirements for the backend container                                    | `{}`                                            |
