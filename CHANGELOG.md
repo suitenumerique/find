@@ -28,6 +28,7 @@ and this project adheres to
 - ✨(backend) Add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
               issues if the opensearch database is shared between apps.
 - ✨(backend) add tags
+- ✨(backend) add deletion endpoint 
 
 ## Fixed
 
