@@ -17,7 +17,7 @@ def embed_text(text):
 
     response = requests.post(
         settings.EMBEDDING_API_PATH,
-        headers={"Authorization": f"Bearer {settings.EMBEDDING_API_KEY}>"},
+        headers={"Authorization": f"Bearer {settings.EMBEDDING_API_KEY}"},
         json={
             "input": text,
             "model": settings.EMBEDDING_API_MODEL_NAME,
