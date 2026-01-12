@@ -10,6 +10,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 
+import sentry_sdk
+
 from .selftests import SelfTest, SelfTestResult, registry
 from .services.opensearch import opensearch_client
 
@@ -167,7 +169,68 @@ class OpenSearchSelfTest(SelfTest):
             )
 
 
+class SentrySelfTest(SelfTest):
+    """Test Sentry connectivity."""
+
+    name = "Sentry Connection"
+    description = "Verify that Sentry is accessible and responsive"
+
+    def run(self) -> SelfTestResult:
+        """Test Sentry connection by sending a test error."""
+        if not sentry_sdk:
+            return SelfTestResult(
+                name=self.name,
+                success=False,
+                message="Sentry SDK not available",
+            )
+
+        # Check if Sentry DSN is configured
+        sentry_dsn = getattr(settings, "SENTRY_DSN", None)
+        if not sentry_dsn:
+            return SelfTestResult(
+                name=self.name,
+                success=False,
+                message="Sentry DSN not configured",
+            )
+
+        start_time = time.time()
+        try:
+            # Send a test error to Sentry to verify connectivity
+            scope = sentry_sdk.get_current_scope()
+            scope.set_extra("selftest", "Sentry connectivity test")
+
+            try:
+                # Raise a fake error that we'll catch and send to Sentry
+                raise ValueError(
+                    "Sentry self-test error - fake error for connectivity check"
+                )
+            except ValueError as test_error:
+                sentry_sdk.capture_exception(test_error)
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            return SelfTestResult(
+                name=self.name,
+                success=True,
+                message="Sentry connection successful",
+                details={"dsn_configured": bool(sentry_dsn)},
+                duration_ms=duration_ms,
+            )
+        except Exception as e:  # noqa: BLE001 pylint: disable=broad-except
+            duration_ms = (time.time() - start_time) * 1000
+            return SelfTestResult(
+                name=self.name,
+                success=False,
+                message=f"Sentry connection failed: {str(e)}",
+                details={"exception": str(e)},
+                duration_ms=duration_ms,
+            )
+
+
 # Register all built-in tests
 registry.register(DatabaseSelfTest)
 registry.register(CacheSelfTest)
 registry.register(OpenSearchSelfTest)
+
+if settings.SENTRY_DSN:
+    registry.register(SentrySelfTest)
