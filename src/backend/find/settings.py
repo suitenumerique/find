@@ -306,7 +306,7 @@ class Base(Configuration):
     EMBEDDING_API_KEY = values.Value(
         default=None, environ_name="EMBEDDING_API_KEY", environ_prefix=None
     )
-    EMBEDDING_REQUEST_TIMEOUT = values.Value(
+    EMBEDDING_REQUEST_TIMEOUT = values.IntegerValue(
         default=10, environ_name="EMBEDDING_REQUEST_TIMEOUT", environ_prefix=None
     )
     EMBEDDING_API_MODEL_NAME = values.Value(
