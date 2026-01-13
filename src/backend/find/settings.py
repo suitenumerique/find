@@ -613,6 +613,9 @@ class Production(Base):
     """
 
     # Security
+    # Add allowed host from environment variables.
+    # The machine hostname is added by default,
+    # it makes the application pingable by a load balancer on the same machine by example
     ALLOWED_HOSTS = [
         *values.ListValue([], environ_name="ALLOWED_HOSTS"),
         gethostbyname(gethostname()),
@@ -632,6 +635,14 @@ class Production(Base):
     # In other cases, you should comment the following line to avoid security issues.
     # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 60
+    SECURE_HSTS_PRELOAD = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = [
+        "^__lbheartbeat__",
+        "^__heartbeat__",
+    ]
 
     # Modern browsers require to have the `secure` attribute on cookies with `Samesite=none`
     CSRF_COOKIE_SECURE = True
@@ -646,6 +657,11 @@ class Production(Base):
             "LOCATION": values.Value(
                 "redis://redis:6379/1",
                 environ_name="REDIS_URL",
+                environ_prefix=None,
+            ),
+            "TIMEOUT": values.IntegerValue(
+                30,  # timeout in seconds
+                environ_name="CACHES_DEFAULT_TIMEOUT",
                 environ_prefix=None,
             ),
             "OPTIONS": {
