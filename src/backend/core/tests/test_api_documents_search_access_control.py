@@ -395,7 +395,7 @@ def test_api_documents_search_access__request_services(settings):
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Some requested services are not available"}
+    assert response.json() == {"detail": "Invalid request."}
 
 
 @responses.activate
@@ -419,7 +419,7 @@ def test_api_documents_search_access__request_inactive_services(settings):
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Service is not available"}
+    assert response.json() == {"detail": "Invalid request."}
 
     # Event without explicit argument, the client service from the request is not active
     response = APIClient().post(
@@ -430,7 +430,7 @@ def test_api_documents_search_access__request_inactive_services(settings):
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Service is not available"}
+    assert response.json() == {"detail": "Invalid request."}
 
 
 @responses.activate

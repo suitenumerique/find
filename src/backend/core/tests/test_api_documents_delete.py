@@ -26,6 +26,22 @@ def test_api_documents_delete_anonymous():
 
 
 @responses.activate
+def test_api_documents_delete_wrong_service_name(settings):
+    """Requests with a wrong service name should return 400 Bad Request."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"service": "wrong-service", "document_ids": ["0"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == 'Invalid request.'
+
+
+@responses.activate
 def test_api_documents_delete_success(settings):
     """Authenticated users should be able to delete documents they have access to."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")

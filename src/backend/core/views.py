@@ -218,7 +218,13 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 self._get_service_provider_audience(), services=[params.service]
             )[0]
         except SuspiciousOperation as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(e)
+            return Response(
+                {
+                    "detail": "Invalid request."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         logger.info(
             "Deleting %d documents from index %s", len(params.document_ids), index_name
@@ -306,7 +312,13 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         try:
             search_indices = get_opensearch_indices(audience, services=params.services)
         except SuspiciousOperation as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(e, exc_info=True)
+            return Response(
+                {
+                    "detail": "Invalid request."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         logger.info("Search '%s' on indices %s", params.q, search_indices)
         result = search(
