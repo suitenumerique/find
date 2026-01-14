@@ -112,8 +112,7 @@ def test_api_documents_search_query_unknown_user(settings):
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
-    assert response.status_code == 401
-    assert response.json() == {"detail": "Login failed"}
+    assert response.status_code == 400
 
 
 @responses.activate

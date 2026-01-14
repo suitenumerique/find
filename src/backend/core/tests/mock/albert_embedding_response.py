@@ -1,3 +1,7 @@
+"""Mock response for Albert embedding API."""
+
+# pylint: disable=too-many-lines
+
 response = {
     "data": [
         {

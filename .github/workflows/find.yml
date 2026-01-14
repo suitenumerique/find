@@ -70,6 +70,8 @@ jobs:
           python-version: "3.12"
       - name: Install development dependencies
         run: pip install --user .[dev]
+      - name: Remove build artifacts
+        run: rm -rf build/ dist/ *.egg-info/
       - name: Check code formatting with ruff
         run: ~/.local/bin/ruff format . --diff
       - name: Lint code with ruff

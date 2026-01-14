@@ -83,12 +83,12 @@ def setup_oicd_resource_server(
     if callable(introspect):
         responses.add_callback(
             responses.POST,
-            "https://oidc.example.com/introspect",
+            settings.OIDC_OP_INTROSPECTION_ENDPOINT,
             callback=partial(introspect, user_info=token_data),
         )
     else:
         responses.add(
             responses.POST,
-            "https://oidc.example.com/introspect",
+            settings.OIDC_OP_INTROSPECTION_ENDPOINT,
             body=json.dumps(token_data),
         )

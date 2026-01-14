@@ -1,3 +1,5 @@
+"""Queries and expected document IDs for evaluation in French language."""
+
 queries = [
     {
         "q": "cours d'histoire de l'antiquité",
