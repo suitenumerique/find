@@ -130,6 +130,7 @@ class Base(Configuration):
             ("en", _("English")),
             ("de", _("German")),
             ("nl", _("Dutch")),
+            ("und", None),
         )
     )
     SUPPORTED_LANGUAGE_CODES = tuple(
