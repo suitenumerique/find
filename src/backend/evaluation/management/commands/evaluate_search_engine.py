@@ -79,7 +79,9 @@ class Command(BaseCommand):
             dest="force_reindex",
             type=bool,
             default=False,
-            help="If True the index is dropped and recreated from scratch even if it already exists.",
+            help=(
+                "If True the index is dropped and recreated from scratch even if it already exists."
+            ),
         )
 
     def handle(self, *args, **options):
@@ -87,7 +89,8 @@ class Command(BaseCommand):
 
         self.init_evaluation(options["dataset_name"], options["force_reindex"])
         self.stdout.write(
-            f"[INFO] Starting evaluation with {len(self.documents)} documents and {len(self.queries)} queries"
+            f"[INFO] Starting evaluation with {len(self.documents)} "
+            f"documents and {len(self.queries)} queries"
         )
 
         evaluations = [
@@ -136,7 +139,8 @@ class Command(BaseCommand):
         for filename in os.listdir(documents_dir_path):
             if not filename.endswith(".txt"):
                 logger.warning(
-                    f"Unexpected file format for document: {filename}. Only .txt files are supported."
+                    "Unexpected file format for document: %s. Only .txt files are supported.",
+                    filename,
                 )
 
             str_document_id, title_with_extension = filename.split("_", 1)

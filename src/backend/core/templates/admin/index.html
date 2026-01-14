@@ -1,0 +1,26 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block sidebar %}
+{{ block.super }}
+
+<div id="content-main">
+    <div class="module" style="margin-top: 20px;">
+        <table>
+            <caption>
+                {% trans 'System Tools' %}
+            </caption>
+            <tbody>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:selftest' %}">{% trans 'System Self-Tests' %}</a>
+                    </th>
+                    <td>{% trans 'Run selftest checks' %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+

@@ -12,7 +12,6 @@ import pytest
 import responses
 
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
-from core.tests.mock import albert_embedding_response
 from core.utils import delete_index, delete_search_pipeline
 
 logger = logging.getLogger(__name__)
@@ -32,23 +31,14 @@ def clear_caches_and_cleanup():
 
 
 def clear():
+    """Clear caches and delete index and pipeline"""
     check_hybrid_search_enabled.cache_clear()
     delete_search_pipeline()
     delete_index(INDEX_NAME)
 
 
-@pytest.fixture
-def mock_embedding_api(settings):
-    """Mock the embedding API for tests"""
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-
-
 def assert_output_successful(output):
+    """Assert that the output indicates a successful evaluation"""
     assert "[INFO] Starting evaluation with 1 documents and 1 queries" in output
     assert "[QUERY EVALUATION]" in output
     assert "q: a query" in output
@@ -61,7 +51,7 @@ def assert_output_successful(output):
 
 
 @responses.activate
-def test_evaluate_search_engine_command_v0(settings, mock_embedding_api):
+def test_evaluate_search_engine_command_v0():
     """Test running the evaluate_search_engine command with v0 dataset"""
     out = io.StringIO()
 
@@ -78,7 +68,7 @@ def test_evaluate_search_engine_command_v0(settings, mock_embedding_api):
 
 
 @responses.activate
-def test_evaluate_search_engine_command_without_keep_index(mock_embedding_api):
+def test_evaluate_search_engine_command_without_keep_index():
     """Test that keep-index option False erases index"""
     out = io.StringIO()
 
@@ -97,9 +87,7 @@ def test_evaluate_search_engine_command_without_keep_index(mock_embedding_api):
 
 @patch("evaluation.management.commands.evaluate_search_engine.delete_index")
 @responses.activate
-def test_evaluate_search_engine_command_force_reindex(
-    mock_delete_index, mock_embedding_api
-):
+def test_evaluate_search_engine_command_force_reindex(mock_delete_index):
     """Test that force-reindex must delete and recreates the index"""
     out = io.StringIO()
 
@@ -124,7 +112,7 @@ def test_evaluate_search_engine_command_force_reindex(
 
 
 @responses.activate
-def test_evaluate_search_engine_min_score_filter(settings, mock_embedding_api):
+def test_evaluate_search_engine_min_score_filter():
     """Test that min_score filters out low-scoring results"""
 
     out = io.StringIO()

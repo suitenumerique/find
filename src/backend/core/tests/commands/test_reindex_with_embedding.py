@@ -64,12 +64,12 @@ def test_reindex_with_embedding_command(settings):
     prepare_index(index_name, documents)
 
     # the index has not been embedded in the initial state
-    initial_index = opensearch_client_.search(
+    initial_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     assert len(initial_index["hits"]["hits"]) == 3
     for embedded_hit in initial_index["hits"]["hits"]:
-        assert embedded_hit["_source"]["chunks"] == None
+        assert embedded_hit["_source"]["chunks"] is None
         assert embedded_hit["_source"]["embedding_model"] is None
 
     # enable hybrid search
@@ -85,7 +85,7 @@ def test_reindex_with_embedding_command(settings):
     call_command("reindex_with_embedding", SERVICE_NAME)
 
     opensearch_client_.indices.refresh(index=index_name)
-    embedded_index = opensearch_client_.search(
+    embedded_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name, size=3, body={"query": {"match_all": {}}}
     )
 
@@ -160,7 +160,7 @@ def test_reindex_can_fail_and_restart(settings):
 
     # assert the index state
     opensearch_client_.indices.refresh(index=index_name)
-    embedded_index = opensearch_client_.search(
+    embedded_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     # Should have 2 documents with embeddings, 1 without due to error
@@ -193,7 +193,7 @@ def test_reindex_can_fail_and_restart(settings):
 
     # assert there is now 1 more success and 0 failures
     opensearch_client_.indices.refresh(index=index_name)
-    embedded_index = opensearch_client_.search(
+    embedded_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name, size=3, body={"query": {"match_all": {}}}
     )
     for hit in embedded_index["hits"]["hits"]:
@@ -255,7 +255,7 @@ def test_reindex_preserves_concurrent_updates(settings):
     assert result["nb_failed_embedding"] == 0
 
     opensearch_client_.indices.refresh(index=index_name)
-    embedded_index = opensearch_client_.search(
+    embedded_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name, size=2, body={"query": {"match_all": {}}}
     )
     # Check that the latest update is preserved

@@ -57,7 +57,7 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
     returns a dict with the number of successful embeddings and failed embeddings.
     """
     opensearch_client_ = opensearch_client()
-    page = opensearch_client_.search(
+    page = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg
         index=index_name,
         scroll=scroll,
         size=batch_size,
@@ -130,7 +130,9 @@ def reindex_with_embedding(index_name, batch_size=500, scroll="10m"):
                 nb_failed_embedding += 1
 
         opensearch_client_.bulk(index=index_name, body=actions)
-        page = opensearch_client_.scroll(scroll_id=page["_scroll_id"], scroll=scroll)
+        page = opensearch_client_.scroll(  # pylint: disable=unexpected-keyword-arg
+            scroll_id=page["_scroll_id"], scroll=scroll
+        )
 
     opensearch_client_.clear_scroll(scroll_id=page["_scroll_id"])
     return {

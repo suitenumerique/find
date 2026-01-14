@@ -1,0 +1,258 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        .selftest-container {
+            margin: 20px;
+        }
+
+        .selftest-module {
+            background: var(--body-bg);
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .selftest-module h2 {
+            background: var(--primary);
+            color: var(--primary-fg);
+            padding: 10px 15px;
+            margin: 0;
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .module-content {
+            padding: 15px;
+        }
+
+        .run-tests-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--primary);
+            color: var(--primary-fg);
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .run-tests-btn:hover {
+            background: var(--primary-hover, #205067);
+        }
+
+        .overall-status {
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .overall-status.success {
+            background-color: var(--success-bg, #d4edda);
+            color: var(--success-fg, #155724);
+            border: 2px solid var(--success-border, #c3e6cb);
+        }
+
+        .overall-status.failure {
+            background-color: var(--error-bg, #f8d7da);
+            color: var(--error-fg, #721c24);
+            border: 2px solid var(--error-border, #f5c6cb);
+        }
+
+        .test-item {
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            background: var(--body-bg);
+        }
+
+        .test-header {
+            padding: 12px 15px;
+            background-color: var(--darkened-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color, #ddd);
+        }
+
+        .test-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: var(--body-fg);
+        }
+
+        .test-status {
+            padding: 4px 12px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .test-status.success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .test-status.failure {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .test-body {
+            padding: 15px;
+            background-color: var(--body-bg);
+        }
+
+        .test-message {
+            margin-bottom: 10px;
+            color: var(--body-fg);
+        }
+
+        .test-details {
+            background-color: var(--darkened-bg);
+            padding: 10px;
+            border-radius: 4px;
+            font-family: "Courier New", Monaco, monospace;
+            font-size: 12px;
+            border: 1px solid var(--border-color, #ddd);
+        }
+
+        .test-details dl {
+            margin: 0;
+        }
+
+        .test-details dt {
+            font-weight: bold;
+            color: var(--body-fg);
+            margin-top: 5px;
+        }
+
+        .test-details dd {
+            margin-left: 20px;
+            color: var(--body-quiet-color);
+            margin-bottom: 5px;
+        }
+
+        .duration {
+            color: var(--body-quiet-color);
+            font-size: 11px;
+            font-style: italic;
+        }
+
+        .available-tests-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .available-tests-list li {
+            padding: 10px;
+            border-bottom: 1px solid var(--hairline-color, #eee);
+            list-style-type: none;
+        }
+
+        .available-tests-list li:last-child {
+            border-bottom: none;
+        }
+
+        .test-description {
+            color: var(--body-quiet-color);
+            font-size: 13px;
+            display: block;
+            margin-top: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; {% trans 'System Self-Tests' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="selftest-container">
+    {% if not run_tests %}
+        <a href="?run=true" class="run-tests-btn">{% trans "Run All Tests" %}</a>
+    {% else %}
+        <a href="{% url 'admin:selftest' %}" class="run-tests-btn" style="opacity: 0.8;">{% trans "Reset" %}</a>
+    {% endif %}
+
+    {% if run_tests %}
+        {% if all_passed is not None %}
+        <div class="selftest-module">
+            <div class="overall-status {% if all_passed %}success{% else %}failure{% endif %}">
+                {% if all_passed %}
+                    ✅ {% trans "All tests passed successfully!" %}
+                {% else %}
+                    ❌ {% trans "Some tests failed. Please check the details below." %}
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="selftest-module">
+            <h2>{% trans "Test Results" %}</h2>
+            <div class="module-content">
+                {% for result in results %}
+                    <div class="test-item">
+                        <div class="test-header">
+                            <span class="test-name">{{ result.name }}</span>
+                            <span class="test-status {% if result.success %}success{% else %}failure{% endif %}">
+                                {% if result.success %}
+                                    ✓ {% trans "Pass" %}
+                                {% else %}
+                                    ✗ {% trans "Fail" %}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="test-body">
+                            <div class="test-message">
+                                {{ result.message }}
+                                {% if result.duration_ms %}
+                                    <span class="duration">({{ result.duration_ms|floatformat:2 }}ms)</span>
+                                {% endif %}
+                            </div>
+                            {% if result.details %}
+                                <div class="test-details">
+                                    <strong>{% trans "Details:" %}</strong>
+                                    <dl>
+                                        {% for key, value in result.details.items %}
+                                            <dt>{{ key }}:</dt>
+                                            <dd>{{ value }}</dd>
+                                        {% endfor %}
+                                    </dl>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="selftest-module">
+            <h2>{% trans "Available Tests" %}</h2>
+            <div class="module-content">
+                <p>{% trans "Click 'Run All Tests' to execute the following system health checks:" %}</p>
+                <ul class="available-tests-list">
+                    {% for test in available_tests %}
+                        <li>
+                            <strong>{{ test.name }}</strong>
+                            <span class="test-description">{{ test.description }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

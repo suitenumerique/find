@@ -19,6 +19,7 @@ from django.utils.translation import gettext_lazy as _
 import sentry_sdk
 from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.logging import ignore_logger
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -305,7 +306,7 @@ class Base(Configuration):
     EMBEDDING_API_KEY = values.Value(
         default=None, environ_name="EMBEDDING_API_KEY", environ_prefix=None
     )
-    EMBEDDING_REQUEST_TIMEOUT = values.Value(
+    EMBEDDING_REQUEST_TIMEOUT = values.IntegerValue(
         default=10, environ_name="EMBEDDING_REQUEST_TIMEOUT", environ_prefix=None
     )
     EMBEDDING_API_MODEL_NAME = values.Value(
@@ -324,7 +325,7 @@ class Base(Configuration):
     CORS_ALLOWED_ORIGIN_REGEXES = values.ListValue([])
 
     # Sentry
-    SENTRY_DSN = values.Value(None, environ_name="SENTRY_DSN")
+    SENTRY_DSN = values.Value(None, environ_name="SENTRY_DSN", environ_prefix=None)
 
     # Celery
     CELERY_BROKER_URL = values.Value("redis://redis:6379/0")
@@ -530,8 +531,11 @@ class Base(Configuration):
                 release=get_release(),
                 integrations=[DjangoIntegration()],
             )
-            with sentry_sdk.configure_scope() as scope:
-                scope.set_extra("application", "backend")
+            scope = sentry_sdk.get_current_scope()
+            scope.set_extra("application", "backend")
+
+            # Ignore the logs added by the DockerflowMiddleware
+            ignore_logger("request.summary")
 
 
 class Build(Base):
@@ -609,6 +613,9 @@ class Production(Base):
     """
 
     # Security
+    # Add allowed host from environment variables.
+    # The machine hostname is added by default,
+    # it makes the application pingable by a load balancer on the same machine by example
     ALLOWED_HOSTS = [
         *values.ListValue([], environ_name="ALLOWED_HOSTS"),
         gethostbyname(gethostname()),
@@ -628,6 +635,14 @@ class Production(Base):
     # In other cases, you should comment the following line to avoid security issues.
     # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 60
+    SECURE_HSTS_PRELOAD = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = [
+        "^__lbheartbeat__",
+        "^__heartbeat__",
+    ]
 
     # Modern browsers require to have the `secure` attribute on cookies with `Samesite=none`
     CSRF_COOKIE_SECURE = True
@@ -642,6 +657,11 @@ class Production(Base):
             "LOCATION": values.Value(
                 "redis://redis:6379/1",
                 environ_name="REDIS_URL",
+                environ_prefix=None,
+            ),
+            "TIMEOUT": values.IntegerValue(
+                30,  # timeout in seconds
+                environ_name="CACHES_DEFAULT_TIMEOUT",
                 environ_prefix=None,
             ),
             "OPTIONS": {
