@@ -38,7 +38,7 @@ def test_api_documents_delete_wrong_service_name(settings):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == 'Invalid request.'
+    assert response.json()["detail"] == "Invalid request."
 
 
 @responses.activate
@@ -61,6 +61,7 @@ def test_api_documents_delete_success(settings):
 
     assert response.status_code == 200
     assert response.json()["nb-deleted-documents"] == 2
+    assert response.json()["undeleted-document-ids"] == []
 
     opensearch_client_ = opensearch_client()
     for document in documents:
@@ -92,6 +93,7 @@ def test_api_documents_delete_no_access(settings):
 
     assert response.status_code == 200
     assert response.json()["nb-deleted-documents"] == 0
+    assert set(response.json()["undeleted-document-ids"]) == set(document_ids)
 
     # Verify documents not deleted
     opensearch_client_ = opensearch_client()
@@ -107,31 +109,43 @@ def test_api_documents_delete_mixed_access(settings):
 
     service = factories.ServiceFactory()
     # Create documents with different access
-    owned_docs = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
-    other_docs = factories.DocumentSchemaFactory.build_batch(2, users=["other_user"])
-    prepare_index(service.index_name, owned_docs + other_docs)
+    owned_documents = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
+    other_documents = factories.DocumentSchemaFactory.build_batch(
+        2, users=["other_user"]
+    )
+    prepare_index(service.index_name, owned_documents + other_documents)
 
-    document_ids = [doc["id"] for doc in owned_docs + other_docs]
+    owned_document_ids = [doc["id"] for doc in owned_documents]
+    other_document_ids = [doc["id"] for doc in other_documents]
+    non_existing_document_ids = ["non-existent-1", "non-existent-2"]
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": document_ids},
+        {
+            "service": service.name,
+            "document_ids": owned_document_ids
+            + other_document_ids
+            + non_existing_document_ids,
+        },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 200
     assert response.json()["nb-deleted-documents"] == 2
+    assert set(response.json()["undeleted-document-ids"]) == set(
+        other_document_ids + non_existing_document_ids
+    )
 
     # Verify only owned documents are deleted
     opensearch_client_ = opensearch_client()
-    for doc_id in [d["id"] for d in owned_docs]:
+    for document_id in owned_document_ids:
         with pytest.raises(opensearchpy.exceptions.NotFoundError):
-            opensearch_client_.get(index=service.index_name, id=doc_id)
+            opensearch_client_.get(index=service.index_name, id=document_id)
 
-    for doc_id in [d["id"] for d in other_docs]:
-        doc = opensearch_client_.get(index=service.index_name, id=doc_id)
-        assert doc["found"]
+    for document_id in other_document_ids:
+        document = opensearch_client_.get(index=service.index_name, id=document_id)
+        assert document["found"]
 
 
 @responses.activate
@@ -175,7 +189,10 @@ def test_api_documents_delete_invalid_params(settings):
 
 @responses.activate
 def test_api_documents_delete_nonexistent_documents(settings):
-    """Deleting non-existent documents should not raise an error and do nothing."""
+    """
+    Deleting non-existent documents should not raise an error
+    and return the list of undeleted ids.
+    """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
     # Create index but with no documents
@@ -190,3 +207,4 @@ def test_api_documents_delete_nonexistent_documents(settings):
 
     assert response.status_code == 200
     assert response.json()["nb-deleted-documents"] == 0
+    assert response.json()["undeleted-document-ids"] == ["non-existent-id"]

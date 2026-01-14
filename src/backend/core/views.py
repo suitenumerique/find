@@ -209,7 +209,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns the number of documents deleted.
+            - 200 OK: Returns the number of documents deleted and list of undeleted document IDs.
             - 400 Bad Request: If parameters are invalid or missing.
         """
         params = schemas.DeleteDocumentsSchema(**request.data)
@@ -220,16 +220,15 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             logger.error(e)
             return Response(
-                {
-                    "detail": "Invalid request."
-                },
+                {"detail": "Invalid request."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         logger.info(
             "Deleting %d documents from index %s", len(params.document_ids), index_name
         )
-        response = opensearch_client().delete_by_query(
+
+        deletable_matches = opensearch_client().search(
             index=index_name,
             body={
                 "query": {
@@ -242,9 +241,26 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 }
             },
         )
+        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
+
+        if deletable_ids:
+            response = opensearch_client().delete_by_query(
+                index=index_name,
+                body={"query": {"ids": {"values": deletable_ids}}},
+            )
+            nb_deleted = response.get("deleted", 0)
+        else:
+            nb_deleted = 0
 
         return Response(
-            {"nb-deleted-documents": response.get("deleted", 0)},
+            {
+                "nb-deleted-documents": nb_deleted,
+                "undeleted-document-ids": [
+                    document_id
+                    for document_id in params.document_ids
+                    if document_id not in deletable_ids
+                ],
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -314,9 +330,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         except SuspiciousOperation as e:
             logger.error(e, exc_info=True)
             return Response(
-                {
-                    "detail": "Invalid request."
-                },
+                {"detail": "Invalid request."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
