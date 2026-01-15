@@ -117,3 +117,10 @@ class SearchQueryParametersSchema(BaseModel):
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
+
+
+class DeleteDocumentsSchema(BaseModel):
+    """Schema for validating the delete documents request"""
+
+    service: str = Field(max_length=300)
+    document_ids: List[str] = Field(min_length=1)

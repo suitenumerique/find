@@ -182,6 +182,89 @@ class IndexDocumentView(views.APIView):
         return Response(results, status=status.HTTP_201_CREATED)
 
 
+class DeleteDocumentsView(ResourceServerMixin, views.APIView):
+    """
+    API view for deleting documents from OpenSearch.
+        - Allows authenticated users to delete documents from a specified index.
+        - Users can only delete documents where they are listed in the 'users' field.
+        - Returns the count of deleted documents without revealing document existence.
+    """
+
+    authentication_classes = [ResourceServerAuthentication]
+    permission_classes = [IsAuthAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST requests to delete documents from the specified index.
+
+        Only documents where the authenticated user is in the 'users' field will be deleted.
+
+        Body Parameters:
+        ---------------
+        service: str
+            service name to determine the index from which to delete documents.
+        document_ids : List[str]
+            A list of document IDs to delete from the index.
+
+        Returns:
+        --------
+        Response : rest_framework.response.Response
+            - 200 OK: Returns the number of documents deleted and list of undeleted document IDs.
+            - 400 Bad Request: If parameters are invalid or missing.
+        """
+        params = schemas.DeleteDocumentsSchema(**request.data)
+        try:
+            index_name = get_opensearch_indices(
+                self._get_service_provider_audience(), services=[params.service]
+            )[0]
+        except SuspiciousOperation as e:
+            logger.error(e)
+            return Response(
+                {"detail": "Invalid request."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        logger.info(
+            "Deleting %d documents from index %s", len(params.document_ids), index_name
+        )
+
+        deletable_matches = opensearch_client().search(
+            index=index_name,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"ids": {"values": params.document_ids}},
+                            {"term": {"users": self.request.user.sub}},
+                        ]
+                    }
+                }
+            },
+        )
+        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
+
+        if deletable_ids:
+            response = opensearch_client().delete_by_query(
+                index=index_name,
+                body={"query": {"ids": {"values": deletable_ids}}},
+            )
+            nb_deleted = response.get("deleted", 0)
+        else:
+            nb_deleted = 0
+
+        return Response(
+            {
+                "nb-deleted-documents": nb_deleted,
+                "undeleted-document-ids": [
+                    document_id
+                    for document_id in params.document_ids
+                    if document_id not in deletable_ids
+                ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class SearchDocumentView(ResourceServerMixin, views.APIView):
     """
     API view for searching documents in OpenSearch.
@@ -192,27 +275,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
     authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
-
-    @staticmethod
-    def _get_opensearch_indices(audience, services):
-        # Get request user service
-        try:
-            user_service = Service.objects.get(client_id=audience, is_active=True)
-        except Service.DoesNotExist as e:
-            logger.warning("Login failed: No service %s found", audience)
-            raise SuspiciousOperation("Service is not available") from e
-
-        # Find allowed sub-services for this service
-        allowed_services = set(user_service.services.values_list("name", flat=True))
-        allowed_services.add(user_service.name)
-
-        if services:
-            available = set(services).intersection(allowed_services)
-
-            if len(available) < len(services):
-                raise SuspiciousOperation("Some requested services are not available")
-
-        return [get_opensearch_index_name(name) for name in allowed_services]
 
     def post(self, request, *args, **kwargs):
         """
@@ -264,11 +326,13 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         # Get index list for search query
         try:
-            search_indices = self._get_opensearch_indices(
-                audience, services=params.services
-            )
+            search_indices = get_opensearch_indices(audience, services=params.services)
         except SuspiciousOperation as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(e, exc_info=True)
+            return Response(
+                {"detail": "Invalid request."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         logger.info("Search '%s' on indices %s", params.q, search_indices)
         result = search(
@@ -287,3 +351,26 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         logger.debug("results %s", result)
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+def get_opensearch_indices(audience, services):
+    """
+    Get OpenSearch indices for the given audience and services.
+    """
+    try:
+        user_service = Service.objects.get(client_id=audience, is_active=True)
+    except Service.DoesNotExist as e:
+        logger.warning("Login failed: No service %s found", audience)
+        raise SuspiciousOperation("Service is not available") from e
+
+    # Find allowed sub-services for this service
+    allowed_services = set(user_service.services.values_list("name", flat=True))
+    allowed_services.add(user_service.name)
+
+    if services:
+        available_service = set(services).intersection(allowed_services)
+
+        if len(available_service) < len(services):
+            raise SuspiciousOperation("Some requested services are not available")
+
+    return [get_opensearch_index_name(service) for service in allowed_services]
