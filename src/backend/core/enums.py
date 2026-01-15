@@ -23,6 +23,7 @@ REACH = "reach"
 SIZE = "size"
 TAGS = "tags"
 TITLE = "title"
+CONTENT = "content"
 UPDATED_AT = "updated_at"
 USERS = "users"
 GROUPS = "groups"
@@ -32,6 +33,7 @@ RELEVANCE = "relevance"
 ORDER_BY_OPTIONS = (RELEVANCE, TITLE, CREATED_AT, UPDATED_AT, SIZE, REACH)
 SOURCE_FIELDS = (
     TITLE,
+    CONTENT,
     SIZE,
     DEPTH,
     PATH,
