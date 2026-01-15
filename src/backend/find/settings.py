@@ -319,6 +319,29 @@ class Base(Configuration):
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
 
+    # Reranking
+    RERANKER_ENABLED = values.BooleanValue(
+        default=True, environ_name="RERANKER_ENABLED", environ_prefix=None
+    )
+    RERANKER_MODEL_NAME = values.Value(
+        default="Qwen/Qwen3-Embedding-0.6B",
+        environ_name="RERANKER_MODEL_NAME",
+        environ_prefix=None,
+    )
+    RERANKER_MODEL_TYPE = values.Value(
+        default="cross-encoders",
+        environ_name="RERANKER_MODEL_TYPE",
+        environ_prefix=None,
+    )
+    RERANKER_TOP_K = values.IntegerValue(
+        default=None, environ_name="RERANKER_TOP_K", environ_prefix=None
+    )
+    RERANKER_CACHE_DIR = values.Value(
+        default="/app/.flashrank_cache",
+        environ_name="RERANKER_CACHE_DIR",
+        environ_prefix=None,
+    )
+
     # CORS
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)
