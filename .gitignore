@@ -84,3 +84,6 @@ db.sqlite3
 
 #pdb
 *.pdbhistory
+
+#cache
+.cache/
