@@ -29,6 +29,10 @@ and this project adheres to
 - ✨(backend) adapt to conversation RAG
 - ✨(backend) add deletion endpoint 
 
+## Changed
+
+- 🏗️(backend) switch Python dependency management to uv
+
 ## Fixed
 
 - 🐛(backend) fix missing index creation in 'index/' view

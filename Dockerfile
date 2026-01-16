@@ -3,9 +3,6 @@
 # ---- base image to inherit from ----
 FROM python:3.12-slim-bookworm AS base
 
-# Upgrade pip to its latest release to speed up dependencies installation
-RUN python -m pip install --upgrade pip
-
 # Upgrade system packages to install security updates
 RUN apt-get update && \
   apt-get -y upgrade && \
@@ -14,13 +11,28 @@ RUN apt-get update && \
 # ---- Back-end builder image ----
 FROM base AS back-builder
 
-WORKDIR /builder
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 
-# Copy required python dependencies
-COPY ./src/backend /builder
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image;
+ENV UV_PYTHON_DOWNLOADS=0
 
-RUN mkdir /install && \
-  pip install --prefix=/install .
+# install uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /uvx /bin/
+
+WORKDIR /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=src/backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=src/backend/pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-dev
+
+COPY ./src/backend /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
 
 # ---- static link collector ----
 FROM base AS link-collector
@@ -33,11 +45,10 @@ RUN apt-get update && \
       rdfind && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy installed python dependencies
-COPY --from=back-builder /install /usr/local
+# Copy the application from the builder
+COPY --from=back-builder /app /app
 
-# Copy find application (see .dockerignore)
-COPY ./src/backend /app/
+ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -76,13 +87,12 @@ COPY ./docker/files/usr/local/bin/entrypoint /usr/local/bin/entrypoint
 # docker user (see entrypoint).
 RUN chmod g=u /etc/passwd
 
-# Copy installed python dependencies
-COPY --from=back-builder /install /usr/local
-
-# Copy find application (see .dockerignore)
-COPY ./src/backend /app/
+# Copy the prepared application (see .dockerignore)
+COPY --from=back-builder /app /app
 
 WORKDIR /app
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # We wrap commands run in this container by the following entrypoint that
 # creates a user on-the-fly with the container user ID (see USER) and root group
@@ -100,10 +110,9 @@ RUN apt-get update && \
     apt-get install -y postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
-# Uninstall find and re-install it in editable mode along with development
-# dependencies
-RUN pip uninstall -y find
-RUN pip install -e .[dev]
+# Install development dependencies
+RUN --mount=from=ghcr.io/astral-sh/uv:0.9.10,source=/uv,target=/bin/uv \
+    uv sync --locked --all-extras
 
 # Restore the un-privileged user running the application
 ARG DOCKER_USER
