@@ -108,6 +108,11 @@ jobs:
           OPENSEARCH_INITIAL_ADMIN_PASSWORD: find.PASS123
         ports:
           - 9200:9200
+        options: >-
+          --health-cmd "curl -s http://localhost:9200 > /dev/null || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     env:
       DJANGO_CONFIGURATION: Test
@@ -139,6 +144,20 @@ jobs:
           python-version-file: "src/backend/pyproject.toml"
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+
+      - name: Wait for OpenSearch to be ready
+        run: |
+          for i in {1..60}; do
+            if curl -s http://localhost:9200 > /dev/null; then
+              echo "OpenSearch is ready"
+              exit 0
+            fi
+            echo "Waiting for OpenSearch... attempt $i"
+            sleep 1
+          done
+          echo "OpenSearch failed to start"
+          exit 1
+
       - name: Install the dependencies
         run: uv sync --locked --all-extras
 
