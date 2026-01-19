@@ -123,4 +123,14 @@ class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 
     service: str = Field(max_length=300)
-    document_ids: List[str] = Field(min_length=1)
+    document_ids: Optional[List[str]] = Field(default=None)
+    tags: Optional[List[str]] = Field(default=None)
+
+    @model_validator(mode="after")
+    def check_at_least_one_filter(self):
+        """Ensure at least one of document_ids or tags is provided"""
+        if not self.document_ids and not self.tags:
+            raise ValueError(
+                "At least one of 'document_ids' or 'tags' must be provided"
+            )
+        return self

@@ -32,6 +32,7 @@ and this project adheres to
 ## Changed
 
 - 🏗️(backend) switch Python dependency management to uv
+- ✨(backend) allow deletion by tags
 
 ## Fixed
 

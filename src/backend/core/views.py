@@ -203,13 +203,21 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         ---------------
         service: str
             service name to determine the index from which to delete documents.
-        document_ids : List[str]
+        document_ids : List[str], optional
             A list of document IDs to delete from the index.
+        tags : List[str], optional
+            A list of tags to filter documents for deletion.
+
+        At least one of document_ids or tags must be provided.
 
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns the number of documents deleted and list of undeleted document IDs.
+            - 200 OK: return
+                - nb-deleted-documents: Number of documents deleted.
+                - undeleted-document-ids: sublist of param.document_ids that were not deleted.
+                Deletion may be prevented because the document does not exist,
+                because the user is not authorized to delete it or because a tag filter was used.
             - 400 Bad Request: If parameters are invalid or missing.
         """
         params = schemas.DeleteDocumentsSchema(**request.data)
@@ -224,22 +232,22 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        query_filters = [{"term": {"users": self.request.user.sub}}]
+        if params.document_ids:
+            query_filters.append({"ids": {"values": params.document_ids}})
+        if params.tags:
+            query_filters.append({"terms": {"tags": params.tags}})
+
         logger.info(
-            "Deleting %d documents from index %s", len(params.document_ids), index_name
+            "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
+            index_name,
+            params.document_ids,
+            params.tags,
         )
 
         deletable_matches = opensearch_client().search(
             index=index_name,
-            body={
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"ids": {"values": params.document_ids}},
-                            {"term": {"users": self.request.user.sub}},
-                        ]
-                    }
-                }
-            },
+            body={"query": {"bool": {"must": query_filters}}},
         )
         deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
@@ -252,14 +260,18 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         else:
             nb_deleted = 0
 
+        undeleted_ids = []
+        if params.document_ids is not None:
+            undeleted_ids = [
+                document_id
+                for document_id in params.document_ids  # pylint: disable=not-an-iterable
+                if document_id not in deletable_ids
+            ]
+
         return Response(
             {
                 "nb-deleted-documents": nb_deleted,
-                "undeleted-document-ids": [
-                    document_id
-                    for document_id in params.document_ids
-                    if document_id not in deletable_ids
-                ],
+                "undeleted-document-ids": undeleted_ids,
             },
             status=status.HTTP_200_OK,
         )
