@@ -233,7 +233,7 @@ def test_api_documents_delete_nonexistent_documents(settings):
 
 
 @responses.activate
-def test_api_documents_delete_by_tags(settings):
+def test_api_documents_delete_by_single_tag(settings):
     """Users should be able to delete documents by tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()

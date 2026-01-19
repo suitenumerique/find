@@ -232,12 +232,6 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        query_filters = [{"term": {"users": self.request.user.sub}}]
-        if params.document_ids:
-            query_filters.append({"ids": {"values": params.document_ids}})
-        if params.tags:
-            query_filters.append({"terms": {"tags": params.tags}})
-
         logger.info(
             "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
             index_name,
@@ -247,7 +241,13 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
 
         deletable_matches = opensearch_client().search(
             index=index_name,
-            body={"query": {"bool": {"must": query_filters}}},
+            body={
+                "query": self._build_query(
+                    self.request.user.sub,
+                    document_ids=params.document_ids,
+                    tags=params.tags,
+                )
+            },
         )
         deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
@@ -260,21 +260,36 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         else:
             nb_deleted = 0
 
-        undeleted_ids = []
-        if params.document_ids is not None:
-            undeleted_ids = [
-                document_id
-                for document_id in params.document_ids  # pylint: disable=not-an-iterable
-                if document_id not in deletable_ids
-            ]
-
         return Response(
             {
                 "nb-deleted-documents": nb_deleted,
-                "undeleted-document-ids": undeleted_ids,
+                "undeleted-document-ids": [
+                    document_id
+                    for document_id in params.document_ids or []  # pylint: disable=not-an-iterable
+                    if document_id not in deletable_ids
+                ],
             },
             status=status.HTTP_200_OK,
         )
+
+    def _build_query(self, user_sub, document_ids=None, tags=None):
+        """
+        Build OpenSearch query for document deletion.
+
+        Args:
+            user_sub: User subject identifier for authorization.
+            document_ids: Optional list of document IDs to filter.
+            tags: Optional list of tags to filter.
+
+        Returns:
+            Deletion OpenSearch query.
+        """
+        filters = [{"term": {"users": user_sub}}]
+        if document_ids:
+            filters.append({"ids": {"values": document_ids}})
+        if tags:
+            filters.append({"terms": {"tags": tags}})
+        return {"bool": {"must": filters}}
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):
