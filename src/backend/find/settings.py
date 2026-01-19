@@ -321,24 +321,16 @@ class Base(Configuration):
 
     # Reranking
     RERANKER_ENABLED = values.BooleanValue(
-        default=True, environ_name="RERANKER_ENABLED", environ_prefix=None
+        default=False, environ_name="RERANKER_ENABLED", environ_prefix=None
     )
     RERANKER_MODEL_NAME = values.Value(
-        default="Qwen/Qwen3-Embedding-0.6B",
+        default="jhu-clsp/rank1-mistral-2501-24b",
         environ_name="RERANKER_MODEL_NAME",
         environ_prefix=None,
     )
     RERANKER_MODEL_TYPE = values.Value(
-        default="cross-encoders",
+        default="cross-encoder",
         environ_name="RERANKER_MODEL_TYPE",
-        environ_prefix=None,
-    )
-    RERANKER_TOP_K = values.IntegerValue(
-        default=None, environ_name="RERANKER_TOP_K", environ_prefix=None
-    )
-    RERANKER_CACHE_DIR = values.Value(
-        default="/app/.flashrank_cache",
-        environ_name="RERANKER_CACHE_DIR",
         environ_prefix=None,
     )
 
