@@ -203,13 +203,22 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         ---------------
         service: str
             service name to determine the index from which to delete documents.
-        document_ids : List[str]
+        document_ids : List[str], optional
             A list of document IDs to delete from the index.
+        tags : List[str], optional
+            A list of tags to filter documents for deletion.
+
+        At least one of document_ids or tags must be provided.
+        The list of ids and the list of tags are combined with AND logic.
 
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns the number of documents deleted and list of undeleted document IDs.
+            - 200 OK: returns a JSON object with the following keys:
+                - nb-deleted-documents: Number of documents deleted.
+                - undeleted-document-ids: sublist of param.document_ids that were not deleted.
+                Deletion may be prevented because the document does not exist,
+                because the user is not authorized to delete it or because a tag filter was used.
             - 400 Bad Request: If parameters are invalid or missing.
         """
         params = schemas.DeleteDocumentsSchema(**request.data)
@@ -225,26 +234,27 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             )
 
         logger.info(
-            "Deleting %d documents from index %s", len(params.document_ids), index_name
+            "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
+            index_name,
+            params.document_ids,
+            params.tags,
         )
 
-        deletable_matches = opensearch_client().search(
+        client = opensearch_client()
+        deletable_matches = client.search(
             index=index_name,
             body={
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"ids": {"values": params.document_ids}},
-                            {"term": {"users": self.request.user.sub}},
-                        ]
-                    }
-                }
+                "query": self._build_query(
+                    self.request.user.sub,
+                    document_ids=params.document_ids,
+                    tags=params.tags,
+                )
             },
         )
         deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
         if deletable_ids:
-            response = opensearch_client().delete_by_query(
+            response = client.delete_by_query(
                 index=index_name,
                 body={"query": {"ids": {"values": deletable_ids}}},
             )
@@ -257,12 +267,31 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 "nb-deleted-documents": nb_deleted,
                 "undeleted-document-ids": [
                     document_id
-                    for document_id in params.document_ids
+                    for document_id in params.document_ids or []
                     if document_id not in deletable_ids
                 ],
             },
             status=status.HTTP_200_OK,
         )
+
+    def _build_query(self, user_sub, document_ids=None, tags=None):
+        """
+        Build OpenSearch query for document deletion.
+
+        Args:
+            user_sub: User subject identifier for authorization.
+            document_ids: Optional list of document IDs to filter.
+            tags: Optional list of tags to filter.
+
+        Returns:
+            Deletion OpenSearch query.
+        """
+        filters = [{"term": {"users": user_sub}}]
+        if document_ids:
+            filters.append({"ids": {"values": document_ids}})
+        if tags:
+            filters.append({"terms": {"tags": tags}})
+        return {"bool": {"must": filters}}
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):

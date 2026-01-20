@@ -154,7 +154,7 @@ def test_api_documents_delete_invalid_params(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
 
-    # Missing document_ids
+    # Missing both document_ids and tags
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {
@@ -165,8 +165,12 @@ def test_api_documents_delete_invalid_params(settings):
     )
 
     assert response.status_code == 400
+    assert (
+        response.json()[0]["msg"]
+        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
+    )
 
-    # Empty document_ids
+    # Empty document_ids and no tags
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": []},
@@ -175,6 +179,24 @@ def test_api_documents_delete_invalid_params(settings):
     )
 
     assert response.status_code == 400
+    assert (
+        response.json()[0]["msg"]
+        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
+    )
+
+    # Both empty
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "document_ids": [], "tags": []},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()[0]["msg"]
+        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
+    )
 
     # Missing service
     response = APIClient().post(
@@ -208,3 +230,155 @@ def test_api_documents_delete_nonexistent_documents(settings):
     assert response.status_code == 200
     assert response.json()["nb-deleted-documents"] == 0
     assert response.json()["undeleted-document-ids"] == ["non-existent-id"]
+
+
+@responses.activate
+def test_api_documents_delete_by_single_tag(settings):
+    """Users should be able to delete documents by tags."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    document_to_deletes = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["delete-tag", "keep-tag-1"]
+        ),
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["delete-tag", "keep-tag-2"]
+        ),
+    ]
+    document_to_keep = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["keep-tag-1", "keep-tag-2"]
+        ),
+        factories.DocumentSchemaFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
+        factories.DocumentSchemaFactory.build(
+            users=["other_user_sub"], tags=["delete-tag"]
+        ),
+    ]
+    prepare_index(service.index_name, document_to_deletes + document_to_keep)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "tags": ["delete-tag"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["nb-deleted-documents"] == 2
+    assert response.json()["undeleted-document-ids"] == []
+
+    opensearch_client_ = opensearch_client()
+    for document in document_to_deletes:
+        with pytest.raises(opensearchpy.exceptions.NotFoundError):
+            opensearch_client_.get(index=service.index_name, id=document["id"])
+
+    for document in document_to_keep:
+        doc = opensearch_client_.get(index=service.index_name, id=document["id"])
+        assert doc["found"]
+
+
+@responses.activate
+def test_api_documents_delete_by_multiple_tags(settings):
+    """Users should be able to delete documents matching any of multiple tags."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    document_to_deletes = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["delete-tag-1", "keep-tag-1"]
+        ),
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["delete-tag-1", "delete-tag-2"]
+        ),
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["delete-tag-2"]
+        ),
+    ]
+    document_to_keep = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"], tags=["keep-tag-1", "keep-tag-2"]
+        ),
+        factories.DocumentSchemaFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
+        factories.DocumentSchemaFactory.build(
+            users=["other_user_sub"], tags=["delete-tag-1"]
+        ),
+    ]
+    prepare_index(service.index_name, document_to_deletes + document_to_keep)
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "tags": ["delete-tag-1", "delete-tag-2"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["nb-deleted-documents"] == 3
+    assert response.json()["undeleted-document-ids"] == []
+
+    opensearch_client_ = opensearch_client()
+    for document in document_to_deletes:
+        with pytest.raises(opensearchpy.exceptions.NotFoundError):
+            opensearch_client_.get(index=service.index_name, id=document["id"])
+
+    for document in document_to_keep:
+        doc = opensearch_client_.get(index=service.index_name, id=document["id"])
+        assert doc["found"]
+
+
+@responses.activate
+def test_api_documents_delete_by_ids_and_tags(settings):
+    """Users should be able to delete documents by both IDs and tags (AND logic)."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    document_delete_by_tag_and_id = factories.DocumentSchemaFactory.build(
+        users=["user_sub"], tags=["delete-tag"]
+    )
+    document_delete_by_tag_keep_by_id = factories.DocumentSchemaFactory.build(
+        users=["user_sub"], tags=["delete-tag"]
+    )
+    document_keep_by_tag_delete_by_id = factories.DocumentSchemaFactory.build(
+        users=["user_sub"]
+    )
+
+    prepare_index(
+        service.index_name,
+        [
+            document_delete_by_tag_and_id,
+            document_delete_by_tag_keep_by_id,
+            document_keep_by_tag_delete_by_id,
+        ],
+    )
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {
+            "service": service.name,
+            "document_ids": [
+                document_delete_by_tag_and_id["id"],
+                document_keep_by_tag_delete_by_id["id"],
+            ],
+            "tags": ["delete-tag"],
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["nb-deleted-documents"] == 1
+    assert response.json()["undeleted-document-ids"] == [
+        document_keep_by_tag_delete_by_id["id"]
+    ]
+
+    opensearch_client_ = opensearch_client()
+    with pytest.raises(opensearchpy.exceptions.NotFoundError):
+        opensearch_client_.get(
+            index=service.index_name, id=document_delete_by_tag_and_id["id"]
+        )
+
+    doc = opensearch_client_.get(
+        index=service.index_name, id=document_delete_by_tag_keep_by_id["id"]
+    )
+    assert doc["found"]
