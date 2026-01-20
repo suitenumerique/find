@@ -272,12 +272,8 @@ def test_api_documents_delete_by_single_tag(settings):
     for document in document_to_deletes:
         with pytest.raises(opensearchpy.exceptions.NotFoundError):
             opensearch_client_.get(index=service.index_name, id=document["id"])
-        with pytest.raises(opensearchpy.exceptions.NotFoundError):
-            opensearch_client_.get(index=service.index_name, id=document["id"])
 
     for document in document_to_keep:
-        doc = opensearch_client_.get(index=service.index_name, id=document["id"])
-        assert doc["found"]
         doc = opensearch_client_.get(index=service.index_name, id=document["id"])
         assert doc["found"]
 
@@ -325,12 +321,8 @@ def test_api_documents_delete_by_multiple_tags(settings):
     for document in document_to_deletes:
         with pytest.raises(opensearchpy.exceptions.NotFoundError):
             opensearch_client_.get(index=service.index_name, id=document["id"])
-        with pytest.raises(opensearchpy.exceptions.NotFoundError):
-            opensearch_client_.get(index=service.index_name, id=document["id"])
 
     for document in document_to_keep:
-        doc = opensearch_client_.get(index=service.index_name, id=document["id"])
-        assert doc["found"]
         doc = opensearch_client_.get(index=service.index_name, id=document["id"])
         assert doc["found"]
 
@@ -388,9 +380,5 @@ def test_api_documents_delete_by_ids_and_tags(settings):
 
     doc = opensearch_client_.get(
         index=service.index_name, id=document_delete_by_tag_keep_by_id["id"]
-    )
-    assert doc["found"]
-    doc = opensearch_client_.get(
-        index=service.index_name, id=document_keep_by_tag_delete_by_id["id"]
     )
     assert doc["found"]

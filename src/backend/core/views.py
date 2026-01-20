@@ -209,11 +209,12 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             A list of tags to filter documents for deletion.
 
         At least one of document_ids or tags must be provided.
+        The list of ids and the list of tags are combined with AND logic.
 
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: return
+            - 200 OK: returns a JSON object with the following keys:
                 - nb-deleted-documents: Number of documents deleted.
                 - undeleted-document-ids: sublist of param.document_ids that were not deleted.
                 Deletion may be prevented because the document does not exist,
@@ -239,7 +240,8 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             params.tags,
         )
 
-        deletable_matches = opensearch_client().search(
+        client = opensearch_client()
+        deletable_matches = client.search(
             index=index_name,
             body={
                 "query": self._build_query(
@@ -252,7 +254,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
         if deletable_ids:
-            response = opensearch_client().delete_by_query(
+            response = client.delete_by_query(
                 index=index_name,
                 body={"query": {"ids": {"values": deletable_ids}}},
             )
@@ -265,7 +267,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 "nb-deleted-documents": nb_deleted,
                 "undeleted-document-ids": [
                     document_id
-                    for document_id in params.document_ids or []  # pylint: disable=not-an-iterable
+                    for document_id in params.document_ids or []
                     if document_id not in deletable_ids
                 ],
             },
