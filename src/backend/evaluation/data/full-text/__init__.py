@@ -1,1 +1,0 @@
-"""evaluation dataset for full-text capabilities. evaluation should be good with embeddings disabled"""

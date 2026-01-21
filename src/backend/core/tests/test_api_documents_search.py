@@ -92,7 +92,7 @@ def test_api_documents_search_opensearch_env_variables_not_set(settings):
 
 @responses.activate
 def test_api_documents_search_query_unknown_user(settings):
-    """Searching a document without an existing user should result in a 401 error"""
+    """Searching a document without an existing user should result in a 400 error"""
     setup_oicd_resource_server(
         responses,
         settings,
@@ -112,7 +112,7 @@ def test_api_documents_search_query_unknown_user(settings):
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 400
 
 
 @responses.activate

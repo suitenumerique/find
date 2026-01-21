@@ -2,10 +2,11 @@
 
 import logging
 from functools import cache
-from rerankers import Reranker, Document
 
 from django.conf import settings
-from rerankers.models.ranker import BaseRanker
+
+from rerankers import Reranker  # pylint: disable=import-error
+from rerankers.models.ranker import BaseRanker  # pylint: disable=import-error
 
 from core.services.indexing import format_document
 from core.utils import get_language_value
@@ -36,7 +37,7 @@ def rerank(query: str, hits: list[dict]) -> list[dict]:
     try:
         return _rerank(reranker, query, hits)
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001# pylint: disable=broad-exception-caught
         logger.error("Reranking failed: %s, returning original results", str(e))
         return hits
 
@@ -46,8 +47,10 @@ def get_reranker():
     """Get the reranker instance."""
     try:
         logger.info("Initializing reranker model: %s", settings.RERANKER_MODEL_NAME)
-        reranker = Reranker(settings.RERANKER_MODEL_NAME, model_type=settings.RERANKER_MODEL_TYPE)
-    except Exception as e:  # noqa: BLE001
+        reranker = Reranker(
+            settings.RERANKER_MODEL_NAME, model_type=settings.RERANKER_MODEL_TYPE
+        )
+    except Exception as e:  # noqa: BLE001# pylint: disable=broad-exception-caught
         logger.error("Failed to initialize reranker: %s", str(e))
         return None
 

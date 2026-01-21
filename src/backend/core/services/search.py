@@ -64,7 +64,7 @@ def search(  # noqa : PLR0913
             query=q,
             hits=response["hits"]["hits"],
         )
-    
+
     return response
 
 
