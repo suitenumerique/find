@@ -463,3 +463,37 @@ def test_search_no_tags_filter_returns_all():
     result = search(q="*", **search_params(service))
 
     assert result["hits"]["total"]["value"] == 2
+
+
+def test_search_filtering_by_path():
+    """Test filtering documents by path prefix"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    documents = bulk_create_documents(
+        [
+            {
+                "title": "Document with tags",
+                "content": "Tagged document",
+                "path": "/path/to/doc1",
+            },
+            {
+                "title": "Document without tags",
+                "content": "Untagged document",
+                "path": "/path/to/doc2",
+            },
+            {
+                "title": "Document without tags",
+                "content": "Untagged document",
+                "path": "other/path/to/doc3",
+            },
+        ]
+    )
+
+    prepare_index(service.index_name, documents)
+
+    path_filter = "/path/to/"
+    result = search(q="*", **{**search_params(service), "path": path_filter})
+
+    assert result["hits"]["total"]["value"] == 2
+    for hit in result["hits"]["hits"]:
+        assert hit["_source"]["path"].startswith(path_filter)
