@@ -69,7 +69,7 @@ def test_api_documents_search_auth_invalid_parameters(settings):
 def test_api_documents_search_opensearch_env_variables_not_set(settings):
     """
     Missing environment variables for OpenSearch client should
-    result in a 500 internal server error
+    result in a 400 error
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()
@@ -92,7 +92,7 @@ def test_api_documents_search_opensearch_env_variables_not_set(settings):
 
 @responses.activate
 def test_api_documents_search_query_unknown_user(settings):
-    """Searching a document without an existing user should result in a 401 error"""
+    """Searching a document without an existing user should result in a 400 error"""
     setup_oicd_resource_server(
         responses,
         settings,
