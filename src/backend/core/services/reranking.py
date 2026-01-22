@@ -25,13 +25,10 @@ def rerank(query: str, hits: list[dict]) -> list[dict]:
     Returns:
         List of reranked results in the same format as input
     """
-    if not settings.RERANKER_ENABLED:
-        logger.debug("Reranker disabled, returning original results")
-        return hits
 
     reranker = get_reranker()
     if reranker is None:
-        logger.warning("Reranker not available, returning original results")
+        logger.warning("Could not import reranker, returning original results")
         return hits
 
     try:
@@ -61,17 +58,21 @@ def get_reranker():
 def _rerank(reranker: BaseRanker, query: str, original_hits: list[dict]):
     """Rerank the original results using the provided reranker."""
     documents = []
+    doc_ids = []
     for hit in original_hits:
         title = get_language_value(hit["_source"], "title")
         content = get_language_value(hit["_source"], "content")
         documents.append(format_document(title, content))
+        doc_ids = doc_ids.append(hit["_id"])
 
     logger.info("Reranking %d results for query: %s", len(original_hits), query)
-    reranked = reranker.rank(query=query, docs=documents)
+    reranked = reranker.rank(query=query, docs=documents, doc_ids=doc_ids)
 
+    print("reranked---", reranked.results)
+    print("original_hits---", original_hits)
     reranked_results = []
     for reranked_result in reranked.results:
-        hit = original_hits[reranked_result.doc_id]
+        hit = [hit for hit in original_hits if hit["_id"] == reranked_result.doc_id][0]
         hit["_reranked_score"] = reranked_result.score
         reranked_results.append(hit)
 
