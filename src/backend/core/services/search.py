@@ -24,6 +24,7 @@ def search(  # noqa : PLR0913
     user_sub,
     groups,
     tags,
+    path=None,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -34,6 +35,7 @@ def search(  # noqa : PLR0913
         user_sub=user_sub,
         groups=groups,
         tags=tags,
+        path=path,
     )
     return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
@@ -49,7 +51,6 @@ def search(  # noqa : PLR0913
                 order_direction=order_direction,
             ),
             "size": nb_results,
-            # Compute query
             "query": query,
         },
         params=get_params(query_keys=query.keys()),
@@ -61,10 +62,10 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, nb_results, reach, visited, user_sub, groups, tags
+    q, nb_results, reach, visited, user_sub, groups, tags, path=None
 ):
     """Build OpenSearch query body based on parameters"""
-    filter_ = get_filter(reach, visited, user_sub, groups, tags)
+    filter_ = get_filter(reach, visited, user_sub, groups, tags, path)
 
     if q == "*":
         logger.info("Performing match_all query")
@@ -155,7 +156,10 @@ def get_full_text_query(q, filter_):
     }
 
 
-def get_filter(reach, visited, user_sub, groups, tags):
+# pylint: disable=too-many-arguments, too-many-positional-arguments
+def get_filter(  # noqa : PLR0913
+    reach, visited, user_sub, groups, tags, path=None
+):
     """Build OpenSearch filter"""
     filters = [
         {"term": {"is_active": True}},  # filter out inactive documents
@@ -191,6 +195,11 @@ def get_filter(reach, visited, user_sub, groups, tags):
     if tags:
         # logical or: if tags are provided the matching documents should have at least one of them
         filters.append({"terms": {"tags": tags}})
+
+    # Optional path filter
+    if path:
+        # filter documents that start with the provided path
+        filters.append({"prefix": {"path": path}})
 
     return filters
 

@@ -114,6 +114,7 @@ class SearchQueryParametersSchema(BaseModel):
     visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     tags: StringListParameter = Field(default_factory=list)
+    path: Optional[str] = None
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
