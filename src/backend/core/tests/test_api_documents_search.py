@@ -950,7 +950,6 @@ def test_api_documents_search_filtering_by_path(settings):
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 200
@@ -999,55 +998,3 @@ def test_api_documents_search_with_search_type_full_text(settings, caplog):
         "Performing full-text search without embedding: wolf" in message
         for message in caplog.messages
     )
-
-
-@responses.activate
-def test_api_documents_search_filtering_by_path(settings):
-    """Test filtering documents by path prefix via API"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-
-    documents = bulk_create_documents(
-        [
-            {
-                "title": "Document with tags",
-                "content": "Tagged document",
-                "path": "/path/to/doc1",
-            },
-            {
-                "title": "Document without tags",
-                "content": "Untagged document",
-                "path": "/path/to/doc2",
-            },
-            {
-                "title": "Document without tags",
-                "content": "Untagged document",
-                "path": "other/path/to/doc3",
-            },
-        ]
-    )
-
-    prepare_index(service.index_name, documents)
-
-    path_filter = "/path/to/"
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "path": path_filter,
-            "visited": [doc["id"] for doc in documents],
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 2
-    for hit in response.json():
-        assert hit["_source"]["path"].startswith(path_filter)

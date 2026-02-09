@@ -346,6 +346,13 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
             Built from linkreach list of a document in docs app.
+        search_type : str, optional
+            Type of search to perform: 'hybrid' or 'full_text'.
+            - 'hybrid': Uses hybrid search if enabled on the server,
+                otherwise falls back to full-text search.
+            - 'full_text': Uses only full-text search, even if hybrid search is enabled
+                on the server.
+            if the not specified, the server will use hybrid search when enabled
 
         Returns:
         --------
@@ -382,6 +389,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             groups=groups,
             tags=params.tags,
             path=params.path,
+            search_type=params.search_type,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
