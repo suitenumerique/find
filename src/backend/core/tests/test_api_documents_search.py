@@ -100,6 +100,8 @@ def test_api_documents_search_query_unknown_user(settings):
         introspect=lambda request, user_info: (404, {}, ""),
     )
 
+    token = build_authorization_bearer()
+
     service = factories.ServiceFactory()
     prepare_index(service.index_name, [])
 
@@ -107,7 +109,7 @@ def test_api_documents_search_query_unknown_user(settings):
         "/api/v1.0/documents/search/",
         {"q": "a quick fox"},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 400
@@ -177,6 +179,7 @@ def test_api_documents_search_reached_docs_invalid_parameters(settings):
 def test_api_documents_search_match_all(settings):
     """Searching a document with q='*' should match all docs"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -194,7 +197,7 @@ def test_api_documents_search_match_all(settings):
         "/api/v1.0/documents/search/",
         {"q": "*", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -281,6 +284,7 @@ def test_api_documents_full_text_search(settings):
     Searching a document by its content should work as expected.
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
 
     service = factories.ServiceFactory()
     documents = bulk_create_documents(
@@ -296,7 +300,7 @@ def test_api_documents_full_text_search(settings):
         "/api/v1.0/documents/search/",
         {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -354,6 +358,7 @@ def test_api_documents_full_text_search(settings):
 def test_api_documents_hybrid_search(settings):
     """Searching a document by its content should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     # hybrid search is enabled by default
     enable_hybrid_search(settings)
     responses.add(
@@ -377,7 +382,7 @@ def test_api_documents_hybrid_search(settings):
         "/api/v1.0/documents/search/",
         {"q": "a quick fox", "visited": [doc["id"] for doc in documents]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -464,6 +469,7 @@ def test_api_documents_hybrid_search(settings):
 def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -497,7 +503,7 @@ def test_api_documents_search_ordering_by_fields(settings):
                 "visited": [doc["id"] for doc in documents],
             },
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
@@ -514,6 +520,7 @@ def test_api_documents_search_ordering_by_fields(settings):
 def test_api_documents_search_ordering_by_relevance(settings):
     """It should be possible to order by relevance (score)"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -536,7 +543,7 @@ def test_api_documents_search_ordering_by_relevance(settings):
                 "visited": [doc["id"] for doc in documents],
             },
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
@@ -553,6 +560,7 @@ def test_api_documents_search_ordering_by_relevance(settings):
 def test_api_documents_search_ordering_by_unknown_field(settings):
     """Trying to sort by an unknown field should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -580,7 +588,7 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
                 "visited": [doc["id"] for doc in documents],
             },
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -600,6 +608,7 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
 def test_api_documents_search_ordering_by_unknown_direction(settings):
     """Trying to sort with an unknown direction should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -622,7 +631,7 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
                 "visited": [doc["id"] for doc in documents],
             },
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -639,6 +648,7 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
 def test_api_documents_search_filtering_by_reach(settings):
     """It should be possible to filter results by their reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -660,7 +670,7 @@ def test_api_documents_search_filtering_by_reach(settings):
                 "visited": [doc["id"] for doc in documents],
             },
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 200
@@ -674,6 +684,7 @@ def test_api_documents_search_filtering_by_reach(settings):
 def test_api_documents_search_with_nb_results(settings):
     """nb_size should correctly return results of given size"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -696,7 +707,7 @@ def test_api_documents_search_with_nb_results(settings):
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -712,7 +723,7 @@ def test_api_documents_search_with_nb_results(settings):
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
     data = response.json()
@@ -727,7 +738,7 @@ def test_api_documents_search_with_nb_results(settings):
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
     data = response.json()
@@ -739,6 +750,7 @@ def test_api_documents_search_with_nb_results(settings):
 def test_api_documents_search_nb_results_invalid_parameters(settings):
     """Invalid nb_results parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -767,7 +779,7 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
             "/api/v1.0/documents/search/",
             {"q": "*", "nb_results": nb_results},
             format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         assert response.status_code == 400
@@ -779,6 +791,7 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
 def test_api_documents_search_nb_results_with_filtering(settings):
     """nb_results should work correctly when combined with filtering by reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -803,7 +816,7 @@ def test_api_documents_search_nb_results_with_filtering(settings):
             "visited": public_ids,
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
     assert response.status_code == 200
     assert [r["_id"] for r in response.json()] == public_ids[0:nb_results]
@@ -813,6 +826,7 @@ def test_api_documents_search_nb_results_with_filtering(settings):
 def test_api_documents_search_filtering_by_tags(settings):
     """Test filtering documents by a single tag via API"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -851,7 +865,7 @@ def test_api_documents_search_filtering_by_tags(settings):
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
@@ -864,6 +878,7 @@ def test_api_documents_search_filtering_by_tags(settings):
 def test_api_documents_search_without_tags_filter(settings):
     """Test that search works normally when no tags filter is provided"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
+    token = build_authorization_bearer()
     responses.add(
         responses.POST,
         settings.EMBEDDING_API_PATH,
@@ -897,60 +912,8 @@ def test_api_documents_search_without_tags_filter(settings):
             "visited": [doc["id"] for doc in documents],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
     assert response.status_code == 200
     assert len(response.json()) == 2
-
-
-@responses.activate
-def test_api_documents_search_filtering_by_path(settings):
-    """Test filtering documents by path prefix via API"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-
-    documents = bulk_create_documents(
-        [
-            {
-                "title": "Document with tags",
-                "content": "Tagged document",
-                "path": "/path/to/doc1",
-            },
-            {
-                "title": "Document without tags",
-                "content": "Untagged document",
-                "path": "/path/to/doc2",
-            },
-            {
-                "title": "Document without tags",
-                "content": "Untagged document",
-                "path": "other/path/to/doc3",
-            },
-        ]
-    )
-
-    prepare_index(service.index_name, documents)
-
-    path_filter = "/path/to/"
-    response = APIClient().post(
-        "/api/v1.0/documents/search/",
-        {
-            "q": "*",
-            "path": path_filter,
-            "visited": [doc["id"] for doc in documents],
-        },
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 2
-    for hit in response.json():
-        assert hit["_source"]["path"].startswith(path_filter)

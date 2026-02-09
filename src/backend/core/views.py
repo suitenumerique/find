@@ -12,12 +12,9 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
+from .models import Service, get_opensearch_index_name
 from .permissions import IsAuthAuthenticated
-from .services.indexing import (
-    ensure_index_exists,
-    get_opensearch_indices,
-    prepare_document_for_indexing,
-)
+from .services.indexing import ensure_index_exists, prepare_document_for_indexing
 from .services.opensearch import opensearch_client
 from .services.search import search
 from .utils import get_language_value
@@ -328,9 +325,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         tags : List[str], optional
             Filter results based on the 'tags' field. Documents matching any of the
             provided tags will be returned.
-        path : str, optional
-            Filter results based on the 'path' field. Only documents whose path
-            starts with the provided value will be returned.
         order_by : str, optional
             Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
             Defaults to 'relevance' if not specified.
@@ -346,13 +340,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
             Built from linkreach list of a document in docs app.
-        search_type : str, optional
-            Type of search to perform: 'hybrid' or 'full_text'.
-            - 'hybrid': Uses hybrid search if enabled on the server,
-                otherwise falls back to full-text search.
-            - 'full_text': Uses only full-text search, even if hybrid search is enabled
-                on the server.
-            if the not specified, the server will use hybrid search when enabled
 
         Returns:
         --------
@@ -388,10 +375,31 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             user_sub=user_sub,
             groups=groups,
             tags=params.tags,
-            path=params.path,
-            search_type=params.search_type,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+def get_opensearch_indices(audience, services):
+    """
+    Get OpenSearch indices for the given audience and services.
+    """
+    try:
+        user_service = Service.objects.get(client_id=audience, is_active=True)
+    except Service.DoesNotExist as e:
+        logger.warning("Login failed: No service %s found", audience)
+        raise SuspiciousOperation("Service is not available") from e
+
+    # Find allowed sub-services for this service
+    allowed_services = set(user_service.services.values_list("name", flat=True))
+    allowed_services.add(user_service.name)
+
+    if services:
+        available_service = set(services).intersection(allowed_services)
+
+        if len(available_service) < len(services):
+            raise SuspiciousOperation("Some requested services are not available")
+
+    return [get_opensearch_index_name(service) for service in allowed_services]
