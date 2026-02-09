@@ -13,16 +13,6 @@ class ReachEnum(str, Enum):
     RESTRICTED = "restricted"
 
 
-# Search type
-
-
-class SearchTypeEnum(str, Enum):
-    """Search type options"""
-
-    HYBRID = "hybrid"
-    FULL_TEXT = "full_text"
-
-
 # Fields
 
 CREATED_AT = "created_at"
