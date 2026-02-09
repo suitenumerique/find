@@ -580,7 +580,10 @@ def test_search_filtering_by_query_path_and_tag():
             title="title to search 7",
         ),
         factories.DocumentSchemaFactory.build(
-            users=["user_sub"], title="", path="path/to/search/doc-8", tags=["tag-to-search"]
+            users=["user_sub"],
+            title="",
+            path="path/to/search/doc-8",
+            tags=["tag-to-search"],
         ),
     ]
     expected_ids = {str(doc["id"]) for doc in documents_to_search}

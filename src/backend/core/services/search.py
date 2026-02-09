@@ -95,11 +95,14 @@ def get_query(  # noqa : PLR0913
         }
     }
 
+
 def vectorize_query(q, search_type=None):
     """Vectorize the query if hybrid search is enabled and requested"""
     hybrid_search_enabled = check_hybrid_search_enabled()
 
-    if hybrid_search_enabled and (search_type == SearchTypeEnum.HYBRID or search_type is None):
+    if hybrid_search_enabled and (
+        search_type == SearchTypeEnum.HYBRID or search_type is None
+    ):
         q_vector = embed_text(q)
     else:
         if hybrid_search_enabled and search_type != SearchTypeEnum.HYBRID:
