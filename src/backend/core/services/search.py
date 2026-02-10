@@ -59,14 +59,13 @@ def search(  # noqa : PLR0913
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
     )
-    
-    # Apply reranking if enabled
+
     if settings.RERANKER_ENABLED and q != "*":
         response["hits"]["hits"] = rerank(
             query=q,
-            results=response["hits"]["hits"],
+            hits=response["hits"]["hits"],
         )
-    
+
     return response
 
 

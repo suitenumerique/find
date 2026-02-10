@@ -356,7 +356,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
-        groups = []
         params = schemas.SearchQueryParametersSchema(**request.data)
 
         # Get index list for search query
@@ -379,7 +378,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             reach=params.reach,
             visited=params.visited,
             user_sub=user_sub,
-            groups=groups,
+            groups=[],
             tags=params.tags,
             path=params.path,
         )["hits"]["hits"]
