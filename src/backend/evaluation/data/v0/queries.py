@@ -1,4 +1,4 @@
-"""This module contains predefined queries and their expected results"""
+"""Queries and expected document IDs for test evaluation."""
 
 queries = [
     {
