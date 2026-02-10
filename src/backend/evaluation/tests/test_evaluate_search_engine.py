@@ -30,6 +30,12 @@ def clear_caches_and_cleanup():
     clear()
 
 
+@pytest.fixture(autouse=True)
+def disable_hybrid_search(settings):
+    """Disable hybrid search for all tests to prevent API calls"""
+    settings.HYBRID_SEARCH_ENABLED = False
+
+
 def clear():
     """Clear caches and delete index and pipeline"""
     check_hybrid_search_enabled.cache_clear()
@@ -54,7 +60,6 @@ def assert_output_successful(output):
 def test_evaluate_search_engine_command_v0():
     """Test running the evaluate_search_engine command with v0 dataset"""
     out = io.StringIO()
-
     call_command(
         "evaluate_search_engine",
         "v0",
@@ -68,10 +73,11 @@ def test_evaluate_search_engine_command_v0():
 
 
 @responses.activate
-def test_evaluate_search_engine_command_without_keep_index():
+def test_evaluate_search_engine_command_without_keep_index(settings):
     """Test that keep-index option False erases index"""
-    out = io.StringIO()
+    settings.HYBRID_SEARCH_ENABLED = False
 
+    out = io.StringIO()
     call_command(
         "evaluate_search_engine",
         "v0",
@@ -90,7 +96,6 @@ def test_evaluate_search_engine_command_without_keep_index():
 def test_evaluate_search_engine_command_force_reindex(mock_delete_index):
     """Test that force-reindex must delete and recreates the index"""
     out = io.StringIO()
-
     # run once to create the index
     call_command(
         "evaluate_search_engine",
