@@ -5,6 +5,7 @@ Test suite for opensearch search service
 import logging
 import operator
 from json import dumps as json_dumps
+from unittest.mock import patch
 
 import pytest
 import responses
@@ -603,3 +604,41 @@ def test_search_filtering_by_query_path_and_tag():
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
     assert returned_ids == expected_ids
+
+
+@patch("core.services.search.rerank")
+def test_reranker_disabled(mocked_rerank, settings):
+    """Test that reranker is not called when disabled"""
+    settings.RERANKER_ENABLED = False
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
+
+    search(q="canine pet", **search_params(service))
+
+    mocked_rerank.assert_not_called()
+
+
+@patch("core.services.search.rerank")
+def test_reranker_enabled(mocked_rerank, settings):
+    """Test that reranker is called when enabled"""
+    settings.RERANKER_ENABLED = True
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
+
+    search(q="canine pet", **search_params(service))
+
+    mocked_rerank.assert_called_once()
