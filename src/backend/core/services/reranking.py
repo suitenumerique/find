@@ -1,10 +1,13 @@
 """Reranking utilities using rerankers library."""
 
 import logging
+from enum import Enum
 from functools import cache
-from rerankers import Reranker, Document
 
 from django.conf import settings
+
+from rerankers import Reranker  # pylint: disable=import-error
+from rerankers.models.ranker import BaseRanker  # pylint: disable=import-error
 
 from core.services.indexing import format_document
 from core.utils import get_language_value
@@ -12,62 +15,94 @@ from core.utils import get_language_value
 logger = logging.getLogger(__name__)
 
 
-@cache
-def get_reranker():
-    """Get or create the reranker instance (singleton pattern for efficiency)."""
-    try:
-        logger.info("Initializing reranker model: %s", settings.RERANKER_MODEL_NAME)
-        reranker = Reranker("mixedbread-ai/mxbai-rerank-large-v1", model_type="cross-encoder")
-        logger.info("Reranker initialized successfully")
-    except Exception as e:  # noqa: BLE001
-        logger.error("Failed to initialize reranker: %s", str(e))
-        return None
-    
-    return reranker
-
-
-def rerank(query, results):
+def rerank(query: str, hits: list[dict]) -> list[dict]:
     """
     Rerank search results using the configured reranker model.
-    
+
     Args:
         query: The search query string
-        results: List of OpenSearch hit objects with _source containing title and content
+        hits: List of OpenSearch hit objects with _source containing title and content
 
     Returns:
-        List of reranked results in the same format as input
+        List of reranked results in the same format as input with a _reranked_score
     """
-    if not settings.RERANKER_ENABLED:
-        logger.debug("Reranker disabled, returning original results")
-        return results
 
     reranker = get_reranker()
     if reranker is None:
-        logger.warning("Reranker not available, returning original results")
-        return results
-    
-    try:
-        documents = []
-        for hit in results:
-            title = get_language_value(hit["_source"], "title")
-            content = get_language_value(hit["_source"], "content")
-            documents.append(format_document(title, content))
-        
-        logger.info("Reranking %d results for query: %s", len(results), query)
-        reranked = reranker.rank(query=query, docs=documents)
-        
-        reranked_results = []
-        for reranked_result in reranked.results:
-            # doc_id is the index position in the original list
-            original_hit = results[reranked_result.doc_id]
-            # Add reranking score as metadata
-            original_hit["_rerank_score"] = reranked_result.score
-            reranked_results.append(original_hit)
-        
-        logger.info("Reranking completed, returned %d results", len(reranked_results))
+        logger.warning("Could not import reranker, returning original results")
+        return hits
 
-        return reranked_results
-        
-    except Exception as e:  # noqa: BLE001
+    try:
+        return _rerank(reranker, query, hits)
+
+    except Exception as e:  # noqa: BLE001# pylint: disable=broad-exception-caught
         logger.error("Reranking failed: %s, returning original results", str(e))
-        return results
+        return hits
+
+
+@cache
+def get_reranker() -> BaseRanker | None:
+    """
+    Get the reranker instance.
+    Returns None if the reranker library is not available or if initialization fails but
+    does not raise an exception to avoid crashing the application.
+    """
+    try:
+        logger.info("Initializing reranker model: %s", settings.RERANKER_MODEL_NAME)
+        return Reranker(
+            settings.RERANKER_MODEL_NAME, model_type=settings.RERANKER_MODEL_TYPE, api_key=settings.RERANKER_API_KEY
+        )
+    except Exception as e:  # noqa: BLE001# pylint: disable=broad-exception-caught
+        logger.error("Failed to initialize reranker: %s", str(e))
+        return None
+
+
+def _rerank(reranker: BaseRanker, query: str, original_hits: list[dict]) -> list[dict]:
+    """Rerank the original results using the provided reranker."""
+    docs, doc_ids = prepare_rerank_data(original_hits)
+
+    logger.info("Reranking %d results for query: %s", len(original_hits), query)
+    reranked = reranker.rank(query=query, docs=docs, doc_ids=doc_ids)
+
+    reranked_results: list[dict] = []
+    for reranked_result in reranked.results:
+        matching_hits = [
+            hit for hit in original_hits if hit["_id"] == reranked_result.doc_id
+        ]
+
+        if not matching_hits:
+            logger.warning(
+                "Reranked document ID %s not found in original hits, skipping",
+                reranked_result.doc_id,
+            )
+            continue
+
+        if len(matching_hits) > 1:
+            logger.warning(
+                "Multiple hits found for document ID %s, using first match",
+                reranked_result.doc_id,
+            )
+
+        hit = matching_hits[0]
+        hit["_reranked_score"] = reranked_result.score
+        reranked_results.append(hit)
+
+    logger.info("Reranking completed, returned %d results", len(reranked_results))
+
+    return reranked_results
+
+
+def prepare_rerank_data(original_hits: list[dict]) -> tuple[list[str], list[str]]:
+    """
+    Prepare the documents for reranking by extracting the title and content from the original hits.
+    """
+    docs = []
+    doc_ids = []
+    for hit in original_hits:
+        title = get_language_value(hit["_source"], "title")
+        content = get_language_value(hit["_source"], "content")
+
+        docs.append(format_document(title, content))
+        doc_ids.append(hit["_id"])
+
+    return docs, doc_ids
