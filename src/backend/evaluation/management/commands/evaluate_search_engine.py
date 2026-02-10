@@ -80,7 +80,7 @@ class Command(BaseCommand):
             type=bool,
             default=False,
             help=(
-                "If True the index is dropped and recreated from scratch even if it already exists."
+                "If True the index is dropped and recreated from scratch before evaluation."
             ),
         )
 
@@ -264,7 +264,13 @@ class Command(BaseCommand):
         """Overwrite settings for evaluation purposes."""
         settings.HYBRID_SEARCH_ENABLED = True
         settings.HYBRID_SEARCH_WEIGHTS = [0.2, 0.8]
-        settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
+        # settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
         settings.EMBEDDING_REQUEST_TIMEOUT = 10
         settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
         settings.EMBEDDING_DIMENSION = 1024
+        settings.RERANKER_ENABLED = True
+        settings.RERANKER_BACKEND = "api"
+        settings.RERANKER_MODEL_NAME = "jina"
+        settings.RERANKER_API_KEY = (
+            "jina_c5ac194f6fc943a1aab403b8acaa42ecAAQJZ4PyIy1FVVwA38wyt13R5QER"
+        )

@@ -55,11 +55,14 @@ def test_evaluate_search_engine_command_v0():
     """Test running the evaluate_search_engine command with v0 dataset"""
     out = io.StringIO()
 
-    call_command(
-        "evaluate_search_engine",
-        "v0",
-        stdout=out,
-    )
+    with patch(
+        "evaluation.management.commands.evaluate_search_engine.Command.overwrite_settings"
+    ):
+        call_command(
+            "evaluate_search_engine",
+            "v0",
+            stdout=out,
+        )
 
     assert_output_successful(out.getvalue())
 
@@ -72,12 +75,15 @@ def test_evaluate_search_engine_command_without_keep_index():
     """Test that keep-index option False erases index"""
     out = io.StringIO()
 
-    call_command(
-        "evaluate_search_engine",
-        "v0",
-        keep_index=False,
-        stdout=out,
-    )
+    with patch(
+        "evaluation.management.commands.evaluate_search_engine.Command.overwrite_settings"
+    ):
+        call_command(
+            "evaluate_search_engine",
+            "v0",
+            keep_index=False,
+            stdout=out,
+        )
 
     assert_output_successful(out.getvalue())
 
@@ -91,21 +97,24 @@ def test_evaluate_search_engine_command_force_reindex(mock_delete_index):
     """Test that force-reindex must delete and recreates the index"""
     out = io.StringIO()
 
-    # run once to create the index
-    call_command(
-        "evaluate_search_engine",
-        "v0",
-        stdout=out,
-    )
+    with patch(
+        "evaluation.management.commands.evaluate_search_engine.Command.overwrite_settings"
+    ):
+        # run once to create the index
+        call_command(
+            "evaluate_search_engine",
+            "v0",
+            stdout=out,
+        )
 
-    mock_delete_index.clear()
-    # Run again with force-reindex
-    call_command(
-        "evaluate_search_engine",
-        "v0",
-        force_reindex=True,
-        stdout=out,
-    )
+        mock_delete_index.clear()
+        # Run again with force-reindex
+        call_command(
+            "evaluate_search_engine",
+            "v0",
+            force_reindex=True,
+            stdout=out,
+        )
 
     # Verify delete_index was called once with the correct index name
     mock_delete_index.assert_called_once_with("evaluation-index")
@@ -117,12 +126,15 @@ def test_evaluate_search_engine_min_score_filter():
 
     out = io.StringIO()
     super_high_score = 1000.0
-    call_command(
-        "evaluate_search_engine",
-        "v0",
-        min_score=super_high_score,
-        stdout=out,
-    )
+    with patch(
+        "evaluation.management.commands.evaluate_search_engine.Command.overwrite_settings"
+    ):
+        call_command(
+            "evaluate_search_engine",
+            "v0",
+            min_score=super_high_score,
+            stdout=out,
+        )
 
     # Assert all scores are null proving all results were filtered out
     assert (
