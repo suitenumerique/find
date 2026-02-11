@@ -31,6 +31,7 @@ and this project adheres to
 - ✨(backend) add deletion endpoint
 - ✨(backend) add path filter
 - ✨(backend) add search_type param
+- ✨(backend) implement reranker #47
 
 ## Changed
 
