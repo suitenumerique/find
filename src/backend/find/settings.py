@@ -319,6 +319,23 @@ class Base(Configuration):
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
 
+    # Reranking
+    RERANKER_ENABLED = values.BooleanValue(
+        default=False, environ_name="RERANKER_ENABLED", environ_prefix=None
+    )
+    RERANKER_BACKEND = values.Value(default=None, environ_name="RERANKER_BACKEND", environ_prefix=None)
+    RERANKER_MODEL_NAME = values.Value(
+        default="jhu-clsp/rank1-mistral-2501-24b",
+        environ_name="RERANKER_MODEL_NAME",
+        environ_prefix=None,
+    )
+    RERANKER_MODEL_TYPE = values.Value(
+        default="cross-encoder",
+        environ_name="RERANKER_MODEL_TYPE",
+        environ_prefix=None,
+    )
+    RERANKER_API_KEY=values.Value(default=None, environ_name="RERANKER_API_KEY", environ_prefix=None)
+
     # CORS
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)
