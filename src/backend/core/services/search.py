@@ -8,6 +8,7 @@ from core import enums
 
 from .embedding import embed_text
 from .opensearch import check_hybrid_search_enabled, opensearch_client
+from .reranking import rerank
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def search(  # noqa : PLR0913
         tags=tags,
         path=path,
     )
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+    response = opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return
@@ -58,6 +59,15 @@ def search(  # noqa : PLR0913
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
     )
+    
+    # Apply reranking if enabled
+    if settings.RERANKER_ENABLED and q != "*":
+        response["hits"]["hits"] = rerank(
+            query=q,
+            results=response["hits"]["hits"],
+        )
+    
+    return response
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
