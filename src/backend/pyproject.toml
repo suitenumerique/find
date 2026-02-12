@@ -23,20 +23,20 @@ description = "An application to print markdown to pdf from a set of managed tem
 keywords = ["Django", "Contacts", "Templates", "RBAC"]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = "~=3.12.0"
+requires-python = "~=3.14.2"
 dependencies = [
     "celery[redis]==5.6.2",
     "django-configurations==2.5.1",
     "django-cors-headers==4.9.0",
-    "redis==5.3.1",
+    "redis==7.1.0",
     "django-redis==6.0.0",
-    "django==5.2.10",
-    "django-lasuite[all]==0.0.22",
+    "django==6.0.1",
+    "django-lasuite[all]==0.0.23",
     "djangorestframework==3.16.1",
     "drf_spectacular==0.29.0",
     "dockerflow==2024.4.2",
     "factory_boy==3.3.3",
-    "gunicorn==23.0.0",
+    "gunicorn==24.1.1",
     "py3langid==0.3.0",
     "langchain-text-splitters==1.1.0",
     "mozilla-django-oidc==5.0.2",
@@ -44,7 +44,7 @@ dependencies = [
     "pydantic==2.12.5",
     "pyjwt==2.10.1",
     "requests==2.32.5",
-    "sentry-sdk==2.48.0",
+    "sentry-sdk==2.50.0",
     "url-normalize==2.2.1",
     "opensearch-py==3.1.0",
     "whitenoise==6.11.0",
@@ -60,9 +60,9 @@ dependencies = [
 dev = [
     "django-extensions==4.1",
     "drf-spectacular-sidecar==2026.1.1",
-    "faker==40.1.0",
+    "faker==40.1.2",
     "ipdb==0.13.13",
-    "ipython==9.8.0",
+    "ipython==9.9.0",
     "pyfakefs==6.0.0",
     "pylint-django==2.7.0",
     "pylint==4.0.4",
@@ -72,8 +72,8 @@ dev = [
     "pytest-icdiff==0.9",
     "pytest-xdist==3.8.0",
     "responses==0.25.8",
-    "ruff==0.14.10",
-    "types-requests==2.32.4.20250913",
+    "ruff==0.14.14",
+    "types-requests==2.32.4.20260107",
 ]
 
 [tool.setuptools]
