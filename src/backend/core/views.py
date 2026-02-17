@@ -347,6 +347,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
             Built from linkreach list of a document in docs app.
+        rerank : bool, optional
+            Enable or disable reranking of results. If not specified, falls back to
+            the RERANKER_ENABLED setting.
         search_type : str, optional
             Type of search to perform: 'hybrid' or 'full_text'.
             - 'hybrid': Uses hybrid search if enabled on the server,
@@ -394,6 +397,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             else SearchTypeEnum.HYBRID
             if check_hybrid_search_enabled()
             else SearchTypeEnum.FULL_TEXT,
+            rerank_requested=params.rerank,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
