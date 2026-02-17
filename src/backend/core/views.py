@@ -354,6 +354,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 'full_text': Uses only full-text search, even if hybrid search is enabled
                 on the server.
             if the not specified, the server will use hybrid search when enabled
+        rerank : bool, optional
+            Enable or disable reranking of results. If not specified, falls back to
+            the RERANKER_ENABLED setting.
 
         Returns:
         --------
@@ -394,6 +397,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             else SearchTypeEnum.HYBRID
             if check_hybrid_search_enabled()
             else SearchTypeEnum.FULL_TEXT,
+            rerank_requested=params.rerank,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
