@@ -1,7 +1,6 @@
 """Reranking utilities using rerankers library."""
 
 import logging
-from enum import Enum
 from functools import cache
 
 from django.conf import settings
@@ -50,7 +49,9 @@ def get_reranker() -> BaseRanker | None:
     try:
         logger.info("Initializing reranker model: %s", settings.RERANKER_MODEL_NAME)
         return Reranker(
-            settings.RERANKER_MODEL_NAME, model_type=settings.RERANKER_MODEL_TYPE, api_key=settings.RERANKER_API_KEY
+            settings.RERANKER_MODEL_NAME,
+            model_type=settings.RERANKER_MODEL_TYPE,
+            api_key=settings.RERANKER_API_KEY,
         )
     except Exception as e:  # noqa: BLE001# pylint: disable=broad-exception-caught
         logger.error("Failed to initialize reranker: %s", str(e))
@@ -106,3 +107,22 @@ def prepare_rerank_data(original_hits: list[dict]) -> tuple[list[str], list[str]
         doc_ids.append(hit["_id"])
 
     return docs, doc_ids
+
+
+def should_rerank(is_rerank_requested: bool | None) -> bool:
+    """
+    Determine whether to perform reranking based on the input parameter and settings.
+    logs warning if reranking was explicitly requested but the reranker is disabled in settings.
+    falls back to settings.RERANKER_ENABLED if is_rerank_requested is None.
+    """
+    if is_rerank_requested and not settings.RERANKER_ENABLED:
+        logger.warning(
+            "Reranking was explicitly requested but the reranker "
+            "is disabled in settings. Reranking skipped."
+        )
+        return False
+
+    if is_rerank_requested is None:
+        return settings.RERANKER_ENABLED
+
+    return is_rerank_requested and settings.RERANKER_ENABLED
