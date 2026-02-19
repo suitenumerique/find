@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Added
 
+- 👷(docker) add arm64 platform support for image builds
 - ✨(backend) add semantic search
 - ✨(backend) add multi-embedding and chunking
 - ✨(backend) add analyzers to full-text search
