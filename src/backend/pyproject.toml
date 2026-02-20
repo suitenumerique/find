@@ -44,6 +44,7 @@ dependencies = [
     "pydantic==2.12.5",
     "pyjwt==2.10.1",
     "requests==2.32.5",
+    "rerankers[api]==0.10.0",
     "sentry-sdk==2.48.0",
     "url-normalize==2.2.1",
     "opensearch-py==3.1.0",

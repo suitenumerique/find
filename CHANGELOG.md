@@ -30,6 +30,7 @@ and this project adheres to
 - ✨(backend) adapt to conversation RAG
 - ✨(backend) add deletion endpoint
 - ✨(backend) add path filter
+- ✨(backend) implement reranker #47
 
 ## Changed
 

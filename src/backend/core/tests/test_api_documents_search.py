@@ -5,8 +5,10 @@ Don't use pytest parametrized tests because batch generation and indexing
 of documents is slow and better done only once.
 """
 
+import logging
 import operator
 import random
+from unittest import mock
 
 import pytest
 import responses
@@ -954,3 +956,36 @@ def test_api_documents_search_filtering_by_path(settings):
     assert len(response.json()) == 2
     for hit in response.json():
         assert hit["_source"]["path"].startswith(path_filter)
+
+
+@responses.activate
+@mock.patch("core.services.reranking.rerank")
+def test_api_documents_rerank_blocked(
+    mock_rerank,
+    settings,
+    caplog,
+):
+    """Test can disable rerank at run time even when enabled in settings"""
+    settings.RERANKER_ENABLED = True
+
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    documents = bulk_create_documents([{"title": "Fox"}, {"title": "Wolf"}])
+    prepare_index(service.index_name, documents)
+    mock_rerank.return_value = documents
+
+    with caplog.at_level(logging.INFO):
+        response = APIClient().post(
+            "/api/v1.0/documents/search/",
+            {
+                "q": "programming",
+                "rerank": False,
+                "visited": [doc["id"] for doc in documents],
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        )
+
+    assert response.status_code == 200
+    assert not mock_rerank.called
