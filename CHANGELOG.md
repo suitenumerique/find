@@ -42,3 +42,6 @@ and this project adheres to
 
 - 🐛(backend) fix missing index creation in 'index/' view
 - 🐛(backend) fix parallel test execution issues
+
+## Removed
+- 🗑️(backend) remove sorting
