@@ -374,6 +374,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             groups=groups,
             tags=params.tags,
             path=params.path,
+            enable_rescore=params.enable_rescore,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)

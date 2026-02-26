@@ -116,6 +116,7 @@ class SearchQueryParametersSchema(BaseModel):
     tags: StringListParameter = Field(default_factory=list)
     path: Optional[str] = None
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
+    enable_rescore: bool = Field(default=True)
 
 
 class DeleteDocumentsSchema(BaseModel):

@@ -23,6 +23,7 @@ def search(  # noqa : PLR0913
     groups,
     tags,
     path=None,
+    enable_rescore=True,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -45,7 +46,7 @@ def search(  # noqa : PLR0913
             },
             "size": nb_results,
             "query": query,
-            "rescore": get_rescore(nb_results=nb_results),
+            "rescore": get_rescore(nb_results=nb_results) if enable_rescore else [],
         },
         params=get_params(query_keys=query.keys()),
         # disable=unexpected-keyword-arg because
