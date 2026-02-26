@@ -21,7 +21,6 @@ def embed_text(text):
         json={
             "input": text,
             "model": settings.EMBEDDING_API_MODEL_NAME,
-            "dimensions": settings.EMBEDDING_DIMENSION,
             "encoding_format": "float",
         },
         timeout=settings.EMBEDDING_REQUEST_TIMEOUT,
