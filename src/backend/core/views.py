@@ -387,6 +387,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             else SearchTypeEnum.HYBRID
             if check_hybrid_search_enabled()
             else SearchTypeEnum.FULL_TEXT,
+            rescore=params.rescore,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)

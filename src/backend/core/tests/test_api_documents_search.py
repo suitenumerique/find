@@ -112,7 +112,7 @@ def test_api_documents_search_query_unknown_user(settings):
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 400
 
 
 @responses.activate
@@ -194,7 +194,11 @@ def test_api_documents_search_match_all(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"q": "*", "visited": [doc["id"] for doc in documents]},
+        {
+            "q": "*",
+            "visited": [doc["id"] for doc in documents],
+            "enable_rescore": False,
+        },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -558,6 +562,7 @@ def test_api_documents_search_with_nb_results(settings):
             "q": "*",
             "nb_results": nb_results,
             "visited": [doc["id"] for doc in documents],
+            "enable_rescore": False
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
@@ -665,6 +670,7 @@ def test_api_documents_search_nb_results_with_filtering(settings):
             "reach": "public",
             "nb_results": nb_results,
             "visited": public_ids,
+            "rescore_enable": False
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
