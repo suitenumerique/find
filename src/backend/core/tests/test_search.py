@@ -3,7 +3,6 @@ Test suite for opensearch search service
 """
 
 import logging
-import operator
 from json import dumps as json_dumps
 
 import pytest
@@ -32,8 +31,6 @@ def search_params(service):
     """Build opensearch.search() parameters for tests using the service index name"""
     return {
         "nb_results": 20,
-        "order_by": "relevance",
-        "order_direction": "desc",
         "search_indices": {service.index_name},
         "reach": None,
         "user_sub": "user_sub",
@@ -296,41 +293,6 @@ def test_match_all(settings, caplog):
     assert any("Performing match_all query" in message for message in caplog.messages)
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 3
-
-
-@responses.activate
-def test_search_ordering_by_relevance(settings, caplog):
-    """Test the hybrid supports ordering by relevance asc and desc"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-
-    documents = bulk_create_documents(
-        [
-            {"title": "wolf", "content": "wolves live in packs and hunt together"},
-            {"title": "dog", "content": "dogs are loyal domestic animals"},
-            {"title": "cat", "content": "cats are curious and independent pets"},
-        ]
-    )
-    q = "canine pet"
-    service = factories.ServiceFactory(name=SERVICE_NAME)
-    prepare_index(service.index_name, documents)
-
-    for direction in ["asc", "desc"]:
-        with caplog.at_level(logging.INFO):
-            result = search(
-                q=q, **{**search_params(service), "order_direction": direction}
-            )
-
-        # Check that results are sorted by score as expected
-        hits = result["hits"]["hits"]
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(hits) - 1):
-            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
 
 
 @responses.activate

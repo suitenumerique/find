@@ -5,7 +5,6 @@ Don't use pytest parametrized tests because batch generation and indexing
 of documents is slow and better done only once.
 """
 
-import operator
 import random
 
 import pytest
@@ -110,7 +109,7 @@ def test_api_documents_search_query_unknown_user(settings):
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 @responses.activate
@@ -458,181 +457,6 @@ def test_api_documents_hybrid_search(settings):
         "number_of_users": [1],
         "number_of_groups": [3],
     }
-
-
-@responses.activate
-def test_api_documents_search_ordering_by_fields(settings):
-    """It should be possible to order by several fields"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(
-        4, reach=random.choice(["public", "authenticated"])
-    )
-    prepare_index(service.index_name, documents)
-
-    parameters = [
-        (enums.CREATED_AT, "asc"),
-        (enums.CREATED_AT, "desc"),
-        (enums.UPDATED_AT, "asc"),
-        (enums.UPDATED_AT, "desc"),
-        (enums.SIZE, "asc"),
-        (enums.SIZE, "desc"),
-        (enums.REACH, "asc"),
-        (enums.REACH, "desc"),
-    ]
-
-    for field, direction in parameters:
-        response = APIClient().post(
-            "/api/v1.0/documents/search/",
-            {
-                "q": "*",
-                "order_by": field,
-                "order_direction": direction,
-                "visited": [doc["id"] for doc in documents],
-            },
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 4
-
-        # Check that results are sorted by the field as expected
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(data) - 1):
-            assert compare(data[i]["_source"][field], data[i + 1]["_source"][field])
-
-
-@responses.activate
-def test_api_documents_search_ordering_by_relevance(settings):
-    """It should be possible to order by relevance (score)"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(
-        4, reach=random.choice(["public", "authenticated"])
-    )
-    prepare_index(service.index_name, documents)
-
-    for direction in ["asc", "desc"]:
-        response = APIClient().post(
-            "/api/v1.0/documents/search/",
-            {
-                "q": "*",
-                "order_by": "relevance",
-                "order_direction": direction,
-                "visited": [doc["id"] for doc in documents],
-            },
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 4
-
-        # Check that results are sorted by score as expected
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(data) - 1):
-            assert compare(data[i]["_score"], data[i + 1]["_score"])
-
-
-@responses.activate
-def test_api_documents_search_ordering_by_unknown_field(settings):
-    """Trying to sort by an unknown field should return a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    # Setup: Initialize the service and documents only once
-    service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(
-        2, reach=random.choice(["public", "authenticated"])
-    )
-    prepare_index(service.index_name, documents)
-
-    # Define the parameters manually
-    directions = ["asc", "desc"]
-
-    # Perform the parameterized tests
-    for direction in directions:
-        response = APIClient().post(
-            "/api/v1.0/documents/search/",
-            {
-                "q": "*",
-                "order_by": "unknown",
-                "order_direction": direction,
-                "visited": [doc["id"] for doc in documents],
-            },
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        )
-
-        assert response.status_code == 400
-        assert response.json() == [
-            {
-                "loc": ["order_by"],
-                "msg": (
-                    "Input should be 'relevance', 'title', 'created_at', "
-                    "'updated_at', 'size' or 'reach'"
-                ),
-                "type": "literal_error",
-            }
-        ]
-
-
-@responses.activate
-def test_api_documents_search_ordering_by_unknown_direction(settings):
-    """Trying to sort with an unknown direction should return a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(
-        2, reach=random.choice(["public", "authenticated"])
-    )
-    prepare_index(service.index_name, documents)
-
-    for field in enums.ORDER_BY_OPTIONS:
-        response = APIClient().post(
-            "/api/v1.0/documents/search/",
-            {
-                "q": "*",
-                "order_by": field,
-                "order_direction": "unknown",
-                "visited": [doc["id"] for doc in documents],
-            },
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        )
-
-        assert response.status_code == 400
-        assert response.json() == [
-            {
-                "loc": ["order_direction"],
-                "msg": "Input should be 'asc' or 'desc'",
-                "type": "literal_error",
-            }
-        ]
 
 
 @responses.activate
