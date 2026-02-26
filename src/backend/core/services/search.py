@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 def search(  # noqa : PLR0913
     q,
     nb_results,
-    order_by,
-    order_direction,
     search_indices,
     reach,
     visited,
@@ -50,11 +48,6 @@ def search(  # noqa : PLR0913
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(
-                query_keys=query.keys(),
-                order_by=order_by,
-                order_direction=order_direction,
-            ),
             "size": nb_results,
             "query": query,
         },
@@ -235,19 +228,6 @@ def get_filter(  # noqa : PLR0913
         filters.append({"prefix": {"path": path}})
 
     return filters
-
-
-def get_sort(query_keys, order_by, order_direction):
-    """Build OpenSearch sort clause"""
-    # Add sorting logic based on relevance or specified field
-    if "hybrid" in query_keys:
-        # sorting by other field than "_score" is not supported in hybrid search
-        # see: https://github.com/opensearch-project/neural-search/issues/866
-        return {"_score": {"order": order_direction}}
-    if order_by == enums.RELEVANCE:
-        return {"_score": {"order": order_direction}}
-
-    return {order_by: {"order": order_direction}}
 
 
 def get_params(query_keys):
