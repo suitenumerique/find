@@ -318,6 +318,19 @@ class Base(Configuration):
     EMBEDDING_DIMENSION = values.IntegerValue(
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
+    # rescore
+    RESCORE_UPDATED_AT_WEIGHT = values.FloatValue(
+        default=0.2, environ_name="RESCORE_UPDATED_AT_WEIGHT", environ_prefix=None
+    )
+    RESCORE_UPDATED_AT_OFFSET = values.Value(
+        default="2d", environ_name="RESCORE_UPDATED_AT_OFFSET", environ_prefix=None
+    )
+    RESCORE_UPDATED_AT_SCALE = values.Value(
+        default="6d", environ_name="RESCORE_UPDATED_AT_SCALE", environ_prefix=None
+    )
+    RESCORE_UPDATED_AT_DECAY = values.IntegerValue(
+        default=0.5, environ_name="RESCORE_UPDATED_AT_SCALE", environ_prefix=None
+    )
 
     # CORS
     CORS_ALLOW_CREDENTIALS = True

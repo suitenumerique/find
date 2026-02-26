@@ -712,3 +712,43 @@ def test_search_filtering_by_query_path_and_tag():
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
     assert returned_ids == expected_ids
+
+
+def test_search_with_rescore(settings):
+    """Test rescore feature"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    today = datetime.datetime.today()
+    forty_days_ago = today - datetime.timedelta(days=40)
+    documents = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"],
+            title="my first document",
+            created_at=today,
+            updated_at=today,
+        ),
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"],
+            title="another document",
+            created_at=forty_days_ago,
+            updated_at=forty_days_ago,
+        ),
+    ]
+    prepare_index(service.index_name, documents)
+
+    # set a cray big RESCORE_UPDATED_AT_WEIGHT to demonstrate the effect of boosting on rescores
+    settings.RESCORE_UPDATED_AT_WEIGHT = 200
+
+    results = search(
+        q="another document",
+        **{
+            **search_params(service),
+            "rescore": True,
+        },
+    )
+
+    hits = results["hits"]["hits"]
+    # the first document is ranked first because it more recent
+    # even though the second one matches the query better
+    assert hits[0]["_source"]["title.en"] == "my first document"
+    assert hits[1]["_source"]["title.en"] == "another document"

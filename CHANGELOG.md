@@ -9,7 +9,7 @@ and this project adheres to
 # Unreleased
 
 ## Added
-
+- ✨(backend) add rescore on `updated_at`
 - 👷(docker) add arm64 platform support for image builds
 - ✨(backend) add semantic search
 - ✨(backend) add multi-embedding and chunking
