@@ -52,6 +52,7 @@ def search(  # noqa : PLR0913
             ),
             "size": nb_results,
             "query": query,
+            "rescore": get_rescore(nb_results=nb_results),
         },
         params=get_params(query_keys=query.keys()),
         # disable=unexpected-keyword-arg because
@@ -202,6 +203,38 @@ def get_filter(  # noqa : PLR0913
         filters.append({"prefix": {"path": path}})
 
     return filters
+
+
+def get_rescore(nb_results):
+    """
+    Build rescore query.
+    rescore includes:
+        - a decay function on the `updated_at` field to boost more recently updated documents
+    """
+    return [
+        {
+            "window_size": nb_results,
+            "query": {
+                "rescore_query_weight": settings.RESCORE_UPDATED_AT_WEIGHT,
+                "rescore_query": {
+                    "function_score": {
+                        "functions": [
+                            {
+                                "gauss": {
+                                    "updated_at": {
+                                        "origin": "now",
+                                        "offset": settings.RESCORE_UPDATED_AT_OFFSET,
+                                        "scale": settings.RESCORE_UPDATED_AT_SCALE,
+                                        "decay": settings.RESCORE_UPDATED_AT_DECAY,
+                                    }
+                                }
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+    ]
 
 
 def get_sort(query_keys, order_by, order_direction):
