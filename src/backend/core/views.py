@@ -331,12 +331,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         path : str, optional
             Filter results based on the 'path' field. Only documents whose path
             starts with the provided value will be returned.
-        order_by : str, optional
-            Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
-            Defaults to 'relevance' if not specified.
-        order_direction : str, optional
-            Order direction, 'asc' for ascending or 'desc' for descending.
-            Defaults to 'desc'.
         nb_results : int, optional
             The number of results to return.
             Defaults to 50 if not specified.
@@ -373,8 +367,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         result = search(
             q=params.q,
             nb_results=params.nb_results,
-            order_by=params.order_by,
-            order_direction=params.order_direction,
             search_indices=search_indices,
             reach=params.reach,
             visited=params.visited,
@@ -382,6 +374,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             groups=groups,
             tags=params.tags,
             path=params.path,
+            enable_rescore=params.enable_rescore,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)

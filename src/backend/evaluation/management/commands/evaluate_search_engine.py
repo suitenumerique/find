@@ -5,10 +5,7 @@ Evaluate search engine performance with test documents and queries.
 import importlib
 import logging
 import math
-import os
-import unicodedata
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from core.management.commands.create_search_pipeline import (
@@ -40,8 +37,6 @@ class Command(BaseCommand):
     index_name = "evaluation-index"
     search_params = {
         "nb_results": 20,
-        "order_by": "relevance",
-        "order_direction": "desc",
         "search_indices": {index_name},
         "reach": None,
         "user_sub": "user_sub",
@@ -80,7 +75,7 @@ class Command(BaseCommand):
             type=bool,
             default=False,
             help=(
-                "If True the index is dropped and recreated from scratch even if it already exists."
+                "If True the index is dropped and recreated from scratch before evaluation."
             ),
         )
 
@@ -113,11 +108,15 @@ class Command(BaseCommand):
 
     def init_evaluation(self, dataset_name, force_reindex):
         """Initialize evaluation by preparing index and mapping."""
-        self.documents = self.load_documents(dataset_name)
+        self.documents = (
+            importlib.import_module(f"evaluation.data.{dataset_name}.documents")
+        ).documents
         self.queries = (
             importlib.import_module(f"evaluation.data.{dataset_name}.queries")
         ).queries
-        self.overwrite_settings()
+        self.id_to_title = {
+            document["id"]: document["title"] for document in self.documents
+        }
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
@@ -126,43 +125,6 @@ class Command(BaseCommand):
         elif force_reindex:
             delete_index(self.index_name)
             prepare_index(self.index_name, bulk_create_documents(self.documents))
-
-    def load_documents(self, dataset_name: str):
-        """
-        Load a dataset module containing a `documents` list and return:
-        """
-
-        documents_dir_path = os.path.join(
-            self.base_data_path, dataset_name, "documents"
-        )
-        documents = []
-        for filename in os.listdir(documents_dir_path):
-            if not filename.endswith(".txt"):
-                logger.warning(
-                    "Unexpected file format for document: %s. Only .txt files are supported.",
-                    filename,
-                )
-
-            str_document_id, title_with_extension = filename.split("_", 1)
-            document_id = int(str_document_id)
-            document_title = unicodedata.normalize(
-                "NFC", title_with_extension.rsplit(".", -1)[0]
-            )
-
-            filepath = os.path.join(documents_dir_path, filename)
-            with open(filepath, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            documents.append(
-                {
-                    "id": document_id,
-                    "title": document_title,
-                    "content": content,
-                }
-            )
-            self.id_to_title[document_id] = document_title
-
-        return documents
 
     def evaluate_query(self, query, min_score=0.0):
         """Evaluate a single query and return metrics."""
@@ -258,13 +220,3 @@ class Command(BaseCommand):
         delete_search_pipeline()
         if not keep_index:
             delete_index(self.index_name)
-
-    @staticmethod
-    def overwrite_settings():
-        """Overwrite settings for evaluation purposes."""
-        settings.HYBRID_SEARCH_ENABLED = True
-        settings.HYBRID_SEARCH_WEIGHTS = [0.2, 0.8]
-        settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
-        settings.EMBEDDING_REQUEST_TIMEOUT = 10
-        settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
-        settings.EMBEDDING_DIMENSION = 1024
