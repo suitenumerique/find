@@ -9,7 +9,7 @@ from json import dumps as json_dumps
 import pytest
 import responses
 
-from core import factories
+from core import enums, factories
 from core.services import opensearch
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.services.search import search
@@ -197,6 +197,119 @@ def test_fall_back_on_full_text_search_if_hybrid_search_disabled(settings, caplo
     assert result["hits"]["max_score"] > 0.0
     assert len(result["hits"]["hits"]) == 1
     assert result["hits"]["hits"][0]["_source"]["title.en"] == "wolf"
+
+
+@responses.activate
+def test_force_full_text_search_with_search_type_parameter(settings, caplog):
+    """Test the full-text search is done when search_type=FULL_TEXT even if hybrid is enabled"""
+    enable_hybrid_search(settings)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
+
+    q = "wolf"
+    with caplog.at_level(logging.INFO):
+        result = search(
+            q=q,
+            **{**search_params(service), "search_type": enums.SearchTypeEnum.FULL_TEXT},
+        )
+
+    assert any(
+        "Hybrid search is enabled but was disabled by request (search_type=full_text)"
+        in message
+        for message in caplog.messages
+    )
+    assert any(
+        f"Performing full-text search without embedding: {q}" in message
+        for message in caplog.messages
+    )
+
+    assert result["hits"]["max_score"] > 0.0
+    assert len(result["hits"]["hits"]) == 1
+    assert result["hits"]["hits"][0]["_source"]["title.en"] == "wolf"
+
+
+def test_request_hybrid_search_when_server_has_it_disabled(settings, caplog):
+    """Test warning when hybrid search is requested but disabled on server"""
+    enable_hybrid_search(settings)
+    settings.HYBRID_SEARCH_ENABLED = False
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
+
+    q = "canine pet"
+    with caplog.at_level(logging.INFO):
+        search(
+            q=q,
+            **{**search_params(service), "search_type": enums.SearchTypeEnum.HYBRID},
+        )
+
+    assert any(
+        "Hybrid search was requested (search_type=hybrid) but is disabled on server"
+        in message
+        for message in caplog.messages
+    )
+    assert any(
+        f"Performing full-text search without embedding: {q}" in message
+        for message in caplog.messages
+    )
+
+
+@responses.activate
+def test_api_documents_search_with_search_type_hybrid(settings, caplog):
+    """Test API with search_type=hybrid uses hybrid search when enabled"""
+    enable_hybrid_search(settings)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    service = factories.ServiceFactory()
+
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+        ]
+    )
+    prepare_index(service.index_name, documents)
+
+    q = "canine pet"
+    with caplog.at_level(logging.INFO):
+        result = search(
+            q=q,
+            **{**search_params(service), "search_type": enums.SearchTypeEnum.HYBRID},
+        )
+
+    assert any(
+        f"Performing hybrid search with embedding: {q}" in message
+        for message in caplog.messages
+    )
+
+    assert result["hits"]["max_score"] > 0.0
+    # hybrid search always returns a response of fixed sized sorted and scored by relevance
+    assert {hit["_source"]["title.en"] for hit in result["hits"]["hits"]} == {
+        doc["title"] for doc in documents
+    }
 
 
 @responses.activate
