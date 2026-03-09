@@ -40,6 +40,7 @@ def search_params(service):
         "groups": [],
         "visited": [],
         "tags": [],
+        "search_type": enums.SearchTypeEnum.HYBRID,
     }
 
 
@@ -226,11 +227,6 @@ def test_force_full_text_search_with_search_type_parameter(settings, caplog):
             **{**search_params(service), "search_type": enums.SearchTypeEnum.FULL_TEXT},
         )
 
-    assert any(
-        "Hybrid search is enabled but was disabled by request (search_type=full_text)"
-        in message
-        for message in caplog.messages
-    )
     assert any(
         f"Performing full-text search without embedding: {q}" in message
         for message in caplog.messages

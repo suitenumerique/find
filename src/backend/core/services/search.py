@@ -25,8 +25,8 @@ def search(  # noqa : PLR0913
     user_sub,
     groups,
     tags,
+    search_type,
     path=None,
-    search_type=None,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -65,7 +65,15 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, nb_results, reach, visited, user_sub, groups, tags, path=None, search_type=None
+    q,
+    nb_results,
+    reach,
+    visited,
+    user_sub,
+    groups,
+    tags,
+    search_type,
+    path=None,
 ):
     """Build OpenSearch query body based on parameters"""
     filter_ = get_filter(reach, visited, user_sub, groups, tags, path)
@@ -96,27 +104,20 @@ def get_query(  # noqa : PLR0913
     }
 
 
-def vectorize_query(q, search_type=None):
+def vectorize_query(q, search_type):
     """Vectorize the query if hybrid search is enabled and requested"""
     hybrid_search_enabled = check_hybrid_search_enabled()
 
-    if hybrid_search_enabled and (
-        search_type == SearchTypeEnum.HYBRID or search_type is None
-    ):
-        q_vector = embed_text(q)
-    else:
-        if hybrid_search_enabled and search_type != SearchTypeEnum.HYBRID:
-            logger.info(
-                "Hybrid search is enabled but was disabled by request (search_type=%s)",
-                search_type.value,
-            )
-        if not hybrid_search_enabled and search_type == SearchTypeEnum.HYBRID:
+    if search_type == SearchTypeEnum.HYBRID:
+        if not hybrid_search_enabled:
             logger.warning(
                 "Hybrid search was requested (search_type=hybrid) but is disabled on server",
             )
-        q_vector = None
+            return None
 
-    return q_vector
+        return embed_text(q)
+
+    return None
 
 
 def get_semantic_search_query(q_vector, filter_, nb_results):

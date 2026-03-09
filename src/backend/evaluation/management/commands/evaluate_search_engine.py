@@ -11,6 +11,7 @@ import unicodedata
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
+from core.enums import SearchTypeEnum
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
@@ -166,7 +167,13 @@ class Command(BaseCommand):
 
     def evaluate_query(self, query, min_score=0.0):
         """Evaluate a single query and return metrics."""
-        results = search(q=query["q"], **self.search_params)
+        results = search(
+            q=query["q"],
+            search_type=SearchTypeEnum.HYBRID
+            if check_hybrid_search_enabled()
+            else SearchTypeEnum.FULL_TEXT,
+            **self.search_params,
+        )
         expected_titles = [
             self.id_to_title[document_id]
             for document_id in query["expected_document_ids"]
@@ -262,7 +269,7 @@ class Command(BaseCommand):
     @staticmethod
     def overwrite_settings():
         """Overwrite settings for evaluation purposes."""
-        settings.HYBRID_SEARCH_ENABLED = True
+        settings.HYBRID_SEARCH_ENABLED = False
         settings.HYBRID_SEARCH_WEIGHTS = [0.2, 0.8]
         settings.EMBEDDING_API_PATH = "https://albert.api.etalab.gouv.fr/v1/embeddings"
         settings.EMBEDDING_REQUEST_TIMEOUT = 10

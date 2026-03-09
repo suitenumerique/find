@@ -353,6 +353,43 @@ def test_api_documents_full_text_search(settings):
 
 
 @responses.activate
+def test_api_documents_search_with_search_type_full_text(settings, caplog):
+    """Test API with search_type=full_text forces full-text search even if hybrid is enabled"""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    enable_hybrid_search(settings)
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+    service = factories.ServiceFactory()
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+        ]
+    )
+    prepare_index(service.index_name, documents)
+    with caplog.at_level(logging.INFO):
+        response = APIClient().post(
+            "/api/v1.0/documents/search/",
+            {
+                "q": "wolf",
+                "search_type": SearchTypeEnum.FULL_TEXT,
+                "visited": [doc["id"] for doc in documents],
+            },
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        )
+    assert response.status_code == 200
+    assert any(
+        "Performing full-text search without embedding: wolf" in message
+        for message in caplog.messages
+    )
+
+
+@responses.activate
 def test_api_documents_hybrid_search(settings):
     """Searching a document by its content should work as expected"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -956,45 +993,3 @@ def test_api_documents_search_filtering_by_path(settings):
     assert len(response.json()) == 2
     for hit in response.json():
         assert hit["_source"]["path"].startswith(path_filter)
-
-
-@responses.activate
-def test_api_documents_search_with_search_type_full_text(settings, caplog):
-    """Test API with search_type=full_text forces full-text search even if hybrid is enabled"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-    service = factories.ServiceFactory()
-    documents = bulk_create_documents(
-        [
-            {"title": "wolf", "content": "wolves live in packs and hunt together"},
-            {"title": "dog", "content": "dogs are loyal domestic animals"},
-        ]
-    )
-    prepare_index(service.index_name, documents)
-    with caplog.at_level(logging.INFO):
-        response = APIClient().post(
-            "/api/v1.0/documents/search/",
-            {
-                "q": "wolf",
-                "search_type": SearchTypeEnum.FULL_TEXT,
-                "visited": [doc["id"] for doc in documents],
-            },
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-        )
-    assert response.status_code == 200
-    assert any(
-        "Hybrid search is enabled but was disabled by request (search_type=full_text)"
-        in message
-        for message in caplog.messages
-    )
-    assert any(
-        "Performing full-text search without embedding: wolf" in message
-        for message in caplog.messages
-    )

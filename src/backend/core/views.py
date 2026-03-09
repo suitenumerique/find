@@ -12,13 +12,14 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
+from .enums import SearchTypeEnum
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
     ensure_index_exists,
     get_opensearch_indices,
     prepare_document_for_indexing,
 )
-from .services.opensearch import opensearch_client
+from .services.opensearch import check_hybrid_search_enabled, opensearch_client
 from .services.search import search
 from .utils import get_language_value
 
@@ -389,7 +390,11 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             groups=groups,
             tags=params.tags,
             path=params.path,
-            search_type=params.search_type,
+            search_type=params.search_type
+            if params.search_type
+            else SearchTypeEnum.HYBRID
+            if check_hybrid_search_enabled()
+            else SearchTypeEnum.FULL_TEXT,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
