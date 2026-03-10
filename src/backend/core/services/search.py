@@ -5,6 +5,7 @@ import logging
 from django.conf import settings
 
 from core import enums
+from core.enums import SearchTypeEnum
 
 from .embedding import embed_text
 from .opensearch import check_hybrid_search_enabled, opensearch_client
@@ -24,6 +25,7 @@ def search(  # noqa : PLR0913
     user_sub,
     groups,
     tags,
+    search_type,
     path=None,
 ):
     """Perform an OpenSearch search"""
@@ -36,6 +38,7 @@ def search(  # noqa : PLR0913
         groups=groups,
         tags=tags,
         path=path,
+        search_type=search_type,
     )
     return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
@@ -62,7 +65,15 @@ def search(  # noqa : PLR0913
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
-    q, nb_results, reach, visited, user_sub, groups, tags, path=None
+    q,
+    nb_results,
+    reach,
+    visited,
+    user_sub,
+    groups,
+    tags,
+    search_type,
+    path=None,
 ):
     """Build OpenSearch query body based on parameters"""
     filter_ = get_filter(reach, visited, user_sub, groups, tags, path)
@@ -76,11 +87,7 @@ def get_query(  # noqa : PLR0913
             },
         }
 
-    hybrid_search_enabled = check_hybrid_search_enabled()
-    if hybrid_search_enabled:
-        q_vector = embed_text(q)
-    else:
-        q_vector = None
+    q_vector = vectorize_query(q, search_type)
 
     if not q_vector:
         logger.info("Performing full-text search without embedding: %s", q)
@@ -95,6 +102,22 @@ def get_query(  # noqa : PLR0913
             ],
         }
     }
+
+
+def vectorize_query(q, search_type):
+    """Vectorize the query if hybrid search is enabled and requested"""
+    hybrid_search_enabled = check_hybrid_search_enabled()
+
+    if search_type == SearchTypeEnum.HYBRID:
+        if not hybrid_search_enabled:
+            logger.warning(
+                "Hybrid search was requested (search_type=hybrid) but is disabled on server",
+            )
+            return None
+
+        return embed_text(q)
+
+    return None
 
 
 def get_semantic_search_query(q_vector, filter_, nb_results):
