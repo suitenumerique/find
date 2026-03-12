@@ -2,6 +2,7 @@
 Test suite for opensearch search service
 """
 
+import datetime
 import logging
 from json import dumps as json_dumps
 

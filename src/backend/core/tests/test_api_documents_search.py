@@ -6,7 +6,6 @@ of documents is slow and better done only once.
 """
 
 import logging
-import operator
 import random
 
 import pytest
@@ -197,7 +196,7 @@ def test_api_documents_search_match_all(settings):
         {
             "q": "*",
             "visited": [doc["id"] for doc in documents],
-            "enable_rescore": False,
+            "rescore": False,
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
@@ -562,7 +561,7 @@ def test_api_documents_search_with_nb_results(settings):
             "q": "*",
             "nb_results": nb_results,
             "visited": [doc["id"] for doc in documents],
-            "enable_rescore": False
+            "rescore": False,
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
@@ -670,7 +669,7 @@ def test_api_documents_search_nb_results_with_filtering(settings):
             "reach": "public",
             "nb_results": nb_results,
             "visited": public_ids,
-            "rescore_enable": False
+            "rescore_enable": False,
         },
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
