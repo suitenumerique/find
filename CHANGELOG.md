@@ -36,6 +36,7 @@ and this project adheres to
 
 - 🏗️(backend) switch Python dependency management to uv
 - ✨(backend) allow deletion by tags
+- ♻️(backend) improve the evaluation command
 
 ## Fixed
 
