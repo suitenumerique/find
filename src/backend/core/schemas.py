@@ -120,6 +120,7 @@ class SearchQueryParametersSchema(BaseModel):
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
     search_type: Optional[SearchTypeEnum] = Field(default=None)
+    rerank: Optional[bool] = Field(default=None)
 
 
 class DeleteDocumentsSchema(BaseModel):

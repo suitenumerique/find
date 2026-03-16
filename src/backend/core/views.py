@@ -354,6 +354,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 'full_text': Uses only full-text search, even if hybrid search is enabled
                 on the server.
             if the not specified, the server will use hybrid search when enabled
+        rerank : bool, optional
+            Enable or disable reranking of results. If not specified, falls back to
+            the RERANKER_ENABLED setting.
 
         Returns:
         --------
@@ -364,7 +367,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
-        groups = []
         params = schemas.SearchQueryParametersSchema(**request.data)
 
         # Get index list for search query
@@ -387,7 +389,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             reach=params.reach,
             visited=params.visited,
             user_sub=user_sub,
-            groups=groups,
+            groups=[],
             tags=params.tags,
             path=params.path,
             search_type=params.search_type
@@ -395,6 +397,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             else SearchTypeEnum.HYBRID
             if check_hybrid_search_enabled()
             else SearchTypeEnum.FULL_TEXT,
+            rerank_requested=params.rerank,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
