@@ -9,7 +9,7 @@ and this project adheres to
 # Unreleased
 
 ## Added
-
+- ✨(backend) add rescore on `updated_at`
 - 👷(docker) add arm64 platform support for image builds
 - ✨(backend) add semantic search
 - ✨(backend) add multi-embedding and chunking
@@ -36,8 +36,12 @@ and this project adheres to
 
 - 🏗️(backend) switch Python dependency management to uv
 - ✨(backend) allow deletion by tags
+- ♻️(backend) improve the evaluation command
 
 ## Fixed
 
 - 🐛(backend) fix missing index creation in 'index/' view
 - 🐛(backend) fix parallel test execution issues
+
+## Removed
+- 🗑️(backend) remove sorting

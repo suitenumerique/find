@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 def search(  # noqa : PLR0913
     q,
     nb_results,
-    order_by,
-    order_direction,
     search_indices,
     reach,
     visited,
@@ -27,6 +25,7 @@ def search(  # noqa : PLR0913
     tags,
     search_type,
     path=None,
+    rescore=False,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -48,13 +47,9 @@ def search(  # noqa : PLR0913
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(
-                query_keys=query.keys(),
-                order_by=order_by,
-                order_direction=order_direction,
-            ),
             "size": nb_results,
             "query": query,
+            "rescore": get_rescore(nb_results=nb_results) if rescore else [],
         },
         params=get_params(query_keys=query.keys()),
         # disable=unexpected-keyword-arg because
@@ -227,17 +222,35 @@ def get_filter(  # noqa : PLR0913
     return filters
 
 
-def get_sort(query_keys, order_by, order_direction):
-    """Build OpenSearch sort clause"""
-    # Add sorting logic based on relevance or specified field
-    if "hybrid" in query_keys:
-        # sorting by other field than "_score" is not supported in hybrid search
-        # see: https://github.com/opensearch-project/neural-search/issues/866
-        return {"_score": {"order": order_direction}}
-    if order_by == enums.RELEVANCE:
-        return {"_score": {"order": order_direction}}
-
-    return {order_by: {"order": order_direction}}
+def get_rescore(nb_results):
+    """
+    Build rescore query.
+    Rescore is based on the `updated_at` field to boost more recently updated documents
+    """
+    return [
+        {
+            "window_size": nb_results,
+            "query": {
+                "rescore_query_weight": settings.RESCORE_UPDATED_AT_WEIGHT,
+                "rescore_query": {
+                    "function_score": {
+                        "functions": [
+                            {
+                                "gauss": {
+                                    "updated_at": {
+                                        "origin": "now",
+                                        "offset": settings.RESCORE_UPDATED_AT_OFFSET,
+                                        "scale": settings.RESCORE_UPDATED_AT_SCALE,
+                                        "decay": settings.RESCORE_UPDATED_AT_DECAY,
+                                    }
+                                }
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+    ]
 
 
 def get_params(query_keys):

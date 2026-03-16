@@ -21,7 +21,6 @@ def embed_text(text):
         json={
             "input": text,
             "model": settings.EMBEDDING_API_MODEL_NAME,
-            "dimensions": settings.EMBEDDING_DIMENSION,
             "encoding_format": "float",
         },
         timeout=settings.EMBEDDING_REQUEST_TIMEOUT,
@@ -37,6 +36,16 @@ def embed_text(text):
         embedding = response.json()["data"][0]["embedding"]
     except (KeyError, IndexError, TypeError):
         logger.warning("unexpected embedding response format: %s", response.text)
+        return None
+
+    if len(embedding) != settings.EMBEDDING_DIMENSION:
+        logger.warning(
+            "unexpected embedding dimension: "
+            "EMBEDDING_DIMENSION is set to %d "
+            "but the configured embedding model returned a vector of dimension %d",
+            settings.EMBEDDING_DIMENSION,
+            len(embedding),
+        )
         return None
 
     return embedding

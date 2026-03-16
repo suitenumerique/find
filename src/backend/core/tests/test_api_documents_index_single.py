@@ -1,6 +1,7 @@
 """Tests indexing documents in OpenSearch over the API"""
 
 import datetime
+import logging
 
 from django.utils import timezone
 
@@ -116,6 +117,43 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
         )
         assert chunk["content"] in document["content"]
         assert len(chunk["content"]) < len(document["content"])
+
+
+@responses.activate
+def test_api_documents_index_with_wrong_embedding_dimension(settings, caplog):
+    """Test embedding with wrong dimension should log a warning and not index the embedding."""
+    service = factories.ServiceFactory()
+    enable_hybrid_search(settings)
+    settings.EMBEDDING_DIMENSION = 8
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+
+    document = factories.DocumentSchemaFactory.build()
+
+    with caplog.at_level(logging.WARNING):
+        APIClient().post(
+            "/api/v1.0/documents/index/",
+            document,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+
+    assert any(
+        "unexpected embedding dimension: EMBEDDING_DIMENSION is set to 8 "
+        "but the configured embedding model returned a vector of dimension 1024"
+        in message
+        for message in caplog.messages
+    )
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+    # check embedding
+    assert new_indexed_document["_source"]["chunks"] is None
 
 
 def test_api_documents_index_language_params():

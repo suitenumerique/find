@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Optional
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -116,10 +116,9 @@ class SearchQueryParametersSchema(BaseModel):
     reach: Optional[enums.ReachEnum] = None
     tags: StringListParameter = Field(default_factory=list)
     path: Optional[str] = None
-    order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
-    order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
     search_type: Optional[SearchTypeEnum] = Field(default=None)
+    rescore: bool = Field(default=True)
 
 
 class DeleteDocumentsSchema(BaseModel):

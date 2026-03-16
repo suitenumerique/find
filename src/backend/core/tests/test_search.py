@@ -2,8 +2,8 @@
 Test suite for opensearch search service
 """
 
+import datetime
 import logging
-import operator
 from json import dumps as json_dumps
 
 import pytest
@@ -32,8 +32,6 @@ def search_params(service):
     """Build opensearch.search() parameters for tests using the service index name"""
     return {
         "nb_results": 20,
-        "order_by": "relevance",
-        "order_direction": "desc",
         "search_indices": {service.index_name},
         "reach": None,
         "user_sub": "user_sub",
@@ -408,41 +406,6 @@ def test_match_all(settings, caplog):
 
 
 @responses.activate
-def test_search_ordering_by_relevance(settings, caplog):
-    """Test the hybrid supports ordering by relevance asc and desc"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-
-    documents = bulk_create_documents(
-        [
-            {"title": "wolf", "content": "wolves live in packs and hunt together"},
-            {"title": "dog", "content": "dogs are loyal domestic animals"},
-            {"title": "cat", "content": "cats are curious and independent pets"},
-        ]
-    )
-    q = "canine pet"
-    service = factories.ServiceFactory(name=SERVICE_NAME)
-    prepare_index(service.index_name, documents)
-
-    for direction in ["asc", "desc"]:
-        with caplog.at_level(logging.INFO):
-            result = search(
-                q=q, **{**search_params(service), "order_direction": direction}
-            )
-
-        # Check that results are sorted by score as expected
-        hits = result["hits"]["hits"]
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(hits) - 1):
-            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
-
-
-@responses.activate
 def test_hybrid_search_number_of_matches(settings):
     """
     In this test full-text search always return 0 documents.
@@ -712,3 +675,43 @@ def test_search_filtering_by_query_path_and_tag():
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
     assert returned_ids == expected_ids
+
+
+def test_search_with_rescore(settings):
+    """Test rescore feature"""
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+
+    today = datetime.datetime.today()
+    forty_days_ago = today - datetime.timedelta(days=40)
+    documents = [
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"],
+            title="my first document",
+            created_at=today,
+            updated_at=today,
+        ),
+        factories.DocumentSchemaFactory.build(
+            users=["user_sub"],
+            title="another document",
+            created_at=forty_days_ago,
+            updated_at=forty_days_ago,
+        ),
+    ]
+    prepare_index(service.index_name, documents)
+
+    # set a cray big RESCORE_UPDATED_AT_WEIGHT to demonstrate the effect of boosting on rescores
+    settings.RESCORE_UPDATED_AT_WEIGHT = 200
+
+    results = search(
+        q="another document",
+        **{
+            **search_params(service),
+            "rescore": True,
+        },
+    )
+
+    hits = results["hits"]["hits"]
+    # the first document is ranked first because it more recent
+    # even though the second one matches the query better
+    assert hits[0]["_source"]["title.en"] == "my first document"
+    assert hits[1]["_source"]["title.en"] == "another document"
