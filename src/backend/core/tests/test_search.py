@@ -3,8 +3,8 @@ Test suite for opensearch search service
 """
 
 import logging
-import operator
 from json import dumps as json_dumps
+from unittest.mock import patch
 
 import pytest
 import responses
@@ -32,8 +32,6 @@ def search_params(service):
     """Build opensearch.search() parameters for tests using the service index name"""
     return {
         "nb_results": 20,
-        "order_by": "relevance",
-        "order_direction": "desc",
         "search_indices": {service.index_name},
         "reach": None,
         "user_sub": "user_sub",
@@ -408,41 +406,6 @@ def test_match_all(settings, caplog):
 
 
 @responses.activate
-def test_search_ordering_by_relevance(settings, caplog):
-    """Test the hybrid supports ordering by relevance asc and desc"""
-    enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
-
-    documents = bulk_create_documents(
-        [
-            {"title": "wolf", "content": "wolves live in packs and hunt together"},
-            {"title": "dog", "content": "dogs are loyal domestic animals"},
-            {"title": "cat", "content": "cats are curious and independent pets"},
-        ]
-    )
-    q = "canine pet"
-    service = factories.ServiceFactory(name=SERVICE_NAME)
-    prepare_index(service.index_name, documents)
-
-    for direction in ["asc", "desc"]:
-        with caplog.at_level(logging.INFO):
-            result = search(
-                q=q, **{**search_params(service), "order_direction": direction}
-            )
-
-        # Check that results are sorted by score as expected
-        hits = result["hits"]["hits"]
-        compare = operator.le if direction == "asc" else operator.ge
-        for i in range(len(hits) - 1):
-            assert compare(hits[i]["_score"], hits[i + 1]["_score"])
-
-
-@responses.activate
 def test_hybrid_search_number_of_matches(settings):
     """
     In this test full-text search always return 0 documents.
@@ -712,3 +675,58 @@ def test_search_filtering_by_query_path_and_tag():
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
     assert returned_ids == expected_ids
+
+
+# pylint: disable=too-many-arguments, too-many-positional-arguments
+@responses.activate
+@patch("core.services.search.rerank")
+@pytest.mark.parametrize(
+    "rerank_requested, reranker_enabled, rerank_called, caplog_messages",
+    [
+        (True, True, True, []),
+        (
+            True,
+            False,
+            False,
+            [
+                "Reranking was explicitly requested but the reranker is "
+                "disabled in settings. Reranking skipped."
+            ],
+        ),
+        (False, True, False, []),
+        (False, False, False, []),
+        (None, False, False, []),
+        (None, True, True, []),
+    ],
+)
+def test_search_rerank(  # noqa : PLR0913
+    mock_rerank,
+    rerank_requested,
+    reranker_enabled,
+    rerank_called,
+    caplog_messages,
+    settings,
+    caplog,
+):
+    """Test that rerank activation according to args and settings"""
+    settings.RERANKER_ENABLED = reranker_enabled
+
+    documents = bulk_create_documents(
+        [
+            {"title": "wolf", "content": "wolves live in packs and hunt together"},
+            {"title": "dog", "content": "dogs are loyal domestic animals"},
+            {"title": "cat", "content": "cats are curious and independent pets"},
+        ]
+    )
+    mock_rerank.return_value = documents
+    service = factories.ServiceFactory(name=SERVICE_NAME)
+    prepare_index(service.index_name, documents)
+
+    with caplog.at_level(logging.INFO):
+        search(
+            q="canine pet", rerank_requested=rerank_requested, **search_params(service)
+        )
+
+    assert mock_rerank.called == rerank_called
+    for message in caplog_messages:
+        assert message in caplog.text

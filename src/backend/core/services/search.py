@@ -9,6 +9,7 @@ from core.enums import SearchTypeEnum
 
 from .embedding import embed_text
 from .opensearch import check_hybrid_search_enabled, opensearch_client
+from .reranking import rerank, should_rerank
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,6 @@ logger = logging.getLogger(__name__)
 def search(  # noqa : PLR0913
     q,
     nb_results,
-    order_by,
-    order_direction,
     search_indices,
     reach,
     visited,
@@ -27,6 +26,7 @@ def search(  # noqa : PLR0913
     tags,
     search_type,
     path=None,
+    rerank_requested=None,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
@@ -40,7 +40,7 @@ def search(  # noqa : PLR0913
         path=path,
         search_type=search_type,
     )
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+    response = opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return
@@ -48,11 +48,6 @@ def search(  # noqa : PLR0913
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(
-                query_keys=query.keys(),
-                order_by=order_by,
-                order_direction=order_direction,
-            ),
             "size": nb_results,
             "query": query,
         },
@@ -61,6 +56,14 @@ def search(  # noqa : PLR0913
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
     )
+
+    if should_rerank(rerank_requested) and q != "*":
+        response["hits"]["hits"] = rerank(
+            query=q,
+            hits=response["hits"]["hits"],
+        )
+
+    return response
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
@@ -225,19 +228,6 @@ def get_filter(  # noqa : PLR0913
         filters.append({"prefix": {"path": path}})
 
     return filters
-
-
-def get_sort(query_keys, order_by, order_direction):
-    """Build OpenSearch sort clause"""
-    # Add sorting logic based on relevance or specified field
-    if "hybrid" in query_keys:
-        # sorting by other field than "_score" is not supported in hybrid search
-        # see: https://github.com/opensearch-project/neural-search/issues/866
-        return {"_score": {"order": order_direction}}
-    if order_by == enums.RELEVANCE:
-        return {"_score": {"order": order_direction}}
-
-    return {order_by: {"order": order_direction}}
 
 
 def get_params(query_keys):

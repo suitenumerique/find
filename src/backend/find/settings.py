@@ -319,6 +319,15 @@ class Base(Configuration):
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
 
+    # Reranking
+    RERANKER_ENABLED = values.BooleanValue(
+        default=False, environ_name="RERANKER_ENABLED", environ_prefix=None
+    )
+    RERANKER_MODEL_NAME = values.Value(
+        environ_name="RERANKER_MODEL_NAME",
+        environ_prefix=None,
+    )
+
     # CORS
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)

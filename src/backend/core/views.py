@@ -332,12 +332,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         path : str, optional
             Filter results based on the 'path' field. Only documents whose path
             starts with the provided value will be returned.
-        order_by : str, optional
-            Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
-            Defaults to 'relevance' if not specified.
-        order_direction : str, optional
-            Order direction, 'asc' for ascending or 'desc' for descending.
-            Defaults to 'desc'.
         nb_results : int, optional
             The number of results to return.
             Defaults to 50 if not specified.
@@ -347,6 +341,9 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
             Built from linkreach list of a document in docs app.
+        rerank : bool, optional
+            Enable or disable reranking of results. If not specified, falls back to
+            the RERANKER_ENABLED setting.
         search_type : str, optional
             Type of search to perform: 'hybrid' or 'full_text'.
             - 'hybrid': Uses hybrid search if enabled on the server,
@@ -364,7 +361,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         # Get list of groups related to the user from SCIM provider (consider caching result)
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
-        groups = []
         params = schemas.SearchQueryParametersSchema(**request.data)
 
         # Get index list for search query
@@ -381,13 +377,11 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         result = search(
             q=params.q,
             nb_results=params.nb_results,
-            order_by=params.order_by,
-            order_direction=params.order_direction,
             search_indices=search_indices,
             reach=params.reach,
             visited=params.visited,
             user_sub=user_sub,
-            groups=groups,
+            groups=[],
             tags=params.tags,
             path=params.path,
             search_type=params.search_type
@@ -395,6 +389,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             else SearchTypeEnum.HYBRID
             if check_hybrid_search_enabled()
             else SearchTypeEnum.FULL_TEXT,
+            rerank_requested=params.rerank,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
