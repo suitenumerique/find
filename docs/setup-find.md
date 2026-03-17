@@ -1,16 +1,16 @@
-# Using the Find indexer
+# Setup Find
 
-This guide explains how to setup the Find service which provide an API for indexation and fulltext search of
+This guide explains how to setup the Find service which provide an API for indexation and search of
 documents from various sources in a secure way : only the documents within the scope of the user's OIDC token
 are visible.
 
-## Setup Opensearch
+## Core setups
 
-### General
+### Opensearch
 
 Add the following variables to your Django settings to configure Find and enable full-text search.
 
-```python
+```bash
 # Login for opensearch
 OPENSEARCH_USER=opensearch-user
 OPENSEARCH_PASSWORD=your-opensearch-password
@@ -29,7 +29,7 @@ OPENSEARCH_INDEX_PREFIX=find
 ### Language
 
 Language specific operations are applied to document titles and contents to improve search results. 
-The language is automatically detected  by Find.
+The language is automatically detected by Find.
 If the language can not be detected no language specific operation are applied and the indexing process is not affected.
 
 Find supports french, english, german and dutch. 
@@ -39,7 +39,7 @@ The search process is not language specific, a query can get documents of any la
 Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
 This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
 
-```python
+```bash
 LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
 ```
 
@@ -47,49 +47,67 @@ LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
 
 Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the following settings. 
 
-```python
+```bash
 # Enable flag
-HYBRID_SEARCH_ENABLED = True
+HYBRID_SEARCH_ENABLED=True
 
 # weighted sum: full_text_weight, semantic_search_weight
-HYBRID_SEARCH_WEIGHTS = 0.7,0.3
+HYBRID_SEARCH_WEIGHTS=0.7,0.3
 
 # Embedding
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-EMBEDDING_API_PATH = https://embedding.api.example.com/full/path/
-EMBEDDING_API_KEY = your-embedding-api-key
-EMBEDDING_REQUEST_TIMEOUT = 10
-EMBEDDING_API_MODEL_NAME = embedding-api-model-name
-EMBEDDING_DIMENSION = 1024
+EMBEDDING_API_PATH=https://embedding.api.example.com/full/path/
+EMBEDDING_API_KEY=your-embedding-api-key
+EMBEDDING_REQUEST_TIMEOUT=10
+EMBEDDING_API_MODEL_NAME=embedding-api-model-name
+EMBEDDING_DIMENSION=1024
 ```
 
 The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 
 
 You need to use an embedding api similar to https://albert.api.etalab.gouv.fr/documentation#tag/Embeddings/operation/embeddings_v1_embeddings_post. 
 
-### document chunking
+### Document chunking
 
-The indexing process embeds documents by converting their content into vector representations (embeddings). When a document exceeds the character dimension defined by CHUNK_SIZE, it's divided into smaller segments (chunks), with each chunk embedded independently. Each chunk must be smaller than the embedding model's context window . 
+The indexing process embeds documents by converting their content into vector representations (embeddings). When a document exceeds the character dimension defined by CHUNK_SIZE, it's divided into smaller segments (chunks), with each chunk embedded independently. Each chunk must be smaller than the embedding model's context window .
+
+```bash
+CHUNK_SIZE=512
+CHUNK_OVERLAP=50
+```
 
 The chunking algorithm works recursively. It attempts to create the largest possible segments first, then subdivides them further if they still exceed the size limit defined by CHUNK_SIZE. Segments can share overlapping content between them (set CHUNK_OVERLAP=0 to disable overlapping). 
 
 During the search, the matching of a document is the matching of its best chunk.
 
-## trigrams
+### Trigrams
 
 Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 
 
-````
+```bash
 TRIGRAMS_BOOST=0.25
 TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
-````
+```
 
 `TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
 `TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
 either an absolute number or proportion.
 
-## Setup indexation API
+### Reranking
+
+Find offers a reranking feature to reorder the search results based on a cross-encoder method.
+
+To enable the reranking, add the following settings. 
+
+```bash
+RERANKING_ENABLED=True
+RERANKER_MODEL_NAME=ms-marco-MiniLM-L-12-v2
+```
+
+Reranking is based on Flashrank. See the [Flashrank documentation](https://github.com/PrithivirajDamodaran/FlashRank?tab=readme-ov-file) to know what models are compatible.
+
+## API setups
+
+### Indexing
 
 Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
 
@@ -110,21 +128,21 @@ And add the key in the calling application Django settings.
 
 The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
 
-```python
+```bash
 # Docs
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+SEARCH_INDEXER_SECRET=find-api-key-for-docs-with-exactly-50-chars-length
 ```
 
-```python
+```bash
 # Drive
-SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
+SEARCH_INDEXER_SECRET=find-api-key-for-driv-with-exactly-50-chars-length
 ```
 
-## Setup search API
+### Search
 
 The **`/search/`** endpoint is an OIDC ResourceServer view and needs extra Django settings (see [lasuite](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-resource-server-backend.md) for details)
 
-```shell
+```bash
 OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/certs
 OIDC_OP_AUTHORIZATION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/auth
 OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token
@@ -145,11 +163,11 @@ OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-
 # OIDC_VERIFY_SSL=False
 
 # Resource server
-OIDC_RS_SCOPES="openid"
+OIDC_RS_SCOPES=openid
 OIDC_RS_SIGN_ALGO=RS256
 
 # This backend allows authentication without any model in database. 
-OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
+OIDC_RS_BACKEND_CLASS=core.authentication.FinderResourceServerBackend
 ```
 
 **Development mode (Docs + Find)**
