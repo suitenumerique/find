@@ -12,14 +12,13 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
-from .enums import SearchTypeEnum
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
     ensure_index_exists,
     get_opensearch_indices,
     prepare_document_for_indexing,
 )
-from .services.opensearch import check_hybrid_search_enabled, opensearch_client
+from .services.opensearch import opensearch_client
 from .services.search import search
 from .utils import get_language_value
 
@@ -306,7 +305,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         - The search results can be sorted or filtered via querystring parameters.
     """
 
-    authentication_classes = [ResourceServerAuthentication]
     permission_classes = [IsAuthAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -365,7 +363,13 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
         groups = []
-        params = schemas.SearchQueryParametersSchema(**request.data)
+
+        try:
+            params = schemas.SearchQueryParametersSchema(**request.data)
+        except PydanticValidationError as excpt:
+            errors = {error["loc"][0]: error["msg"] for error in excpt.errors()}
+            logger.error("Validation error: %s", errors)
+            raise excpt
 
         # Get index list for search query
         try:
@@ -390,11 +394,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             groups=groups,
             tags=params.tags,
             path=params.path,
-            search_type=params.search_type
-            if params.search_type
-            else SearchTypeEnum.HYBRID
-            if check_hybrid_search_enabled()
-            else SearchTypeEnum.FULL_TEXT,
+            search_type=params.search_type,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
