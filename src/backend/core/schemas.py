@@ -18,7 +18,7 @@ from pydantic import (
 )
 
 from . import enums
-from .enums import SearchTypeEnum
+from .services.opensearch import check_hybrid_search_enabled
 
 
 class DocumentSchema(BaseModel):
@@ -119,7 +119,22 @@ class SearchQueryParametersSchema(BaseModel):
     order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
     order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
-    search_type: Optional[SearchTypeEnum] = Field(default=None)
+    search_type: Optional[enums.SearchTypeEnum] = None
+
+    @model_validator(mode="after")
+    def set_default_search_type(self):
+        """
+        Set default search_type dynamically.
+        If search_type is not provided, it will be set to hybrid if it is configured
+        and fall back on full text otherwise.
+        """
+        if self.search_type is None:
+            self.search_type = (
+                enums.SearchTypeEnum.HYBRID
+                if check_hybrid_search_enabled()
+                else enums.SearchTypeEnum.FULL_TEXT
+            )
+        return self
 
 
 class DeleteDocumentsSchema(BaseModel):

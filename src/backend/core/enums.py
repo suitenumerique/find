@@ -20,7 +20,7 @@ class SearchTypeEnum(str, Enum):
     """Search type options"""
 
     HYBRID = "hybrid"
-    FULL_TEXT = "full_text"
+    FULL_TEXT = "full-text"
 
 
 # Fields
