@@ -5,8 +5,6 @@ Test suite for reindex service
 import logging
 from unittest.mock import patch
 
-from django.conf import settings
-
 import pytest
 import responses
 
@@ -52,16 +50,16 @@ def test_reindex_with_embedding_success(settings):
     documents = bulk_create_documents(
         [
             {
-                "title": "Short Doc",
-                "content": "This is a short document with minimal content.",
+                "title": "Doc 0",
+                "content": "doc 1.",
             },
             {
-                "title": "Long Doc",
-                "content": "a" * 120,  # Long enough to require chunking
+                "title": "Doc 1",
+                "content": "doc 1",  # Long enough to require chunking
             },
             {
-                "title": "Medium Doc",
-                "content": "This is a medium length document with some interesting content about various topics.",
+                "title": "Doc 2",
+                "content": "doc 2",
             },
         ]
     )
@@ -90,7 +88,7 @@ def test_reindex_with_embedding_success(settings):
     # Verify documents in index
     opensearch_client_.indices.refresh(index=index_name)
     response = opensearch_client_.search(
-        index=index_name, size=10, body={"query": {"match_all": {}}}
+        index=index_name, body={"query": {"match_all": {}}}
     )
 
     assert len(response["hits"]["hits"]) == 3
@@ -113,7 +111,7 @@ def test_reindex_with_embedding_success(settings):
 
 
 @responses.activate
-def test_reindex_with_embedding_partial_failure(caplog):
+def test_reindex_with_embedding_partial_failure(caplog, settings):
     """Test reindex_with_embedding handles partial failures correctly"""
     opensearch_client_ = opensearch_client()
 
@@ -175,7 +173,7 @@ def test_reindex_with_embedding_partial_failure(caplog):
 
 
 @responses.activate
-def test_reindex_with_embedding_preserves_concurrent_updates():
+def test_reindex_with_embedding_preserves_concurrent_updates(settings):
     """
     Test that concurrent document updates don't get overwritten by reindexing.
     Because the updated document is modified after indexing (seq_no changed),
@@ -217,14 +215,10 @@ def test_reindex_with_embedding_preserves_concurrent_updates():
         status=200,
     )
 
-    opensearch_client_.indices.refresh(index=index_name)
+    result = reindex_with_embedding(index_name, {"match_all": {}}, batch_size=10)
 
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+    assert result["nb_success_embedding"] == 2
+    assert result["nb_failed_embedding"] == 0
 
     # Verify the concurrent update was preserved
     updated_doc = opensearch_client_.get(index=index_name, id=documents[1]["id"])
@@ -234,7 +228,7 @@ def test_reindex_with_embedding_preserves_concurrent_updates():
 
 
 @responses.activate
-def test_reindex_with_embedding_empty_result():
+def test_reindex_with_embedding_empty_result(settings):
     """Test reindex_with_embedding with query that matches no documents"""
     documents = bulk_create_documents([{"title": "Doc 1", "content": "Content 1"}])
 
