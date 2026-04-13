@@ -20,12 +20,12 @@ from core.services.opensearch import check_hybrid_search_enabled, opensearch_cli
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
     enable_hybrid_search,
+    prepare_index,
 )
 from core.utils import (
     bulk_create_documents,
     delete_search_pipeline,
     get_language_value,
-    prepare_index,
 )
 
 SERVICE_NAME = "test-index"

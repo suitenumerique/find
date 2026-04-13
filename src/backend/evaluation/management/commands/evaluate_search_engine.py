@@ -19,12 +19,12 @@ from core.services.opensearch import (
 from core.services.search import (
     search,
 )
+from core.tests.utils import prepare_index
 from core.utils import (
     bulk_create_documents,
     delete_index,
     delete_search_pipeline,
     get_language_value,
-    prepare_index,
 )
 
 logger = logging.getLogger(__name__)

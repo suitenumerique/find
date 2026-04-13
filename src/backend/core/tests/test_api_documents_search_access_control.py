@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 
 from core import enums, factories
 from core.services.opensearch import opensearch_client
-from core.utils import prepare_index
+from core.tests.utils import prepare_index
 
 from .mock import albert_embedding_response
 from .utils import (

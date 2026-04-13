@@ -13,7 +13,8 @@ from core import enums, factories
 from core.services import opensearch
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.services.search import search
-from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
+from core.tests.utils import prepare_index
+from core.utils import bulk_create_documents, delete_search_pipeline
 
 from .mock import albert_embedding_response
 from .utils import (

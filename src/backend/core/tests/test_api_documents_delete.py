@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 
 from core import factories
 from core.services.opensearch import opensearch_client
-from core.utils import prepare_index
+from core.tests.utils import prepare_index
 
 from .utils import build_authorization_bearer, setup_oicd_resource_server
 

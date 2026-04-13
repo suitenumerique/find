@@ -88,6 +88,15 @@ class DocumentSchema(BaseModel):
         return validated_groups
 
 
+class IndexedDocumentSchema(DocumentSchema):
+    """Schema for indexed documents in OpenSearch with language and status."""
+
+    chunks: Optional[List[dict]] = None
+    embedding_model: Optional[str] = None
+    language_code: str
+    indexing_status: enums.IndexingStatusEnum = enums.IndexingStatusEnum.READY
+
+
 def cleanlist(value):
     """Build a list of strings from a string, None (empty list) or a list of objects."""
     if isinstance(value, str):

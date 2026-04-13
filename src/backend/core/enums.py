@@ -23,6 +23,13 @@ class SearchTypeEnum(str, Enum):
     FULL_TEXT = "full-text"
 
 
+class IndexingStatusEnum(str, Enum):
+    """Indexing status options for documents"""
+
+    TO_BE_EMBEDDED = "to-be-embedded"
+    READY = "ready"
+
+
 # Fields
 
 CREATED_AT = "created_at"

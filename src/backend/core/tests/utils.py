@@ -4,12 +4,17 @@ import base64
 import json
 import logging
 from functools import partial
+from typing import List
+
+from opensearchpy.helpers import bulk
 
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
+from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
 from core.services.opensearch import (
     check_hybrid_search_enabled,
+    opensearch_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,3 +97,21 @@ def setup_oicd_resource_server(
             settings.OIDC_OP_INTROSPECTION_ENDPOINT,
             body=json.dumps(token_data),
         )
+
+
+def prepare_index(index_name, documents: List):
+    """Prepare the search index before testing a query on it."""
+    logger.info("Preparing index %s with %d documents", index_name, len(documents))
+
+    ensure_index_exists(index_name)
+    actions = [
+        {
+            "_op_type": "index",
+            "_index": index_name,
+            "_id": document["id"],
+            "_source": prepare_document_for_indexing(document),
+        }
+        for document in documents
+    ]
+    bulk(opensearch_client(), actions)
+    opensearch_client().indices.refresh(index=index_name)

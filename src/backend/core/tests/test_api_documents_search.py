@@ -18,7 +18,8 @@ from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
 )
-from core.utils import bulk_create_documents, prepare_index
+from core.tests.utils import prepare_index
+from core.utils import bulk_create_documents
 
 from ..enums import SearchTypeEnum
 from .mock import albert_embedding_response
