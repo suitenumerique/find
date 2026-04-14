@@ -150,12 +150,6 @@ def test_api_documents_search_services_invalid_parameters(settings):
 def test_api_documents_search_reached_docs_invalid_parameters(settings):
     """Invalid visited parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     factories.ServiceFactory()
 
     response = APIClient().post(
@@ -180,12 +174,6 @@ def test_api_documents_search_reached_docs_invalid_parameters(settings):
 def test_api_documents_search_match_all(settings):
     """Searching a document with q='*' should match all docs"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     nb_documents = 12
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -244,9 +232,9 @@ def test_api_documents_full_text_search_query_title(settings):
         "size": fox_document["size"],
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
-        "reach": fox_document["reach"],
+        "reach": fox_document["reach"].value,
         "tags": [],
-        "title.en": fox_document["title"],
+        "title.en": fox_document["title"].lower(),
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -261,16 +249,16 @@ def test_api_documents_full_text_search_query_title(settings):
     ]
     assert other_fox_response["_id"] == str(other_fox_document["id"])
     assert other_fox_response["_source"] == {
-        "content.en": fox_document["content"],
+        "content.en": fox_document["content"].lower(),
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
-        "reach": other_fox_document["reach"],
+        "reach": other_fox_document["reach"].value,
         "tags": [],
-        "title.en": other_fox_document["title"],
+        "title.en": other_fox_document["title"].lower(),
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -320,7 +308,7 @@ def test_api_documents_full_text_search(settings):
         "updated_at": fox_document["updated_at"].isoformat(),
         "reach": fox_document["reach"],
         "tags": [],
-        "title.en": fox_document["title"],
+        "title.en": fox_document["title"].lower(),
     }
     assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
@@ -336,7 +324,7 @@ def test_api_documents_full_text_search(settings):
     assert other_fox_response["_id"] == str(other_fox_document["id"])
     assert other_fox_response["_score"] > 0
     assert other_fox_response["_source"] == {
-        "content.en": fox_document["content"],
+        "content.en": fox_document["content"].lower(),
         "depth": 1,
         "numchild": 0,
         "path": other_fox_document["path"],
@@ -345,7 +333,7 @@ def test_api_documents_full_text_search(settings):
         "updated_at": other_fox_document["updated_at"].isoformat(),
         "reach": other_fox_document["reach"],
         "tags": [],
-        "title.en": other_fox_document["title"],
+        "title.en": other_fox_document["title"].lower(),
     }
     assert other_fox_response["fields"] == {
         "number_of_users": [1],
@@ -358,12 +346,7 @@ def test_api_documents_search_with_search_type_full_text(settings, caplog):
     """Test API with search_type=full_text forces full-text search even if hybrid is enabled"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+
     service = factories.ServiceFactory()
     documents = bulk_create_documents(
         [
@@ -406,12 +389,12 @@ def test_api_documents_hybrid_search(settings):
     service = factories.ServiceFactory()
     documents = bulk_create_documents(
         [
-            {"title": "The quick brown fox", "content": "the wolf"},
-            {"title": "The blue fox", "content": "the wolf"},
-            {"title": "The brown goat", "content": "the wolf"},
+            {"title": "the quick brown fox", "content": "the fox"},
+            {"title": "the blue fox", "content": "the fox"},
+            {"title": "the goat", "content": "the goat"},
         ]
     )
-    prepare_index(service.index_name, documents)
+    prepare_index(service.index_name, documents, include_embedding=True)
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
@@ -438,7 +421,7 @@ def test_api_documents_hybrid_search(settings):
         "size": fox_document["size"],
         "created_at": fox_document["created_at"].isoformat(),
         "updated_at": fox_document["updated_at"].isoformat(),
-        "reach": fox_document["reach"],
+        "reach": fox_document["reach"].value,
         "tags": [],
         "title.en": fox_document["title"],
     }
@@ -463,7 +446,7 @@ def test_api_documents_hybrid_search(settings):
         "size": other_fox_document["size"],
         "created_at": other_fox_document["created_at"].isoformat(),
         "updated_at": other_fox_document["updated_at"].isoformat(),
-        "reach": other_fox_document["reach"],
+        "reach": other_fox_document["reach"].value,
         "tags": [],
         "title.en": other_fox_document["title"],
     }
@@ -483,14 +466,14 @@ def test_api_documents_hybrid_search(settings):
     ]
     assert no_fox_response["_id"] == str(no_fox_document["id"])
     assert no_fox_response["_source"] == {
-        "content.en": fox_document["content"],
+        "content.en": no_fox_document["content"],
         "depth": 1,
         "numchild": 0,
         "path": no_fox_document["path"],
         "size": no_fox_document["size"],
         "created_at": no_fox_document["created_at"].isoformat(),
         "updated_at": no_fox_document["updated_at"].isoformat(),
-        "reach": no_fox_document["reach"],
+        "reach": no_fox_document["reach"].value,
         "tags": [],
         "title.en": no_fox_document["title"],
     }
@@ -504,12 +487,7 @@ def test_api_documents_hybrid_search(settings):
 def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -554,12 +532,7 @@ def test_api_documents_search_ordering_by_fields(settings):
 def test_api_documents_search_ordering_by_relevance(settings):
     """It should be possible to order by relevance (score)"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -593,12 +566,7 @@ def test_api_documents_search_ordering_by_relevance(settings):
 def test_api_documents_search_ordering_by_unknown_field(settings):
     """Trying to sort by an unknown field should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+
     # Setup: Initialize the service and documents only once
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -640,12 +608,7 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
 def test_api_documents_search_ordering_by_unknown_direction(settings):
     """Trying to sort with an unknown direction should return a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
+
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         2, reach=random.choice(["public", "authenticated"])
@@ -679,12 +642,6 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
 def test_api_documents_search_filtering_by_reach(settings):
     """It should be possible to filter results by their reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -714,12 +671,6 @@ def test_api_documents_search_filtering_by_reach(settings):
 def test_api_documents_search_with_nb_results(settings):
     """nb_size should correctly return results of given size"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
@@ -779,12 +730,6 @@ def test_api_documents_search_with_nb_results(settings):
 def test_api_documents_search_nb_results_invalid_parameters(settings):
     """Invalid nb_results parameters should result in a 400 error"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -819,12 +764,6 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
 def test_api_documents_search_nb_results_with_filtering(settings):
     """nb_results should work correctly when combined with filtering by reach"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
@@ -853,12 +792,6 @@ def test_api_documents_search_nb_results_with_filtering(settings):
 def test_api_documents_search_filtering_by_tags(settings):
     """Test filtering documents by a single tag via API"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
 
     documents = bulk_create_documents(
@@ -904,12 +837,6 @@ def test_api_documents_search_filtering_by_tags(settings):
 def test_api_documents_search_without_tags_filter(settings):
     """Test that search works normally when no tags filter is provided"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
 
     documents = bulk_create_documents(
@@ -948,12 +875,6 @@ def test_api_documents_search_without_tags_filter(settings):
 def test_api_documents_search_filtering_by_path(settings):
     """Test filtering documents by path prefix via API"""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
     service = factories.ServiceFactory()
 
     documents = bulk_create_documents(

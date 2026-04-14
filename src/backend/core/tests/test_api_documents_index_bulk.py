@@ -2,6 +2,7 @@
 
 import datetime
 from unittest import mock
+from unittest.mock import patch
 
 from django.utils import timezone
 
@@ -10,9 +11,17 @@ from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
+from core.enums import IndexingStatusEnum
 from core.services import opensearch
+from core.tests.utils import enable_hybrid_search
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_caches():
+    """Clear caches and delete search pipeline before each test"""
+    opensearch.check_hybrid_search_enabled.cache_clear()
 
 
 def test_api_documents_index_bulk_anonymous():
@@ -42,21 +51,79 @@ def test_api_documents_index_bulk_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
-def test_api_documents_index_bulk_success():
+def test_api_documents_index_bulk_hybrid_disabled_success():
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
+    opensearch_client = opensearch.opensearch_client()
 
-    response = APIClient().post(
-        "/api/v1.0/documents/index/",
-        documents,
-        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
-    )
+    with patch(
+        "core.views.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
 
     assert response.status_code == 201
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
+
+    opensearch_client.indices.refresh(index=service.index_name)
+    indexed_documents = opensearch_client.search(
+        index=service.index_name, body={"query": {"match_all": {}}}
+    )
+    assert len(indexed_documents["hits"]["hits"]) == 3
+    for indexed_document in indexed_documents["hits"]["hits"]:
+        assert indexed_document["_source"]["chunks"] is None
+        assert indexed_document["_source"]["embedding_model"] is None
+        # hybrid is not enabled. documents are then ready without embeddings.
+        assert (
+            indexed_document["_source"]["indexing_status"] == IndexingStatusEnum.READY
+        )
+
+    mock_embed_document_to_be_embedded.assert_not_called()
+
+
+def test_api_documents_index_bulk_hybrid_enabled_success(settings):
+    """A registered service should be able to index documents in bulk with a valid token."""
+    service = factories.ServiceFactory()
+    enable_hybrid_search(settings)
+
+    documents = factories.DocumentSchemaFactory.build_batch(3)
+    opensearch_client = opensearch.opensearch_client()
+
+    with patch(
+        "core.views.embed_document_to_be_embedded"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+
+    assert response.status_code == 201
+    responses = response.json()
+    assert [d["status"] for d in responses] == ["success"] * 3
+
+    opensearch_client.indices.refresh(index=service.index_name)
+    indexed_documents = opensearch_client.search(
+        index=service.index_name, body={"query": {"match_all": {}}}
+    )
+    assert len(indexed_documents["hits"]["hits"]) == 3
+    for indexed_document in indexed_documents["hits"]["hits"]:
+        assert indexed_document["_source"]["chunks"] is None
+        assert indexed_document["_source"]["embedding_model"] is None
+        # hybrid is enabled. documents are then to-be-embedded.
+        assert (
+            indexed_document["_source"]["indexing_status"]
+            == IndexingStatusEnum.TO_BE_EMBEDDED
+        )
+
+    mock_embed_document_to_be_embedded.delay.assert_called_once_with(service.index_name)
 
 
 def test_api_documents_index_bulk_ensure_index():
@@ -393,11 +460,7 @@ def test_api_documents_index_opensearch_errors():
         mock_bulk.return_value = {
             "items": [
                 {"index": {"status": 201}},
-                {
-                    "index": {
-                        "status": 400,
-                    }
-                },
+                {"index": {"status": 400}},
                 {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
             ]
         }

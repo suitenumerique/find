@@ -10,17 +10,17 @@ from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
 
-from . import schemas
+from . import adapters, enums, schemas
 from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
+    detect_language_code,
     ensure_index_exists,
     get_opensearch_indices,
-    prepare_document_for_indexing,
 )
-from .services.opensearch import opensearch_client
+from .services.opensearch import check_hybrid_search_enabled, opensearch_client
 from .services.search import search
-from .utils import get_language_value
+from .tasks.indexing import embed_document_to_be_embedded
 
 logger = logging.getLogger(__name__)
 
@@ -84,21 +84,19 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = request.auth.index_name
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
-            return self.bulk_index(request, index_name, opensearch_client_)
+            return self.bulk_index(request, opensearch_client_)
 
-        return self.single_index(request, index_name, opensearch_client_)
+        return self.single_index(request, opensearch_client_)
 
-    def single_index(self, request, index_name, opensearch_client_):
+    def single_index(self, request, opensearch_client_):
         """
         Index a single document into OpenSearch.
 
         Args:
             request: The HTTP request containing document data.
-            index_name: The name of the OpenSearch index.
             opensearch_client_: The OpenSearch client instance.
 
         Returns:
@@ -106,29 +104,42 @@ class IndexDocumentView(views.APIView):
                 - 201 Created: Returns the indexed document ID.
                 - 400 Bad Request: Returns an error message if the document is invalid.
         """
-        document_dict = prepare_document_for_indexing(
-            schemas.DocumentSchema(**request.data).model_dump()
-        )
-        _id = document_dict.pop("id")
+        raw_document = schemas.DocumentSchema(**request.data).model_dump()
         logger.info(
             "Indexing single document %s on index %s",
-            get_language_value(document_dict, "title"),
-            index_name,
+            raw_document["title"],
+            request.auth.index_name,
         )
 
-        ensure_index_exists(index_name)
-        opensearch_client_.index(
-            index=index_name,
-            body=document_dict,
-            id=_id,
+        raw_document["language_code"] = detect_language_code(
+            f"{raw_document['title']} {raw_document['content']}"
         )
+        raw_document["indexing_status"] = (
+            enums.IndexingStatusEnum.TO_BE_EMBEDDED
+            if check_hybrid_search_enabled()
+            else enums.IndexingStatusEnum.READY
+        )
+        document = schemas.IndexedDocumentSchema(**raw_document)
+
+        ensure_index_exists(request.auth.index_name)
+        opensearch_client_.index(
+            index=request.auth.index_name,
+            body=adapters.to_opensearch(document),
+            id=str(document.id),
+        )
+
+        # async tasks
+        if document.indexing_status == enums.IndexingStatusEnum.TO_BE_EMBEDDED:
+            logger.info("Dispatching embedding task for service %s", request.auth.name)
+            embed_document_to_be_embedded.delay(request.auth.index_name)
 
         return Response(
-            {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
+            {"status": "created", "_id": str(document.id)},
+            status=status.HTTP_201_CREATED,
         )
 
     # pylint: disable=too-many-locals
-    def bulk_index(self, request, index_name, opensearch_client_):
+    def bulk_index(self, request, opensearch_client_):
         """
         Index multiple documents into OpenSearch in bulk.
 
@@ -145,10 +156,11 @@ class IndexDocumentView(views.APIView):
         results = []
         actions = []
         has_errors = False
+        has_documents_to_embed = False
 
         for i, document_data in enumerate(request.data):
             try:
-                document = schemas.DocumentSchema(**document_data)
+                document = schemas.DocumentSchema(**document_data).model_dump()
             except PydanticValidationError as excpt:
                 errors = [
                     {key: error[key] for key in ("msg", "type", "loc")}
@@ -157,22 +169,39 @@ class IndexDocumentView(views.APIView):
                 results.append({"index": i, "status": "error", "errors": errors})
                 has_errors = True
             else:
-                document_dict = prepare_document_for_indexing(document.model_dump())
                 logger.info(
                     "Indexing document %s on index %s",
-                    get_language_value(document_dict, "title"),
-                    index_name,
+                    document["title"],
+                    request.auth.index_name,
                 )
-                _id = document_dict.pop("id")
-                actions.append({"index": {"_id": _id}})
-                actions.append(document_dict)
-                results.append({"index": i, "_id": _id, "status": "valid"})
+
+                document["language_code"] = detect_language_code(
+                    f"{document['title']} {document['content']}"
+                )
+                document["indexing_status"] = (
+                    enums.IndexingStatusEnum.TO_BE_EMBEDDED
+                    if check_hybrid_search_enabled()
+                    else enums.IndexingStatusEnum.READY
+                )
+                document = schemas.IndexedDocumentSchema(**document)
+
+                actions.append({"index": {"_id": str(document.id)}})
+                actions.append(adapters.to_opensearch(document))
+                results.append({"index": i, "_id": str(document.id), "status": "valid"})
+
+                if document.indexing_status == enums.IndexingStatusEnum.TO_BE_EMBEDDED:
+                    has_documents_to_embed = True
 
         if has_errors:
             return Response(results, status=status.HTTP_400_BAD_REQUEST)
 
-        ensure_index_exists(index_name)
-        response = opensearch_client_.bulk(index=index_name, body=actions)
+        ensure_index_exists(request.auth.index_name)
+        response = opensearch_client_.bulk(index=request.auth.index_name, body=actions)
+
+        if has_documents_to_embed:
+            logger.info("Dispatching embedding task for service %s", request.auth.name)
+            embed_document_to_be_embedded.delay(request.auth.index_name)
+
         for i, item in enumerate(response["items"]):
             if item["index"]["status"] != 201:
                 results[i]["status"] = "error"

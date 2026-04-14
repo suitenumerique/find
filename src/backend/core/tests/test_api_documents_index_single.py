@@ -1,6 +1,7 @@
 """Tests indexing documents in OpenSearch over the API"""
 
 import datetime
+from unittest.mock import patch
 
 from django.utils import timezone
 
@@ -10,8 +11,8 @@ from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
+from core.enums import IndexingStatusEnum
 from core.services import opensearch
-from core.tests.mock import albert_embedding_response
 from core.tests.utils import enable_hybrid_search
 
 pytestmark = pytest.mark.django_db
@@ -51,19 +52,18 @@ def test_api_documents_index_single_invalid_token():
 
 
 @responses.activate
-def test_api_documents_index_single_hybrid_enabled_success(settings):
+@patch("core.tasks.indexing.embed_document_to_be_embedded")
+def test_api_documents_index_single_hybrid_enabled_success(
+    mock_embed_document_to_be_embedded,
+    settings,
+):
     """
     A registered service should be able to index document with a valid token.
-    If hybrid search is enabled, the documents are chunked and embedded.
+    If hybrid search is enabled, the document is indexed with status 'to-be-embedded'
+    and the embedding task is triggered.
     """
     service = factories.ServiceFactory()
     enable_hybrid_search(settings)
-    responses.add(
-        responses.POST,
-        settings.EMBEDDING_API_PATH,
-        json=albert_embedding_response.response,
-        status=200,
-    )
 
     document = factories.DocumentSchemaFactory.build()
     document["content"] = (
@@ -90,32 +90,18 @@ def test_api_documents_index_single_hybrid_enabled_success(settings):
     )
     assert new_indexed_document["_source"]["content.en"] == document["content"]
     # only the english fields are indexed
-    assert not "content.fr" in new_indexed_document["_source"]
+    assert "content.fr" not in new_indexed_document["_source"]
 
-    # check embedding
+    # Check that chunks are not yet created (will be done by async task)
+    assert new_indexed_document["_source"]["chunks"] is None
+    assert new_indexed_document["_source"]["embedding_model"] is None
     assert (
-        new_indexed_document["_source"]["chunks"][0]["embedding"]
-        == albert_embedding_response.response["data"][0]["embedding"]
+        new_indexed_document["_source"]["indexing_status"]
+        == IndexingStatusEnum.TO_BE_EMBEDDED
     )
-    assert (
-        new_indexed_document["_source"]["embedding_model"]
-        == settings.EMBEDDING_API_MODEL_NAME
-    )
-    # Check that the document has been chunked correctly
-    assert (
-        len(new_indexed_document["_source"]["chunks"])
-        == int(
-            len(document["content"]) / (settings.CHUNK_SIZE - settings.CHUNK_OVERLAP)
-        )
-        + 1
-    )
-    for chunk in new_indexed_document["_source"]["chunks"]:
-        assert (
-            chunk["embedding"]
-            == albert_embedding_response.response["data"][0]["embedding"]
-        )
-        assert chunk["content"] in document["content"]
-        assert len(chunk["content"]) < len(document["content"])
+
+    # Verify the embedding task was triggered
+    mock_embed_document_to_be_embedded.delay.assert_called_once_with(service.index_name)
 
 
 def test_api_documents_index_language_params():
@@ -401,6 +387,7 @@ def test_api_documents_index_single_ensure_index(settings):
             },
             "updated_at": {"type": "date"},
             "users": {"type": "keyword"},
+            "indexing_status": {"type": "keyword"},
         },
     }
 

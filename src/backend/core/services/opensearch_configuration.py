@@ -288,5 +288,6 @@ MAPPINGS = {
             },
         },
         "embedding_model": {"type": "keyword"},
+        "indexing_status": {"type": "keyword"},
     },
 }

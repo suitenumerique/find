@@ -6,16 +6,22 @@ import logging
 from functools import partial
 from typing import List
 
+from django.conf import settings as django_settings
+
 from opensearchpy.helpers import bulk
 
+from core import adapters
+from core.enums import IndexingStatusEnum
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
-from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
+from core.schemas import IndexedDocumentSchema
+from core.services.indexing import detect_language_code, ensure_index_exists
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
 )
+from core.tests.mock import albert_embedding_response
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +105,7 @@ def setup_oicd_resource_server(
         )
 
 
-def prepare_index(index_name, documents: List):
+def prepare_index(index_name, documents: List, include_embedding=False):
     """Prepare the search index before testing a query on it."""
     logger.info("Preparing index %s with %d documents", index_name, len(documents))
 
@@ -109,9 +115,63 @@ def prepare_index(index_name, documents: List):
             "_op_type": "index",
             "_index": index_name,
             "_id": document["id"],
-            "_source": prepare_document_for_indexing(document),
+            "_source": prepare_document_for_indexing(document, include_embedding),
         }
         for document in documents
     ]
     bulk(opensearch_client(), actions)
     opensearch_client().indices.refresh(index=index_name)
+
+
+def prepare_document_for_indexing(document: dict, include_embedding: bool) -> dict:
+    """
+    Mocks the indexing of a document.
+    Can mock the indexing after the chunking and embedding task with include_embedding.
+    """
+    language_code = detect_language_code(f"{document['title']} {document['content']}")
+    chunks = mocked_chunk_document(document["content"]) if include_embedding else None
+    embedding_model = django_settings.EMBEDDING_API_MODEL_NAME if chunks else None
+    indexing_status = (
+        IndexingStatusEnum.READY
+        if chunks or not check_hybrid_search_enabled()
+        else IndexingStatusEnum.TO_BE_EMBEDDED
+    )
+
+    indexed_document = IndexedDocumentSchema(
+        id=document["id"],
+        title=document["title"],
+        content=document["content"],
+        language_code=language_code,
+        chunks=chunks,
+        embedding_model=embedding_model,
+        indexing_status=indexing_status,
+        depth=document["depth"],
+        path=document["path"],
+        numchild=document["numchild"],
+        created_at=document["created_at"],
+        updated_at=document["updated_at"],
+        size=document["size"],
+        users=document["users"],
+        groups=document["groups"],
+        reach=document["reach"],
+        tags=document.get("tags", []),
+        is_active=document["is_active"],
+    )
+
+    return adapters.to_opensearch(indexed_document)
+
+
+def mocked_chunk_document(document_content):
+    """Mocked chunk document function for testing."""
+    return [
+        {
+            "index": 0,
+            "content": document_content[: len(document_content) // 2],
+            "embedding": albert_embedding_response.response["data"][0]["embedding"],
+        },
+        {
+            "index": 1,
+            "content": document_content[len(document_content) // 2 :],
+            "embedding": albert_embedding_response.response["data"][0]["embedding"],
+        },
+    ]
