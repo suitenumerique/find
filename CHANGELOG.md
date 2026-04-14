@@ -31,12 +31,14 @@ and this project adheres to
 - ✨(backend) add deletion endpoint
 - ✨(backend) add path filter
 - ✨(backend) add search_type param
+- ✨(backend) add throttle system
 
 ## Changed
 
 - 🏗️(backend) switch Python dependency management to uv
 - ✨(backend) allow deletion by tags
 - ♻️(backend) improve the evaluation command
+- ✨(backend) make embedding async
 
 ## Fixed
 

@@ -6,9 +6,15 @@ from django.conf import settings
 
 import requests
 
+from core.decorators import throttle
+
 logger = logging.getLogger(__name__)
 
 
+@throttle(
+    max_calls=settings.EMBEDDING_MAX_CALLS_PER_PERIOD,
+    period=settings.EMBEDDING_THROTTLE_PERIOD_SECONDS,
+)
 def embed_text(text):
     """
     Get embedding vector for the given text from any OpenAI-compatible embedding API

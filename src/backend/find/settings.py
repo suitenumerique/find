@@ -318,6 +318,16 @@ class Base(Configuration):
     EMBEDDING_DIMENSION = values.IntegerValue(
         default=1024, environ_name="EMBEDDING_DIMENSION", environ_prefix=None
     )
+    EMBEDDING_MAX_CALLS_PER_PERIOD = values.IntegerValue(
+        default=10000,
+        environ_name="EMBEDDING_MAX_CALLS_PER_PERIOD",
+        environ_prefix=None,
+    )
+    EMBEDDING_THROTTLE_PERIOD_SECONDS = values.IntegerValue(
+        default=60,
+        environ_name="EMBEDDING_THROTTLE_PERIOD_SECONDS",
+        environ_prefix=None,
+    )
 
     # CORS
     CORS_ALLOW_CREDENTIALS = True
