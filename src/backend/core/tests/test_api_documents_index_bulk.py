@@ -182,6 +182,56 @@ def test_api_documents_index_bulk_no_duplicate_task(settings):
     mock_embed_document_to_be_embedded.assert_not_called()
 
 
+def test_api_documents_index_bulk_task_throttling_is_index_specific(settings):
+    """
+    Test that indexing multiple document batches doesn't trigger duplicate embedding tasks.
+    The throttle mechanism should prevent scheduling a new task if one is already pending.
+    """
+    enable_hybrid_search(settings)
+
+    service_1 = factories.ServiceFactory()
+    service_2 = factories.ServiceFactory()
+
+    documents_1 = factories.DocumentSchemaFactory.build_batch(2)
+    documents_2 = factories.DocumentSchemaFactory.build_batch(2)
+
+    # Index first batch - should trigger task
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_1,
+            HTTP_AUTHORIZATION=f"Bearer {service_1.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_1.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_1.index_name}",
+    )
+
+    # Index second batch - should NOT trigger another task (throttled)
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_2,
+            HTTP_AUTHORIZATION=f"Bearer {service_2.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_2.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_2.index_name}",
+    )
+
+
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be created the opensearch index if needed."""
     opensearch_client_ = opensearch.opensearch_client()

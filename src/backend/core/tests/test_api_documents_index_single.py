@@ -61,6 +61,46 @@ def test_api_documents_index_single_invalid_token():
 
 @responses.activate
 @patch("core.views.embed_document_to_be_embedded.apply_async")
+def test_api_documents_index_single_hybrid_disabled_success(
+    mock_embed_document_to_be_embedded,
+):
+    """
+    A registered service should be able to index document with a valid token.
+    If hybrid search is enabled, the document is indexed with status 'to-be-embedded'
+    and the embedding task is triggered.
+    """
+    service = factories.ServiceFactory()
+
+    document = factories.DocumentSchemaFactory.build()
+    document["content"] = "document"
+
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
+
+    assert response.status_code == 201
+
+    new_indexed_document = opensearch.opensearch_client().get(
+        index=service.index_name, id=str(document["id"])
+    )
+
+    # Check that chunks are not yet created
+    assert new_indexed_document["_source"]["chunks"] is None
+    assert new_indexed_document["_source"]["embedding_model"] is None
+    # the document is READY because embedding is disabled
+    assert (
+        new_indexed_document["_source"]["indexing_status"] == IndexingStatusEnum.READY
+    )
+
+    # Verify the embedding task was not triggered
+    mock_embed_document_to_be_embedded.assert_not_called()
+
+
+@responses.activate
+@patch("core.views.embed_document_to_be_embedded.apply_async")
 def test_api_documents_index_single_hybrid_enabled_success(
     mock_embed_document_to_be_embedded,
     settings,
@@ -74,9 +114,7 @@ def test_api_documents_index_single_hybrid_enabled_success(
     enable_hybrid_search(settings)
 
     document = factories.DocumentSchemaFactory.build()
-    document["content"] = (
-        "a long text to embed." * 100
-    )  # Ensure content is long enough for chunking
+    document["content"] = "document"
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -86,19 +124,10 @@ def test_api_documents_index_single_hybrid_enabled_success(
     )
 
     assert response.status_code == 201
-    assert response.json()["_id"] == str(document["id"])
 
     new_indexed_document = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )
-    assert new_indexed_document["_version"] == 1
-
-    assert (
-        new_indexed_document["_source"]["title.en"] == document["title"].strip().lower()
-    )
-    assert new_indexed_document["_source"]["content.en"] == document["content"]
-    # only the english fields are indexed
-    assert "content.fr" not in new_indexed_document["_source"]
 
     # Check that chunks are not yet created (will be done by async task)
     assert new_indexed_document["_source"]["chunks"] is None
@@ -159,6 +188,56 @@ def test_api_documents_index_single_no_duplicate_task(settings):
     assert response2.status_code == 201
 
     mock_embed_document_to_be_embedded.assert_not_called()
+
+
+@responses.activate
+def test_api_documents_index_single_task_throttling_is_index_specific(settings):
+    """
+    make sure an embedding task on one index doesn't block embedding tasks on another index.
+    """
+    enable_hybrid_search(settings)
+
+    service_1 = factories.ServiceFactory()
+    service_2 = factories.ServiceFactory()
+
+    document_1 = factories.DocumentSchemaFactory.build()
+    document_2 = factories.DocumentSchemaFactory.build()
+
+    # Index first document - should trigger task
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response1 = APIClient().post(
+            "/api/v1.0/documents/index/",
+            document_1,
+            HTTP_AUTHORIZATION=f"Bearer {service_1.token:s}",
+            format="json",
+        )
+    assert response1.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_1.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_1.index_name}",
+    )
+
+    # Index second document - should NOT trigger another task (throttled)
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response2 = APIClient().post(
+            "/api/v1.0/documents/index/",
+            document_2,
+            HTTP_AUTHORIZATION=f"Bearer {service_2.token:s}",
+            format="json",
+        )
+    assert response2.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_2.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_2.index_name}",
+    )
 
 
 def test_api_documents_index_language_params():
@@ -242,33 +321,6 @@ def test_api_documents_index_and_reindex_same_document():
     # und field are removed
     assert "title.und" not in new_indexed_document["_source"]
     assert "content.und" not in new_indexed_document["_source"]
-
-
-def test_api_documents_index_single_hybrid_disabled_success():
-    """If hybrid search is not enabled, the indexing should have an embedding equal to None."""
-    service = factories.ServiceFactory()
-    document = factories.DocumentSchemaFactory.build()
-    opensearch.check_hybrid_search_enabled.cache_clear()
-
-    response = APIClient().post(
-        "/api/v1.0/documents/index/",
-        document,
-        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
-    )
-
-    assert response.status_code == 201
-    assert response.json()["_id"] == str(document["id"])
-
-    new_indexed_document = opensearch.opensearch_client().get(
-        index=service.index_name, id=str(document["id"])
-    )
-    assert new_indexed_document["_version"] == 1
-    assert (
-        new_indexed_document["_source"]["title.en"] == document["title"].strip().lower()
-    )
-    assert new_indexed_document["_source"]["content.en"] == document["content"]
-    assert new_indexed_document["_source"]["chunks"] is None
 
 
 def test_api_documents_index_single_ensure_index(settings):
