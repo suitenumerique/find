@@ -2,6 +2,7 @@
 
 import logging
 
+from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
@@ -21,6 +22,7 @@ from .services.indexing import (
 from .services.opensearch import check_hybrid_search_enabled, opensearch_client
 from .services.search import search
 from .tasks.indexing import embed_document_to_be_embedded
+from .utils import throttle_acquire
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +132,25 @@ class IndexDocumentView(views.APIView):
 
         # async tasks
         if document.indexing_status == enums.IndexingStatusEnum.TO_BE_EMBEDDED:
-            logger.info("Dispatching embedding task for service %s", request.auth.name)
-            embed_document_to_be_embedded.delay(request.auth.index_name)
+            # Use throttle to prevent duplicate task scheduling
+
+            if throttle_acquire(
+                f"embed_document_to_be_embedded:{request.auth.index_name}",
+                timeout=settings.EMBEDDING_COUNTDOWN,
+            ):
+                logger.info(
+                    "Dispatching embedding task for service %s", request.auth.name
+                )
+
+                embed_document_to_be_embedded.apply_async(
+                    args=[request.auth.index_name],
+                    countdown=settings.EMBEDDING_COUNTDOWN,
+                    task_id=f"embed_document_to_be_embedded:{request.auth.index_name}",
+                )
+            else:
+                logger.debug(
+                    "Embedding task already scheduled for service %s", request.auth.name
+                )
 
         return Response(
             {"status": "created", "_id": str(document.id)},
@@ -199,8 +218,23 @@ class IndexDocumentView(views.APIView):
         response = opensearch_client_.bulk(index=request.auth.index_name, body=actions)
 
         if has_documents_to_embed:
-            logger.info("Dispatching embedding task for service %s", request.auth.name)
-            embed_document_to_be_embedded.delay(request.auth.index_name)
+            # Lock timeout matches countdown to prevent race conditions
+            if throttle_acquire(
+                f"embed_document_to_be_embedded:{request.auth.index_name}",
+                timeout=settings.EMBEDDING_COUNTDOWN,
+            ):
+                logger.info(
+                    "Dispatching embedding task for service %s", request.auth.name
+                )
+                embed_document_to_be_embedded.apply_async(
+                    args=[request.auth.index_name],
+                    countdown=settings.EMBEDDING_COUNTDOWN,
+                    task_id=f"embed_document_to_be_embedded:{request.auth.index_name}",
+                )
+            else:
+                logger.debug(
+                    "Embedding task already scheduled for service %s", request.auth.name
+                )
 
         for i, item in enumerate(response["items"]):
             if item["index"]["status"] != 201:

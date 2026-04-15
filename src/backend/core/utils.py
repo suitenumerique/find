@@ -3,13 +3,46 @@
 import logging
 
 from django.conf import settings as django_settings
+from django.core.cache import cache
 
+from django_redis.cache import RedisCache
 from opensearchpy.exceptions import NotFoundError
 
 from core import factories
 from core.services.opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
+
+
+def throttle_acquire(name: str, timeout: int = 0, atomic: bool = True):
+    """
+    Acquire a throttle lock to prevent multiple batch indexation tasks during countdown.
+
+    implements a debouncing pattern: only the first call during the timeout period
+    will succeed, subsequent calls are skipped until the timeout expires.
+
+    Args:
+        name (str): Name of the throttle lock.
+        timeout (int): Lock duration in seconds (countdown period).
+        atomic (bool): Use Redis locks for atomic operations if available.
+
+    Returns:
+        bool: True if lock acquired (first call), False if already held (subsequent calls).
+    """
+    key = f"throttle-lock:{name}"
+
+    # Redis is used as cache database (not in tests). Use the lock feature here
+    # to ensure atomicity of changes to the throttle flag.
+    if isinstance(cache, RedisCache) and atomic:
+        with cache.client.get_client().lock(key, timeout=timeout):
+            return throttle_acquire(name, timeout, atomic=False)
+
+    # cache.add() is atomic test-and-set operation:
+    #   - If key doesn't exist: creates it with timeout and returns True
+    #   - If key already exists: does nothing and returns False
+    # The key expires after timeout seconds, releasing the lock.
+    # The value 1 is irrelevant, only the key presence/absence matters.
+    return cache.add(key, 1, timeout=timeout)
 
 
 def bulk_create_documents(document_payloads):
@@ -66,7 +99,7 @@ def extract_language_code(source: dict) -> str:
     Args:
         source: Dictionary in OpenSearch format
     Returns:
-        Tuple of (language_code, title, content)
+        str: The extracted language code.
     """
     for language_code in django_settings.SUPPORTED_LANGUAGE_CODES:
         if f"title.{language_code}" in source:

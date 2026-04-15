@@ -328,6 +328,11 @@ class Base(Configuration):
         environ_name="EMBEDDING_THROTTLE_PERIOD_SECONDS",
         environ_prefix=None,
     )
+    EMBEDDING_COUNTDOWN = values.IntegerValue(
+        default=5,
+        environ_name="EMBEDDING_COUNTDOWN",
+        environ_prefix=None,
+    )
 
     # CORS
     CORS_ALLOW_CREDENTIALS = True

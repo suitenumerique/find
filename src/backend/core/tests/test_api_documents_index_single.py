@@ -3,6 +3,7 @@
 import datetime
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.utils import timezone
 
 import pytest
@@ -21,7 +22,14 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture(autouse=True)
 def clear_caches():
     """Clear caches and delete search pipeline before each test"""
+    _clear()
+    yield
+    _clear()
+
+
+def _clear():
     opensearch.check_hybrid_search_enabled.cache_clear()
+    cache.clear()
 
 
 def test_api_documents_index_single_anonymous():
@@ -52,7 +60,7 @@ def test_api_documents_index_single_invalid_token():
 
 
 @responses.activate
-@patch("core.tasks.indexing.embed_document_to_be_embedded")
+@patch("core.views.embed_document_to_be_embedded.apply_async")
 def test_api_documents_index_single_hybrid_enabled_success(
     mock_embed_document_to_be_embedded,
     settings,
@@ -101,7 +109,56 @@ def test_api_documents_index_single_hybrid_enabled_success(
     )
 
     # Verify the embedding task was triggered
-    mock_embed_document_to_be_embedded.delay.assert_called_once_with(service.index_name)
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service.index_name}",
+    )
+
+
+@responses.activate
+def test_api_documents_index_single_no_duplicate_task(settings):
+    """
+    Test that indexing multiple documents doesn't trigger duplicate embedding tasks.
+    The throttle mechanism should prevent scheduling a new task if one is already pending.
+    """
+    service = factories.ServiceFactory()
+    enable_hybrid_search(settings)
+
+    document_1 = factories.DocumentSchemaFactory.build()
+    document_2 = factories.DocumentSchemaFactory.build()
+
+    # Index first document - should trigger task
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response1 = APIClient().post(
+            "/api/v1.0/documents/index/",
+            document_1,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+    assert response1.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service.index_name}",
+    )
+
+    # Index second document - should NOT trigger another task (throttled)
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response2 = APIClient().post(
+            "/api/v1.0/documents/index/",
+            document_2,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+    assert response2.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_not_called()
 
 
 def test_api_documents_index_language_params():
