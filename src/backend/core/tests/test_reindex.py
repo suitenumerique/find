@@ -11,7 +11,7 @@ import responses
 from core.enums import IndexingStatusEnum
 from core.models import get_opensearch_index_name
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
-from core.services.reindex import reindex_with_embedding
+from core.services.reindex import offset_page, reindex_with_embedding
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
     check_hybrid_search_enabled as check_hybrid_search_enabled_utils,
@@ -124,7 +124,7 @@ def test_reindex_with_embedding_partial_failure(caplog, settings):
     )
 
     index_name = get_opensearch_index_name(SERVICE_NAME)
-    prepare_index(index_name, documents, embedding_enabled=False)
+    prepare_index(index_name, documents, include_embedding=False)
 
     enable_hybrid_search(settings)
     check_hybrid_search_enabled.cache_clear()
@@ -252,3 +252,91 @@ def test_reindex_with_embedding_empty_result(settings):
     document = opensearch_client_.get(index=index_name, id=documents[0]["id"])
     assert document["_source"]["embedding_model"] is None
     assert document["_source"]["chunks"] is None
+
+
+@responses.activate
+def test_reindex_with_embedding_by_batch(settings):
+    """
+    Test that reindex_with_embedding processes documents in batches.
+    Verifies bulk() is called the correct number of times based on batch_size.
+    """
+    enable_hybrid_search(settings)
+
+    # Create more documents than batch_size to test batching
+    num_documents = 25
+    batch_size = 10
+    expected_bulk_calls = (num_documents + batch_size - 1) // batch_size
+    documents = bulk_create_documents(
+        [
+            {
+                "title": f"Doc {i}",
+                "content": f"Content for document {i}",
+            }
+            for i in range(num_documents)
+        ]
+    )
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    prepare_index(index_name, documents)
+
+    responses.add(
+        responses.POST,
+        settings.EMBEDDING_API_PATH,
+        json=albert_embedding_response.response,
+        status=200,
+    )
+
+    # Mock the bulk operation to count calls
+    opensearch_client_ = opensearch_client()
+    with patch.object(
+        opensearch_client_, "bulk", wraps=opensearch_client_.bulk
+    ) as mock_bulk:
+        result = reindex_with_embedding(
+            index_name,
+            {"match_all": {}},
+            batch_size=batch_size,
+        )
+
+    # Verify all documents were processed
+    assert result["nb_success_embedding"] == num_documents
+    assert result["nb_failed_embedding"] == 0
+
+    assert mock_bulk.call_count == expected_bulk_calls
+
+
+def test_offset_page():
+    """
+    Test offset_page generator yields batches of documents correctly.
+    """
+
+    num_documents = 25
+    batch_size = 10
+    documents = bulk_create_documents(
+        [
+            {
+                "title": f"Doc {i}",
+                "content": f"Content for document {i}",
+            }
+            for i in range(num_documents)
+        ]
+    )
+
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    prepare_index(index_name, documents)
+
+    batches = list(offset_page(index_name, {"match_all": {}}, batch_size=batch_size))
+
+    assert len(batches) == (num_documents + batch_size - 1) // batch_size
+
+    for batch in batches[:-1]:
+        assert len(batch) == batch_size
+
+    last_batch = batches[-1]
+    assert len(last_batch) == num_documents % batch_size
+
+    generated_documents = [d for batch in batches for d in batch]
+    assert len(generated_documents) == num_documents
+    for document in documents:
+        assert any(
+            generated_document["_id"] == document["id"]
+            for generated_document in generated_documents
+        )
