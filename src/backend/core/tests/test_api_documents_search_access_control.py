@@ -5,6 +5,8 @@ Don't use pytest parametrized tests because batch generation and indexing
 of documents is slow and better done only once.
 """
 
+import random
+
 import pytest
 import responses
 from rest_framework.test import APIClient
@@ -20,6 +22,11 @@ from .utils import (
 )
 
 pytestmark = pytest.mark.django_db
+
+# Test UUIDs for parametrized tests
+UUID_A = "00000000-0000-4000-8000-000000000001"
+UUID_B = "00000000-0000-4000-8000-000000000002"
+UUID_C = "00000000-0000-4000-8000-000000000003"
 
 
 @responses.activate
@@ -87,14 +94,14 @@ def test_api_documents_search_access_control(settings):
 @pytest.mark.parametrize(
     "doc_ids,visited,expected",
     [
-        (["a", "b"], [], []),
-        (["a", "b"], "", []),
-        (["a", "b"], None, []),
-        (["a", "b"], ["other"], []),
-        ([], ["a"], []),
-        (["a", "b"], ["a"], ["a"]),
-        (["a", "b"], ["a", "b", "c"], ["a", "b"]),
-        (["a", "b"], "a,b,c", ["a", "b"]),
+        ([UUID_A, UUID_B], [], []),
+        ([UUID_A, UUID_B], "", []),
+        ([UUID_A, UUID_B], None, []),
+        ([UUID_A, UUID_B], ["other"], []),
+        ([], [UUID_A], []),
+        ([UUID_A, UUID_B], [UUID_A], [UUID_A]),
+        ([UUID_A, UUID_B], [UUID_A, UUID_B, UUID_C], [UUID_A, UUID_B]),
+        ([UUID_A, UUID_B], f"{UUID_A},{UUID_B},{UUID_C}", [UUID_A, UUID_B]),
     ],
 )
 def test_api_documents_search_access__only_visited_public(
@@ -117,7 +124,10 @@ def test_api_documents_search_access__only_visited_public(
 
     docs = [
         factories.DocumentSchemaFactory(
-            reach=[enums.ReachEnum.PUBLIC, enums.ReachEnum.AUTHENTICATED], id=doc_id
+            reach=random.choice(
+                [enums.ReachEnum.PUBLIC, enums.ReachEnum.AUTHENTICATED]
+            ),
+            id=doc_id,
         )
         for doc_id in doc_ids
     ]
