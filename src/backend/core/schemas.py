@@ -96,6 +96,35 @@ class IndexedDocumentSchema(DocumentSchema):
     language_code: str
     indexing_status: enums.IndexingStatusEnum = enums.IndexingStatusEnum.READY
 
+    @model_validator(mode="after")
+    def validate_indexing_status_consistency(self):
+        """
+        Validate that indexing_status, chunks, and embedding_model are consistent
+        with hybrid search settings.
+        """
+
+        hybrid_enabled = check_hybrid_search_enabled()
+
+        if (
+            not hybrid_enabled
+            and self.indexing_status == enums.IndexingStatusEnum.TO_BE_EMBEDDED
+        ):
+            raise ValueError(
+                "indexing-status can not be to-be-embedded because hybrid search is disabled"
+            )
+
+        if (
+            hybrid_enabled
+            and self.indexing_status == enums.IndexingStatusEnum.READY
+            and (self.chunks is None or self.embedding_model is None)
+        ):
+            raise ValueError(
+                "When hybrid search is enabled, "
+                "a document is not ready until it has chunks and an embedding model"
+            )
+
+        return self
+
 
 def cleanlist(value):
     """Build a list of strings from a string, None (empty list) or a list of objects."""
