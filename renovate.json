@@ -4,7 +4,7 @@
   "labels": ["dependencies", "noChangeLog"],
   "packageRules": [
     {
-      "matchManagers": ["pep621"],
+      "matchPackagePatterns": ["*"],
       "groupName": null
     }
   ]
