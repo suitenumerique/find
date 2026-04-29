@@ -278,8 +278,8 @@ argument-naming-style=snake_case
 attr-naming-style=snake_case
 
 # Regular expression matching correct attribute names. Overrides attr-naming-
-# style
-#attr-rgx=
+# style. Allows snake_case and UPPER_CASE (Django settings convention).
+attr-rgx=([a-z_][a-z0-9_]{2,30}|[A-Z][A-Z0-9_]+)$
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,
@@ -344,7 +344,7 @@ method-naming-style=snake_case
 
 # Regular expression matching correct method names. Overrides method-naming-
 # style
-method-rgx=([a-z_][a-z0-9_]{2,50}|setUp|set[Uu]pClass|tearDown|tear[Dd]ownClass|assert[A-Z]\w*|maxDiff|test_[a-z0-9_]+)$
+method-rgx=([a-z_][a-z0-9_]{2,50}|[A-Z][A-Z0-9_]+|setUp|set[Uu]pClass|tearDown|tear[Dd]ownClass|assert[A-Z]\w*|maxDiff|test_[a-z0-9_]+)$
 
 # Naming style matching correct module names
 module-naming-style=snake_case
