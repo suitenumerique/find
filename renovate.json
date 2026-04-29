@@ -4,10 +4,8 @@
   "labels": ["dependencies", "noChangeLog"],
   "packageRules": [
     {
-      "enabled": false,
-      "groupName": "ignored python dependencies",
       "matchManagers": ["pep621"],
-      "matchPackageNames": []
+      "groupName": null
     }
   ]
 }
