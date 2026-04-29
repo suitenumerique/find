@@ -500,13 +500,11 @@ class Base(Configuration):
         },
     }
 
-    # pylint: disable=invalid-name
     @property
     def ENVIRONMENT(self):
         """Environment in which the application is launched."""
         return self.__class__.__name__.lower()
 
-    # pylint: disable=invalid-name
     @property
     def RELEASE(self):
         """
@@ -577,7 +575,6 @@ class Development(Base):
     USE_SWAGGER = True
 
     def __init__(self):
-        # pylint: disable=invalid-name
         self.INSTALLED_APPS += ["django_extensions", "drf_spectacular_sidecar"]
 
 
@@ -592,7 +589,6 @@ class Test(Base):
     CELERY_TASK_ALWAYS_EAGER = values.BooleanValue(True)
 
     def __init__(self):
-        # pylint: disable=invalid-name
         self.INSTALLED_APPS += ["drf_spectacular_sidecar"]
 
 
