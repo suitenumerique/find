@@ -24,7 +24,7 @@ and this project adheres to
               list of services
 - 🔧(compose) rename docker network 'lasuite-net' as 'lasuite-network'
 - ✨(backend) add demo service for Drive.
-- ✨(backend) add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlaping
+- ✨(backend) add OPENSEARCH_INDEX_PREFIX setting to prevent naming overlapping
               issues if the opensearch database is shared between apps.
 - ✨(backend) add tags
 - ✨(backend) adapt to conversation RAG
