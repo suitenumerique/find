@@ -355,19 +355,20 @@ wheels = [
 
 [[package]]
 name = "django-lasuite"
-version = "0.0.22"
+version = "0.0.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
     { name = "djangorestframework" },
     { name = "joserfc" },
     { name = "mozilla-django-oidc" },
+    { name = "pyjwt" },
     { name = "requests" },
     { name = "requests-toolbelt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/01/017dfb0d5a595ce55f062e622e6d14035864a679f457dc8bcb5f1881a51a/django_lasuite-0.0.22.tar.gz", hash = "sha256:fe9058510c920b4c780294b594d5bddae43691b0c7e585eab14a8f26ba37b61c", size = 33680, upload-time = "2025-12-08T14:04:29.357Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/d7/6c022ff6b2e5c6f7226005c5f62920763ddb9ae2d4948b6af6d206314036/django_lasuite-0.0.26.tar.gz", hash = "sha256:b4ffb15d3e56e366d71b527195d26198e2d26e28cc1ab1c11aefdc581db9c02b", size = 34952, upload-time = "2026-04-03T14:02:33.957Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/ca/38702f28f582317b8cd920e2a98a138df680175bd7d85181479929bebc46/django_lasuite-0.0.22-py3-none-any.whl", hash = "sha256:2d3bf34be260dfde1cdcd13b12764cf15ea0c35d70e27c87b57b730a0aba9f42", size = 52034, upload-time = "2025-12-08T14:04:28.265Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/ab/18a1505061b536616ea4b9f75154042116ca4f1a9f64467f5a3549c686d2/django_lasuite-0.0.26-py3-none-any.whl", hash = "sha256:ba812e643eae3f55a50a69bf09eaa3b8ffa4fe9dd3296b8e27b4f7bbc25e3400", size = 54158, upload-time = "2026-04-03T14:02:32.691Z" },
 ]
 
 [package.optional-dependencies]
@@ -546,7 +547,7 @@ requires-dist = [
     { name = "django-configurations", specifier = "==2.5.1" },
     { name = "django-cors-headers", specifier = "==4.9.0" },
     { name = "django-extensions", marker = "extra == 'dev'", specifier = "==4.1" },
-    { name = "django-lasuite", extras = ["all"], specifier = "==0.0.22" },
+    { name = "django-lasuite", extras = ["all"], specifier = "==0.0.26" },
     { name = "django-redis", specifier = "==6.0.0" },
     { name = "djangorestframework", specifier = "==3.16.1" },
     { name = "dockerflow", specifier = "==2024.4.2" },
