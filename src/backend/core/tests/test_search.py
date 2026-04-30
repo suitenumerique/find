@@ -13,7 +13,8 @@ from core import enums, factories
 from core.services import opensearch
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.services.search import search
-from core.utils import bulk_create_documents, delete_search_pipeline, prepare_index
+from core.tests.utils import prepare_index
+from core.utils import bulk_create_documents, delete_search_pipeline
 
 from .mock import albert_embedding_response
 from .utils import (
@@ -80,7 +81,7 @@ def test_hybrid_search_success(settings, caplog):
         ]
     )
     service = factories.ServiceFactory(name=SERVICE_NAME)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.index_name, documents, include_embedding=True)
 
     q = "canine pet"
     with caplog.at_level(logging.INFO):
@@ -287,7 +288,7 @@ def test_api_documents_search_with_search_type_hybrid(settings, caplog):
             {"title": "dog", "content": "dogs are loyal domestic animals"},
         ]
     )
-    prepare_index(service.index_name, documents)
+    prepare_index(service.index_name, documents, include_embedding=True)
 
     q = "canine pet"
     with caplog.at_level(logging.INFO):
@@ -464,7 +465,7 @@ def test_hybrid_search_number_of_matches(settings):
         ]
     )
     service = factories.ServiceFactory(name=SERVICE_NAME)
-    prepare_index(service.index_name, documents)
+    prepare_index(service.index_name, documents, include_embedding=True)
 
     q = "pony"  # full-text matches 0 document
     for nb_results in [1, 2, 3]:  # semantic should match k documents

@@ -2,7 +2,7 @@
 
 documents = [
     {
-        "id": "sc-1",
+        "id": "f97bd813-d7f5-4656-82f7-ca592cb16700",
         "title": "La Révolution Française 1789",
         "content": (
             "La Révolution française débute le 14 juillet 1789 avec la prise de la "
@@ -16,7 +16,7 @@ documents = [
         "updated_at": "2026-02-24T12:00:00Z",
     },
     {
-        "id": "sc-2",
+        "id": "66143163-b473-42c1-8140-89a78d0c54fa",
         "title": "La Première Guerre Mondiale",
         "content": (
             "La Première Guerre mondiale (1914-1918) oppose les Alliés (France, Royaume- "
@@ -29,7 +29,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-3",
+        "id": "bd0ef23f-d195-46ba-ac28-a72e9f81bcdd",
         "title": "La Décolonisation en Afrique",
         "content": (
             "La décolonisation de l'Afrique s'accélère après 1945, affaiblie par la "
@@ -41,7 +41,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-4",
+        "id": "ea7a2b78-87e4-49c2-9573-e9c3e27f6c32",
         "title": "Le Réchauffement Climatique",
         "content": (
             "Le réchauffement climatique désigne l'augmentation de la température moyenne "
@@ -54,7 +54,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-5",
+        "id": "a1d96068-6c3d-40b0-8fab-aaee9841b3d9",
         "title": "L'Empire Romain",
         "content": (
             "L'Empire romain domine le bassin méditerranéen pendant cinq siècles, de 27 "
@@ -66,7 +66,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-6",
+        "id": "59c1809e-b812-4ad9-b4df-681acab3f707",
         "title": "La Renaissance Européenne",
         "content": (
             "La Renaissance (XIVe-XVIe siècles) marque un renouveau artistique, "
@@ -79,7 +79,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-7",
+        "id": "1bf868b4-2c11-439b-8850-9e36a3c9b5ce",
         "title": "La Guerre Froide",
         "content": (
             "La Guerre Froide (1947-1991) oppose les États-Unis capitalistes à l'URSS "
@@ -92,7 +92,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-8",
+        "id": "6703b6f4-dea2-43df-8195-c2a37c7a6b0f",
         "title": "L'Égypte Ancienne",
         "content": (
             "L'Égypte ancienne prospère pendant 3000 ans le long du Nil, de 3100 avant "
@@ -105,7 +105,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-9",
+        "id": "3bcc7faf-7664-465f-8d00-b350eb39e219",
         "title": "La Mondialisation",
         "content": (
             "La mondialisation désigne l'intégration croissante des économies et sociétés "
@@ -118,7 +118,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-10",
+        "id": "c6c53bae-2a37-400b-9693-4ed4b1e683da",
         "title": "La Conquête Spatiale",
         "content": (
             "La conquête spatiale débute en 1957 avec le satellite soviétique Spoutnik. "
@@ -130,7 +130,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-11",
+        "id": "671d4c7a-622e-4b25-876d-91f68e94913a",
         "title": "Les Métropoles Mondiales",
         "content": (
             "Les métropoles mondiales comme New York, Londres, Tokyo et Paris concentrent "
@@ -143,7 +143,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-12",
+        "id": "dc7d6ae4-1216-474e-94c0-fd0ef934df02",
         "title": "La Seconde Guerre Mondiale",
         "content": (
             "La Seconde Guerre mondiale (1939-1945) est le conflit le plus meurtrier de "
@@ -156,7 +156,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-13",
+        "id": "75cc9732-f9c5-47b6-a106-9a3d6e1afcb3",
         "title": "Le Développement Durable",
         "content": (
             "Le développement durable vise à concilier croissance économique, protection "
@@ -169,7 +169,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-14",
+        "id": "0fecc9c2-ce34-4a8e-b551-a310f3f1af43",
         "title": "La Chine contemporaine",
         "content": (
             "La Chine est devenue la deuxième économie mondiale grâce aux réformes de "
@@ -181,7 +181,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-15",
+        "id": "cbc014c3-e624-406b-9a4e-1998b2f3a767",
         "title": "Les Grandes Découvertes",
         "content": (
             "Les grandes découvertes (XVe-XVIe siècles) voient les Européens explorer le "
@@ -194,7 +194,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-16",
+        "id": "91db872e-3488-4d67-9cd2-5596bd977b31",
         "title": "L'Union Européenne",
         "content": (
             "L'Union européenne naît du désir de paix après 1945. Le traité de Rome en "
@@ -206,7 +206,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-17",
+        "id": "7707da8c-a5e2-4d5f-bcde-8adb7cf090b2",
         "title": "La Révolution Industrielle",
         "content": (
             "La révolution industrielle débute en Angleterre au XVIIIe siècle avec la "
@@ -219,7 +219,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-18",
+        "id": "22abeea1-0435-4124-b178-53b11abe4e20",
         "title": "Les Inégalités Nord-Sud",
         "content": (
             "Les inégalités Nord-Sud opposent pays développés et pays en développement. "
@@ -231,7 +231,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-19",
+        "id": "eef3ff72-596d-424a-8a25-5ca0e69dca58",
         "title": "Le Siècle des Lumières",
         "content": (
             "Le Siècle des Lumières (XVIIIe siècle) est un mouvement intellectuel "
@@ -244,7 +244,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-20",
+        "id": "b73e39ea-e4b7-4ff6-991b-d0598a99fb34",
         "title": "Les Ressources Énergétiques",
         "content": (
             "Les ressources énergétiques sont inégalement réparties sur la planète. Les "
@@ -257,7 +257,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-21",
+        "id": "75ca66f5-6aa0-4d7d-8a63-8a26a290ecc2",
         "title": "Le Lion d'Afrique",
         "content": (
             "Le lion est le plus grand félin d'Afrique et vit en groupe social appelé "
@@ -269,7 +269,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-22",
+        "id": "4a322f04-e2ad-40cd-ab10-2d87626045f5",
         "title": "Le Dauphin",
         "content": (
             "Les dauphins sont parmi les animaux les plus intelligents de la planète. Ils "
@@ -281,7 +281,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-23",
+        "id": "3aedda66-aeff-4291-a21d-0bd0303d0ee2",
         "title": "L'Éléphant d'Asie",
         "content": (
             "L'éléphant d'Asie est légèrement plus petit que son cousin africain mais "
@@ -294,7 +294,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-24",
+        "id": "464ea7a1-fea6-411f-a4a8-39f342948322",
         "title": "Le Colibri",
         "content": (
             "Le colibri est le plus petit oiseau du monde, certaines espèces ne pesant "
@@ -306,7 +306,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-25",
+        "id": "adc0af17-e40e-485e-b678-7da0d092d050",
         "title": "L'Ours polaire",
         "content": (
             "L'ours polaire est le plus grand carnivore terrestre, pouvant peser jusqu'à "
@@ -317,7 +317,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-26",
+        "id": "ed869f5f-7d41-49cf-a8d9-3679dc92b1cc",
         "title": "Le Caméléon",
         "content": (
             "Le caméléon possède la capacité extraordinaire de changer de couleur selon "
@@ -330,7 +330,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-27",
+        "id": "c8614c9e-cf37-4a59-83a4-0415737321a0",
         "title": "Le Manchot Empereur",
         "content": (
             "Le manchot empereur survit aux conditions les plus extrêmes de la planète en "
@@ -343,7 +343,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-28",
+        "id": "c73d4ab8-1ef9-4c91-8f9d-17a6a6a88935",
         "title": "Le Requin Blanc",
         "content": (
             "Le grand requin blanc est l'un des prédateurs marins les plus redoutés et "
@@ -355,7 +355,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-29",
+        "id": "b485a945-861a-41d0-966a-31711cff466a",
         "title": "L'Abeille",
         "content": (
             "Les abeilles jouent un rôle crucial dans la pollinisation de 80% des plantes "
@@ -367,7 +367,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-30",
+        "id": "7d698ba8-2739-4756-9dcf-8148a970b504",
         "title": "Le Guépard",
         "content": (
             "Le guépard est l'animal terrestre le plus rapide, capable d'atteindre 110 "
@@ -380,7 +380,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-31",
+        "id": "c4d22b24-3bac-45a0-93d3-bfa2cb4dfc8a",
         "title": "La Pieuvre",
         "content": (
             "La pieuvre possède trois cœurs et un sang bleu à base de cuivre. Son "
@@ -392,7 +392,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-32",
+        "id": "129be44a-cc76-413f-bd28-7d424942400c",
         "title": "Le Koala",
         "content": (
             "Le koala dort jusqu'à 20 heures par jour pour économiser l'énergie "
@@ -405,7 +405,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-33",
+        "id": "fe88af2c-b634-4ec0-822e-f85a9ee1934f",
         "title": "Le Gorille des Montagnes",
         "content": (
             "Le gorille des montagnes est l'un de nos plus proches parents, partageant "
@@ -417,7 +417,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-34",
+        "id": "00653f56-6221-447f-b94e-8efef8b203de",
         "title": "Le Papillon Monarque",
         "content": (
             "Le papillon monarque effectue une migration annuelle de 4000 km entre le "
@@ -430,7 +430,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-35",
+        "id": "95567f7b-8f8d-40a1-8152-b998cc1621af",
         "title": "Le Loup Gris",
         "content": (
             "Le loup gris vit en meute organisée hiérarchiquement autour d'un couple "
@@ -442,7 +442,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-36",
+        "id": "863eb7f9-bf7b-406a-9d33-f4e458d21786",
         "title": "Le Kangourou Roux",
         "content": (
             "Le kangourou roux est le plus grand marsupial au monde, pouvant atteindre 2 "
@@ -454,7 +454,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-37",
+        "id": "e6459a31-2c20-4a4b-92b7-7f1dfb81d7bd",
         "title": "La Baleine à Bosse",
         "content": (
             "Les baleines à bosse produisent des chants complexes pouvant durer 20 "
@@ -466,7 +466,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-38",
+        "id": "ff19a70e-b001-415b-9eab-014eb5c29883",
         "title": "Le Serpent Python",
         "content": (
             "Le python réticulé peut atteindre 9 mètres de long, ce qui en fait l'un des "
@@ -479,7 +479,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-39",
+        "id": "03f214bf-42ac-4b09-95ce-7759e7598d0a",
         "title": "Le Hibou Grand-Duc",
         "content": (
             "Le hibou grand-duc est le plus grand rapace nocturne d'Europe avec une "
@@ -491,7 +491,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-40",
+        "id": "caf89cd7-fb3b-4ad1-8113-5028d1fe7f7b",
         "title": "Le Paresseux",
         "content": (
             "Le paresseux se déplace si lentement que des algues poussent sur sa "
@@ -503,7 +503,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-41",
+        "id": "90c55fbb-7d15-41ba-995b-b3582851b762",
         "title": "Bœuf Bourguignon",
         "content": (
             "Le bœuf bourguignon est un plat mijoté emblématique de la cuisine française. "
@@ -515,7 +515,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-42",
+        "id": "4194f11e-cb28-42ba-96ad-c23e012cd60a",
         "title": "Ratatouille Provençale",
         "content": (
             "Tranchez finement 2 aubergines, 2 courgettes, 2 poivrons, 4 tomates et 1 "
@@ -527,7 +527,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-43",
+        "id": "ead66298-e42b-4f11-ac8a-e75db7f0d78b",
         "title": "Coq au Vin",
         "content": (
             "Découpez un coq ou un poulet fermier en morceaux. Faites mariner 12 heures "
@@ -539,7 +539,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-44",
+        "id": "6046007e-dae2-42b4-a9ec-5039d6ab6b2d",
         "title": "Tarte Tatin",
         "content": (
             "Dans un moule à tarte, faites fondre 100g de beurre avec 100g de sucre pour "
@@ -551,7 +551,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-45",
+        "id": "ccfdafd4-73be-4fc6-9aea-fa7b9ac0d2eb",
         "title": "Bouillabaisse Marseillaise",
         "content": (
             "Faites suer dans l'huile d'olive 2 oignons, 4 tomates, 4 gousses d'ail et du "
@@ -562,7 +562,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-46",
+        "id": "ebaf9cca-2963-4200-a252-7cea07721b9a",
         "title": "Quiche Lorraine",
         "content": (
             "Garnissez un moule de pâte brisée. Faites revenir 200g de lardons fumés sans "
@@ -574,7 +574,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-47",
+        "id": "06524cf1-8d5a-4aa0-aa25-093553a6cc67",
         "title": "Blanquette de Veau",
         "content": (
             "Coupez 1,2 kg d'épaule de veau en cubes. Blanchissez-les 5 minutes à l'eau "
@@ -586,7 +586,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-48",
+        "id": "6395e50b-0aeb-4fa8-b9e6-0357b6c815a0",
         "title": "Crêpes Bretonnes",
         "content": (
             "Mélangez 250g de farine, 4 œufs, 50 cl de lait et une pincée de sel. Ajoutez "
@@ -597,7 +597,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-49",
+        "id": "1a4e05bd-8f0a-4289-bdc3-5d0c9e09d732",
         "title": "Cassoulet Toulousain",
         "content": (
             "Faites tremper 500g de haricots blancs 12 heures. Cuisez-les 1 heure avec "
@@ -609,7 +609,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-50",
+        "id": "f2790392-8bde-4bf4-b8f8-f52c28a2ab3a",
         "title": "Soufflé au Fromage",
         "content": (
             "Préparez une béchamel avec 40g de beurre, 40g de farine et 25 cl de lait. "
@@ -620,7 +620,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-51",
+        "id": "494c9ab4-d484-48f2-ad56-4f1c60a12407",
         "title": "Pot-au-feu",
         "content": (
             "Dans une grande marmite, placez 1,5 kg de viande de bœuf (gîte, paleron, "
@@ -632,7 +632,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-52",
+        "id": "0bfab991-c1f8-4a3c-b60c-17717388f5c0",
         "title": "Mousse au Chocolat",
         "content": (
             "Faites fondre 200g de chocolat noir au bain-marie. Séparez 6 œufs et "
@@ -644,7 +644,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-53",
+        "id": "ef42fbcd-f074-414b-bef4-411c818d2a80",
         "title": "Gratin Dauphinois",
         "content": (
             "Épluchez et émincez finement 1,5 kg de pommes de terre. Frottez un plat à "
@@ -655,7 +655,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-54",
+        "id": "362d160a-d8bb-47fc-afd6-e087be1e56a5",
         "title": "Salade de légumes",
         "content": (
             "Disposez sur un plat 4 tomates en quartiers, 1 concombre émincé, 1 poivron "
@@ -666,7 +666,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-55",
+        "id": "9240cede-3b4b-41c5-8248-30ac26eeb9d6",
         "title": "Tarte au Citron Meringuée",
         "content": (
             "Garnissez un moule de pâte sablée et faites-la cuire à blanc 15 minutes. "
@@ -677,7 +677,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-56",
+        "id": "26a314e1-f22c-4e97-ad85-6bd2fd850918",
         "title": "Magret de Canard aux Figues",
         "content": (
             "Quadrillez la peau de 2 magrets sans entamer la chair. Salez et poivrez. "
@@ -688,7 +688,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-57",
+        "id": "f536aba8-6b59-423a-836e-41d68339dfee",
         "title": "Clafoutis aux Cerises",
         "content": (
             "Disposez 500g de cerises lavées et équeutées (traditionnellement non "
@@ -699,7 +699,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-58",
+        "id": "7e3c23bd-747d-422a-ad91-5e0e6291cee9",
         "title": "Fondue Savoyarde",
         "content": (
             "Frottez un caquelon avec une gousse d'ail coupée. Versez 15 cl de vin blanc "
@@ -710,7 +710,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-59",
+        "id": "663c07ab-a69a-4a83-91d9-2be961f66f4d",
         "title": "Crème Brûlée",
         "content": (
             "Faites chauffer 50 cl de crème avec une gousse de vanille fendue. Battez 6 "
@@ -721,7 +721,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-60",
+        "id": "70790eb4-d7d0-482e-9ff5-2b2e3c93b886",
         "title": "Tartare de Bœuf",
         "content": (
             "Hachez finement 600g de filet de bœuf bien frais au couteau. Ajoutez 2 "
@@ -733,7 +733,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-61",
+        "id": "27c9b26b-9fa0-404d-8475-13d8dd7fec0b",
         "title": "La Musique",
         "content": (
             "La musique est l'art d'organiser les sons dans le temps selon le rythme, la "
@@ -746,7 +746,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-62",
+        "id": "3eddd644-3fc0-49bb-a140-012f009b5780",
         "title": "Le Cinéma",
         "content": (
             "Le cinéma est l'art de raconter des histoires par le mouvement des images et "
@@ -759,7 +759,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-63",
+        "id": "a84a4942-e138-4124-a83d-e0a6908fc24e",
         "title": "La Danse",
         "content": (
             "La danse est l’art du mouvement du corps dans l’espace et le temps, souvent "
@@ -771,7 +771,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-64",
+        "id": "ab8e83c5-5c07-4b61-aebf-bcb06b101524",
         "title": "La Peinture à l'Huile",
         "content": (
             "La peinture à l'huile est une technique artistique utilisant des pigments "
@@ -785,7 +785,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-65",
+        "id": "fad65a91-0a10-4a97-b50c-64a6ef94fb09",
         "title": "La Sculpture sur Pierre",
         "content": (
             "La sculpture sur pierre est l'un des arts les plus anciens de l'humanité, "
@@ -798,7 +798,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-66",
+        "id": "8aaa7698-8eba-402e-956f-e51512d246f8",
         "title": "La Calligraphie",
         "content": (
             "La calligraphie est l'art de former les lettres avec beauté et harmonie. En "
@@ -811,7 +811,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-67",
+        "id": "7f1b801d-8780-467e-8a06-1fce508b616b",
         "title": "La Photographie",
         "content": (
             "La photographie transforme la capture d'images en expression créative depuis "
@@ -823,7 +823,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-68",
+        "id": "55044428-51e9-4681-b48e-e7cdf70f33e7",
         "title": "La Danse Contemporaine",
         "content": (
             "La danse contemporaine émerge au XXe siècle comme rupture avec le ballet "
@@ -836,7 +836,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-69",
+        "id": "9b3e48f3-6508-4abf-a0df-7bc1d8bbe0ec",
         "title": "L'Origami",
         "content": (
             "L'origami est l'art japonais du pliage de papier, transformant une feuille "
@@ -849,7 +849,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-70",
+        "id": "bf6746c5-182f-494c-8056-2076f4f3d76c",
         "title": "La Mosaïque",
         "content": (
             "La mosaïque assemble de petits fragments colorés (tesselles) de pierre, "
@@ -862,7 +862,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-71",
+        "id": "5ae79444-8617-4664-a3d9-e475ffbbd38b",
         "title": "Le Théâtre",
         "content": (
             "Le théâtre est à la fois un art de la représentation et un lieu de rencontre "
@@ -875,7 +875,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-72",
+        "id": "939190d6-ad31-427f-b8a2-6383221fd3f9",
         "title": "Le Vitrail",
         "content": (
             "Le vitrail assemble des morceaux de verre coloré maintenus par des baguettes "
@@ -888,7 +888,7 @@ documents = [
         ),
     },
     {
-        "id": "sc-73",
+        "id": "3ae3f4ce-a58b-4c14-94a9-1ce9538b7527",
         "title": "La Gravure",
         "content": (
             "La gravure est une technique d'impression où l'artiste incise une matrice "

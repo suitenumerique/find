@@ -12,6 +12,7 @@ from core.enums import SearchTypeEnum
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
 )
+from core.schemas import DocumentSchema
 from core.services.opensearch import (
     check_hybrid_search_enabled,
     opensearch_client,
@@ -19,12 +20,12 @@ from core.services.opensearch import (
 from core.services.search import (
     search,
 )
+from core.tests.utils import prepare_index
 from core.utils import (
     bulk_create_documents,
     delete_index,
     delete_search_pipeline,
     get_language_value,
-    prepare_index,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,16 +119,25 @@ class Command(BaseCommand):
             importlib.import_module(f"evaluation.data.{dataset_name}.queries")
         ).queries
         self.id_to_title = {
-            document["id"]: document["title"] for document in self.documents
+            document["id"]: DocumentSchema.normalize_title(document["title"])
+            for document in self.documents
         }
         check_hybrid_search_enabled.cache_clear()
         delete_search_pipeline()
         ensure_search_pipeline_exists()
         if not opensearch_client().indices.exists(index=self.index_name):
-            prepare_index(self.index_name, bulk_create_documents(self.documents))
+            prepare_index(
+                self.index_name,
+                bulk_create_documents(self.documents),
+                check_hybrid_search_enabled(),
+            )
         elif force_reindex:
             delete_index(self.index_name)
-            prepare_index(self.index_name, bulk_create_documents(self.documents))
+            prepare_index(
+                self.index_name,
+                bulk_create_documents(self.documents),
+                check_hybrid_search_enabled(),
+            )
 
     def evaluate_query(self, query, min_score=0.0):
         """Evaluate a single query and return metrics."""

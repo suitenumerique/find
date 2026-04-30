@@ -45,6 +45,18 @@ class DocumentSchemaFactory(factory.DictFactory):
         )
 
 
+class IndexedDocumentSchemaFactory(DocumentSchemaFactory):
+    """
+    A factory for generating dictionaries that represent an indexed document
+    for testing and development purposes.
+    """
+
+    language_code = "en"
+    chunks = factory.LazyFunction(lambda: [])
+    embedding_model = "test-model"
+    indexing_status = enums.IndexingStatusEnum.READY
+
+
 class ServiceFactory(factory.django.DjangoModelFactory):
     """
     A factory for generating service instances for testing and development purposes.

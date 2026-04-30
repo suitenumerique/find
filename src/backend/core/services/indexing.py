@@ -17,7 +17,7 @@ from core.services.opensearch_configuration import (
 
 from ..models import Service, get_opensearch_index_name
 from .embedding import embed_text
-from .opensearch import check_hybrid_search_enabled, opensearch_client
+from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
@@ -51,34 +51,6 @@ def ensure_index_exists(index_name):
                 "mappings": MAPPINGS,
             },
         )
-
-
-def prepare_document_for_indexing(document):
-    """Prepare document for indexing using nested language structure and handle embedding"""
-    language_code = detect_language_code(f"{document['title']} {document['content']}")
-    chunks = (
-        chunk_document(document["title"], document["content"])
-        if check_hybrid_search_enabled()
-        else None
-    )
-    return {
-        "id": document["id"],
-        f"title.{language_code}": document["title"],
-        f"content.{language_code}": document["content"],
-        "chunks": chunks,
-        "embedding_model": settings.EMBEDDING_API_MODEL_NAME if chunks else None,
-        "depth": document["depth"],
-        "path": document["path"],
-        "numchild": document["numchild"],
-        "created_at": document["created_at"],
-        "updated_at": document["updated_at"],
-        "size": document["size"],
-        "users": document["users"],
-        "groups": document["groups"],
-        "reach": document["reach"],
-        "tags": document.get("tags", []),
-        "is_active": document["is_active"],
-    }
 
 
 def chunk_document(title, content):

@@ -2,6 +2,7 @@
 Unit test for `reindex_with_embedding` command.
 """
 
+from io import StringIO
 from unittest.mock import patch
 
 from django.core.management import CommandError, call_command
@@ -12,20 +13,17 @@ import responses
 from core.management.commands.reindex_with_embedding import (
     check_hybrid_search_enabled as check_hybrid_search_enabled_command,
 )
-from core.management.commands.reindex_with_embedding import (
-    reindex_with_embedding,
-)
 from core.models import get_opensearch_index_name
 from core.services.opensearch import check_hybrid_search_enabled, opensearch_client
 from core.tests.mock import albert_embedding_response
 from core.tests.utils import (
     enable_hybrid_search,
+    prepare_index,
 )
 from core.utils import (
     bulk_create_documents,
     delete_search_pipeline,
     get_language_value,
-    prepare_index,
 )
 
 SERVICE_NAME = "test-index"
@@ -152,11 +150,13 @@ def test_reindex_can_fail_and_restart(settings):
         status=200,
     )
 
-    result = reindex_with_embedding(index_name)
+    out = StringIO()
+    call_command("reindex_with_embedding", SERVICE_NAME, stdout=out)
 
     # assert results reflect 2 successes and 1 failure
-    assert result["nb_success_embedding"] == 2
-    assert result["nb_failed_embedding"] == 1
+    output = out.getvalue()
+    assert "nb success embedding: 2" in output
+    assert "nb failed embedding: 1" in output
 
     # assert the index state
     opensearch_client_.indices.refresh(index=index_name)
@@ -185,11 +185,13 @@ def test_reindex_can_fail_and_restart(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    result = reindex_with_embedding(index_name)
 
-    # assert results
-    assert result["nb_success_embedding"] == 1
-    assert result["nb_failed_embedding"] == 0
+    out = StringIO()
+    call_command("reindex_with_embedding", SERVICE_NAME, stdout=out)
+
+    output = out.getvalue()
+    assert "nb success embedding: 1" in output
+    assert "nb failed embedding: 0" in output
 
     # assert there is now 1 more success and 0 failures
     opensearch_client_.indices.refresh(index=index_name)
@@ -232,7 +234,7 @@ def test_reindex_preserves_concurrent_updates(settings):
 
     updated_title = "updated dog"
     patch(
-        "core.services.opensearch.opensearch_client_.search",
+        "core.services.search.search",
         side_effect=opensearch_client_.update(
             index=index_name,
             id=documents[1]["id"],
@@ -250,9 +252,13 @@ def test_reindex_preserves_concurrent_updates(settings):
         json=albert_embedding_response.response,
         status=200,
     )
-    result = reindex_with_embedding(index_name)
-    assert result["nb_success_embedding"] == 2
-    assert result["nb_failed_embedding"] == 0
+
+    out = StringIO()
+    call_command("reindex_with_embedding", SERVICE_NAME, stdout=out)
+
+    output = out.getvalue()
+    assert "nb success embedding: 2" in output
+    assert "nb failed embedding: 0" in output
 
     opensearch_client_.indices.refresh(index=index_name)
     embedded_index = opensearch_client_.search(  # pylint: disable=unexpected-keyword-arg

@@ -1,18 +1,48 @@
 """Tests Service model for find's core app."""
 
 import logging
-from typing import List
 
 from django.conf import settings as django_settings
+from django.core.cache import cache
 
+from django_redis.cache import RedisCache
 from opensearchpy.exceptions import NotFoundError
-from opensearchpy.helpers import bulk
 
 from core import factories
-from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
 from core.services.opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
+
+
+def throttle_acquire(name: str, timeout: int = 0, atomic: bool = True):
+    """
+    Acquire a throttle lock to prevent multiple batch indexation tasks during countdown.
+
+    implements a debouncing pattern: only the first call during the timeout period
+    will succeed, subsequent calls are skipped until the timeout expires.
+
+    Args:
+        name (str): Name of the throttle lock.
+        timeout (int): Lock duration in seconds (countdown period).
+        atomic (bool): Use Redis locks for atomic operations if available.
+
+    Returns:
+        bool: True if lock acquired (first call), False if already held (subsequent calls).
+    """
+    key = f"throttle-lock:{name}"
+
+    # Redis is used as cache database (not in tests). Use the lock feature here
+    # to ensure atomicity of changes to the throttle flag.
+    if isinstance(cache, RedisCache) and atomic:
+        with cache.client.get_client().lock(key, timeout=timeout):
+            return throttle_acquire(name, timeout, atomic=False)
+
+    # cache.add() is atomic test-and-set operation:
+    #   - If key doesn't exist: creates it with timeout and returns True
+    #   - If key already exists: does nothing and returns False
+    # The key expires after timeout seconds, releasing the lock.
+    # The value 1 is irrelevant, only the key presence/absence matters.
+    return cache.add(key, 1, timeout=timeout)
 
 
 def bulk_create_documents(document_payloads):
@@ -48,24 +78,6 @@ def delete_index(index_name):
         logger.info("Search pipeline %s not found, nothing to delete.", index_name)
 
 
-def prepare_index(index_name, documents: List):
-    """Prepare the search index before testing a query on it."""
-    logger.info("Preparing index %s with %d documents", index_name, len(documents))
-
-    ensure_index_exists(index_name)
-    actions = [
-        {
-            "_op_type": "index",
-            "_index": index_name,
-            "_id": document["id"],
-            "_source": prepare_document_for_indexing(document),
-        }
-        for document in documents
-    ]
-    bulk(opensearch_client(), actions)
-    opensearch_client().indices.refresh(index=index_name)
-
-
 def get_language_value(source, language_field):
     """
     extract the value of the language field with the correct language_code extension.
@@ -78,3 +90,18 @@ def get_language_value(source, language_field):
     raise ValueError(
         f"No '{language_field}' field with any supported language code in object"
     )
+
+
+def extract_language_code(source: dict) -> str:
+    """
+    Extract the language code from the OpenSearch data.
+
+    Args:
+        source: Dictionary in OpenSearch format
+    Returns:
+        str: The extracted language code.
+    """
+    for language_code in django_settings.SUPPORTED_LANGUAGE_CODES:
+        if f"title.{language_code}" in source:
+            return language_code
+    raise ValueError("No supported language code in source")

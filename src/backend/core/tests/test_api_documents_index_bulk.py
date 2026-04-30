@@ -2,7 +2,9 @@
 
 import datetime
 from unittest import mock
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.utils import timezone
 
 import pytest
@@ -10,9 +12,24 @@ from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
+from core.enums import IndexingStatusEnum
 from core.services import opensearch
+from core.tests.utils import enable_hybrid_search
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_caches():
+    """Clear caches and delete search pipeline before each test"""
+    _clear()
+    yield
+    _clear()
+
+
+def _clear():
+    opensearch.check_hybrid_search_enabled.cache_clear()
+    cache.clear()
 
 
 def test_api_documents_index_bulk_anonymous():
@@ -42,21 +59,177 @@ def test_api_documents_index_bulk_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
-def test_api_documents_index_bulk_success():
+def test_api_documents_index_bulk_hybrid_disabled_success():
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
+    opensearch_client = opensearch.opensearch_client()
 
-    response = APIClient().post(
-        "/api/v1.0/documents/index/",
-        documents,
-        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
-    )
+    with patch(
+        "core.views.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
 
     assert response.status_code == 201
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
+
+    opensearch_client.indices.refresh(index=service.index_name)
+    indexed_documents = opensearch_client.search(
+        index=service.index_name, body={"query": {"match_all": {}}}
+    )
+    assert len(indexed_documents["hits"]["hits"]) == 3
+    for indexed_document in indexed_documents["hits"]["hits"]:
+        assert indexed_document["_source"]["chunks"] is None
+        assert indexed_document["_source"]["embedding_model"] is None
+        # hybrid is not enabled. documents are then ready without embeddings.
+        assert (
+            indexed_document["_source"]["indexing_status"] == IndexingStatusEnum.READY
+        )
+
+    mock_embed_document_to_be_embedded.assert_not_called()
+
+
+def test_api_documents_index_bulk_hybrid_enabled_success(settings):
+    """A registered service should be able to index documents in bulk with a valid token."""
+    service = factories.ServiceFactory()
+    enable_hybrid_search(settings)
+
+    documents = factories.DocumentSchemaFactory.build_batch(3)
+    opensearch_client = opensearch.opensearch_client()
+
+    with patch(
+        "core.views.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+
+    assert response.status_code == 201
+    responses = response.json()
+    assert [d["status"] for d in responses] == ["success"] * 3
+
+    opensearch_client.indices.refresh(index=service.index_name)
+    indexed_documents = opensearch_client.search(
+        index=service.index_name, body={"query": {"match_all": {}}}
+    )
+    assert len(indexed_documents["hits"]["hits"]) == 3
+    for indexed_document in indexed_documents["hits"]["hits"]:
+        assert indexed_document["_source"]["chunks"] is None
+        assert indexed_document["_source"]["embedding_model"] is None
+        # hybrid is enabled. documents are then to-be-embedded.
+        assert (
+            indexed_document["_source"]["indexing_status"]
+            == IndexingStatusEnum.TO_BE_EMBEDDED
+        )
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service.index_name}",
+    )
+
+
+def test_api_documents_index_bulk_no_duplicate_task(settings):
+    """
+    Test that indexing multiple document batches doesn't trigger duplicate embedding tasks.
+    The throttle mechanism should prevent scheduling a new task if one is already pending.
+    """
+    service = factories.ServiceFactory()
+    enable_hybrid_search(settings)
+
+    documents_1 = factories.DocumentSchemaFactory.build_batch(2)
+    documents_2 = factories.DocumentSchemaFactory.build_batch(2)
+
+    # Index first batch - should trigger task
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_1,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service.index_name}",
+    )
+
+    # Index second batch - should NOT trigger another task (throttled)
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_2,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_not_called()
+
+
+def test_api_documents_index_bulk_task_throttling_is_index_specific(settings):
+    """
+    Test that indexing multiple document batches doesn't trigger duplicate embedding tasks.
+    The throttle mechanism should prevent scheduling a new task if one is already pending.
+    """
+    enable_hybrid_search(settings)
+
+    service_1 = factories.ServiceFactory()
+    service_2 = factories.ServiceFactory()
+
+    documents_1 = factories.DocumentSchemaFactory.build_batch(2)
+    documents_2 = factories.DocumentSchemaFactory.build_batch(2)
+
+    # Index first batch - should trigger task
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_1,
+            HTTP_AUTHORIZATION=f"Bearer {service_1.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_1.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_1.index_name}",
+    )
+
+    # Index second batch - should NOT trigger another task (throttled)
+    with patch(
+        "core.tasks.indexing.embed_document_to_be_embedded.apply_async"
+    ) as mock_embed_document_to_be_embedded:
+        response = APIClient().post(
+            "/api/v1.0/documents/index/",
+            documents_2,
+            HTTP_AUTHORIZATION=f"Bearer {service_2.token:s}",
+            format="json",
+        )
+    assert response.status_code == 201
+
+    mock_embed_document_to_be_embedded.assert_called_once_with(
+        args=[service_2.index_name],
+        countdown=settings.EMBEDDING_COUNTDOWN,
+        task_id=f"embed_document_to_be_embedded:{service_2.index_name}",
+    )
 
 
 def test_api_documents_index_bulk_ensure_index():
@@ -393,11 +566,7 @@ def test_api_documents_index_opensearch_errors():
         mock_bulk.return_value = {
             "items": [
                 {"index": {"status": 201}},
-                {
-                    "index": {
-                        "status": 400,
-                    }
-                },
+                {"index": {"status": 400}},
                 {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
             ]
         }
