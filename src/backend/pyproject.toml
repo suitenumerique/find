@@ -34,7 +34,7 @@ dependencies = [
     "django-lasuite[all]==0.0.26",
     "djangorestframework==3.17.1",
     "drf_spectacular==0.29.0",
-    "dockerflow==2024.4.2",
+    "dockerflow==2026.3.4",
     "factory_boy==3.3.3",
     "gunicorn==25.3.0",
     "py3langid==0.3.0",

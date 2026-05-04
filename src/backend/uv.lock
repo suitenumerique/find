@@ -404,11 +404,11 @@ wheels = [
 
 [[package]]
 name = "dockerflow"
-version = "2024.4.2"
+version = "2026.3.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0e/73/39d187c76e7f7e9ffd84acbfade0e137da6def46f955761128c93c9396f1/dockerflow-2024.4.2.tar.gz", hash = "sha256:f4216a3a809093860d7b2db84ba0a25c894cb8eb98b74f4f6a04badbc4f6b0a4", size = 67602, upload-time = "2024-04-24T20:13:39.934Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/03/935f8399094611981b37634a7ee078484b3995f744135339e51385638f6c/dockerflow-2026.3.4.tar.gz", hash = "sha256:6cc7fcab2a078d06aeca8b02e22fd7f6766dca322fb30aed6910684dbc08690c", size = 68701, upload-time = "2026-03-04T09:01:28.178Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/55/496c65f8c869c9c1ddc86b1bd086ac08b29806e3058c8982c9a6cb1e99a6/dockerflow-2024.4.2-py2.py3-none-any.whl", hash = "sha256:b9f92455449ba46555f57db34cccefc4c49d3533c67793624ab7e80a1625caa7", size = 35862, upload-time = "2024-04-24T20:13:38.519Z" },
+    { url = "https://files.pythonhosted.org/packages/86/b9/2d7bf30eb0c24e60e61e4f6ae7574e123d3fa51b39a612e146c94158446a/dockerflow-2026.3.4-py2.py3-none-any.whl", hash = "sha256:38fe0ad30a4aedf68e589919695d502fc6f584a761b56a91f56e80cbadfbf61a", size = 36424, upload-time = "2026-03-04T09:01:26.631Z" },
 ]
 
 [[package]]
@@ -550,7 +550,7 @@ requires-dist = [
     { name = "django-lasuite", extras = ["all"], specifier = "==0.0.26" },
     { name = "django-redis", specifier = "==6.0.0" },
     { name = "djangorestframework", specifier = "==3.17.1" },
-    { name = "dockerflow", specifier = "==2024.4.2" },
+    { name = "dockerflow", specifier = "==2026.3.4" },
     { name = "drf-spectacular", specifier = "==0.29.0" },
     { name = "drf-spectacular-sidecar", marker = "extra == 'dev'", specifier = "==2026.4.14" },
     { name = "factory-boy", specifier = "==3.3.3" },
