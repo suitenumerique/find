@@ -41,7 +41,7 @@ dependencies = [
     "langchain-text-splitters==1.1.2",
     "mozilla-django-oidc==5.0.2",
     "psycopg[binary]==3.3.3",
-    "pydantic==2.12.5",
+    "pydantic==2.13.3",
     "pyjwt==2.12.1",
     "requests==2.33.1",
     "sentry-sdk==2.58.0",
