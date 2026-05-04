@@ -504,7 +504,6 @@ dependencies = [
     { name = "djangorestframework" },
     { name = "dockerflow" },
     { name = "drf-spectacular" },
-    { name = "factory-boy" },
     { name = "gunicorn" },
     { name = "langchain-text-splitters" },
     { name = "mozilla-django-oidc" },
@@ -516,7 +515,6 @@ dependencies = [
     { name = "redis" },
     { name = "requests" },
     { name = "sentry-sdk" },
-    { name = "url-normalize" },
     { name = "whitenoise" },
 ]
 
@@ -524,6 +522,7 @@ dependencies = [
 dev = [
     { name = "django-extensions" },
     { name = "drf-spectacular-sidecar" },
+    { name = "factory-boy" },
     { name = "faker" },
     { name = "ipdb" },
     { name = "ipython" },
@@ -553,7 +552,7 @@ requires-dist = [
     { name = "dockerflow", specifier = "==2026.3.4" },
     { name = "drf-spectacular", specifier = "==0.29.0" },
     { name = "drf-spectacular-sidecar", marker = "extra == 'dev'", specifier = "==2026.4.14" },
-    { name = "factory-boy", specifier = "==3.3.3" },
+    { name = "factory-boy", marker = "extra == 'dev'", specifier = "==3.3.3" },
     { name = "faker", marker = "extra == 'dev'", specifier = "==40.15.0" },
     { name = "gunicorn", specifier = "==25.3.0" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "==0.13.13" },
@@ -579,7 +578,6 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.12" },
     { name = "sentry-sdk", specifier = "==2.58.0" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = "==2.33.0.20260408" },
-    { name = "url-normalize", specifier = "==3.0.0" },
     { name = "whitenoise", specifier = "==6.12.0" },
 ]
 provides-extras = ["dev"]
@@ -1643,18 +1641,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/98/60/f174043244c5306c9988380d2cb10009f91563fc4b31293d27e17201af56/uritemplate-4.2.0.tar.gz", hash = "sha256:480c2ed180878955863323eea31b0ede668795de182617fef9c6ca09e6ec9d0e", size = 33267, upload-time = "2025-06-02T15:12:06.318Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/99/3ae339466c9183ea5b8ae87b34c0b897eda475d2aec2307cae60e5cd4f29/uritemplate-4.2.0-py3-none-any.whl", hash = "sha256:962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21abd533879bdb8a686", size = 11488, upload-time = "2025-06-02T15:12:03.405Z" },
-]
-
-[[package]]
-name = "url-normalize"
-version = "3.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "idna" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/cd/846d87d6d49d963b04ef4429b73d71d3c17468059956bab360866a9b0aec/url_normalize-3.0.0.tar.gz", hash = "sha256:0552cbf2831a32a28994a13d29bca58a60e10ff6c0380e343ec6d1c2a0d232d8", size = 21777, upload-time = "2026-04-25T00:31:59.514Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/8a/f72344eab18674fd7b174f35abbce41ed88fea72927f111726732d0ca779/url_normalize-3.0.0-py3-none-any.whl", hash = "sha256:95234bd359f86831c1fd87c248877f2a6887db2f3b5087120083f2fffcba4889", size = 16854, upload-time = "2026-04-25T00:31:58.271Z" },
 ]
 
 [[package]]
