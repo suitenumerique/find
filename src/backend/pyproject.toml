@@ -63,7 +63,7 @@ dev = [
     "faker==40.1.0",
     "ipdb==0.13.13",
     "ipython==9.13.0",
-    "pyfakefs==6.0.0",
+    "pyfakefs==6.2.0",
     "pylint-django==2.7.0",
     "pylint==4.0.5",
     "pytest-cov==7.1.0",
