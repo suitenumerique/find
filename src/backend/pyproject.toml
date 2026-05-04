@@ -71,7 +71,7 @@ dev = [
     "pytest==9.0.3",
     "pytest-icdiff==0.9",
     "pytest-xdist==3.8.0",
-    "responses==0.25.8",
+    "responses==0.26.0",
     "ruff==0.15.11",
     "types-requests==2.33.0.20260408",
 ]
