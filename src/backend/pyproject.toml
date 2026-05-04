@@ -59,7 +59,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "django-extensions==4.1",
-    "drf-spectacular-sidecar==2026.1.1",
+    "drf-spectacular-sidecar==2026.4.14",
     "faker==40.1.0",
     "ipdb==0.13.13",
     "ipython==9.13.0",

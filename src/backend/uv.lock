@@ -430,14 +430,14 @@ wheels = [
 
 [[package]]
 name = "drf-spectacular-sidecar"
-version = "2026.1.1"
+version = "2026.4.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/81/c7b0e3ccbd5a039c4f4fcfecf88391a666ca1406a953886e2f39295b1c90/drf_spectacular_sidecar-2026.1.1.tar.gz", hash = "sha256:6f7c173a8ddbbbdafc7a27e028614b65f07a89ca90f996a432d57460463b56be", size = 2468060, upload-time = "2026-01-01T11:27:12.682Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/0a/6dcc9cf1a60fa4247b886e9d4249ea7d04e67fede20af6fd631ef74c84a0/drf_spectacular_sidecar-2026.4.14.tar.gz", hash = "sha256:d4c299a85f3be44e93eaff3d83e986f27b744bb9823ba034aff9fd267ebc9fea", size = 2466204, upload-time = "2026-04-14T16:06:46.818Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/96/38725edda526f3e9e597f531beeec94b0ef433d9494f06a13b7636eecb6e/drf_spectacular_sidecar-2026.1.1-py3-none-any.whl", hash = "sha256:af8df62f1b594ec280351336d837eaf2402ab25a6bc2a1fad7aee9935821070f", size = 2489520, upload-time = "2026-01-01T11:27:11.056Z" },
+    { url = "https://files.pythonhosted.org/packages/42/e7/23cb71e9348af587c2d34d6e548e0f02af21432cdf50afabf379d5649ee8/drf_spectacular_sidecar-2026.4.14-py3-none-any.whl", hash = "sha256:a040d360ada2592722e90f40c2cf744376d9a30cccb3caaa5423bad791dec0aa", size = 2488555, upload-time = "2026-04-14T16:06:45.097Z" },
 ]
 
 [[package]]
@@ -552,7 +552,7 @@ requires-dist = [
     { name = "djangorestframework", specifier = "==3.17.1" },
     { name = "dockerflow", specifier = "==2024.4.2" },
     { name = "drf-spectacular", specifier = "==0.29.0" },
-    { name = "drf-spectacular-sidecar", marker = "extra == 'dev'", specifier = "==2026.1.1" },
+    { name = "drf-spectacular-sidecar", marker = "extra == 'dev'", specifier = "==2026.4.14" },
     { name = "factory-boy", specifier = "==3.3.3" },
     { name = "faker", marker = "extra == 'dev'", specifier = "==40.1.0" },
     { name = "gunicorn", specifier = "==25.3.0" },
