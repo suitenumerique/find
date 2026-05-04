@@ -35,7 +35,6 @@ dependencies = [
     "djangorestframework==3.17.1",
     "drf_spectacular==0.29.0",
     "dockerflow==2026.3.4",
-    "factory_boy==3.3.3",
     "gunicorn==25.3.0",
     "py3langid==0.3.0",
     "langchain-text-splitters==1.1.2",
@@ -45,7 +44,6 @@ dependencies = [
     "pyjwt==2.12.1",
     "requests==2.33.1",
     "sentry-sdk==2.58.0",
-    "url-normalize==3.0.0",
     "opensearch-py==3.1.0",
     "whitenoise==6.12.0",
 ]
@@ -59,6 +57,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "django-extensions==4.1",
+    "factory_boy==3.3.3",
     "drf-spectacular-sidecar==2026.4.14",
     "faker==40.15.0",
     "ipdb==0.13.13",
