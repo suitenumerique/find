@@ -123,7 +123,6 @@ class SearchQueryParametersSchema(BaseModel):
 class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 
-    service: str = Field(max_length=300)
     document_ids: Optional[List[str]] = Field(default=None)
     tags: Optional[List[str]] = Field(default=None)
 

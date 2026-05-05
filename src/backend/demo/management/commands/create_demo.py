@@ -14,7 +14,7 @@ from django.utils.text import slugify
 from faker import Faker
 from opensearchpy.helpers import bulk
 
-from core import enums, factories
+from core import enums
 from core.services.indexing import ensure_index_exists
 from core.services.opensearch import opensearch_client
 
@@ -146,35 +146,35 @@ def create_demo(stdout):
     opensearch_client_ = opensearch_client()
     opensearch_client_.indices.delete(index="*")
 
-    with Timeit(stdout, "Creating services"):
-        services = factories.ServiceFactory.create_batch(
-            defaults.NB_OBJECTS["services"]
-        )
+    # Create service names (without Service model)
+    service_names = [f"service-{i}" for i in range(defaults.NB_OBJECTS["services"])]
 
-        for service in services:
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
+    with Timeit(stdout, "Creating services"):
+        for service_name in service_names:
+            ensure_index_exists(service_name)
+            opensearch_client_.indices.refresh(index=service_name)
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
         for _ in range(defaults.NB_OBJECTS["documents"]):
-            service = random.choice(services)
+            service_name = random.choice(service_names)
             document = generate_document()
-            actions.push(service.name, uuid4(), document)
+            actions.push(service_name, uuid4(), document)
         actions.flush()
 
     with Timeit(stdout, "Creating dev services"):
         for conf in defaults.DEV_SERVICES:
-            service = factories.ServiceFactory(**conf)
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
+            service_name = conf["name"]
+            ensure_index_exists(service_name)
+            opensearch_client_.indices.refresh(index=service_name)
 
     # Check and report on indexed documents
     total_indexed = 0
-    for service in services:
-        opensearch_client_.indices.refresh(index=service.name)
-        indexed = opensearch_client_.count(index=service.name)["count"]
-        stdout.write(f"  - {service.name:s}: {indexed:d} documents")
+    all_service_names = service_names + [conf["name"] for conf in defaults.DEV_SERVICES]
+    for service_name in all_service_names:
+        opensearch_client_.indices.refresh(index=service_name)
+        indexed = opensearch_client_.count(index=service_name)["count"]
+        stdout.write(f"  - {service_name:s}: {indexed:d} documents")
         total_indexed += indexed
 
     stdout.write(f"  TOTAL: {total_indexed:d} documents")

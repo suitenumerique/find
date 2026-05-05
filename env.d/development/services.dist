@@ -1,0 +1,11 @@
+# Service configurations for Find
+# Each service needs a TOKEN and CLIENT_ID
+# Copy this file to 'services' and adjust as needed
+
+# Docs service (impress)
+SERVICES__DOCS__TOKEN=find-api-key-for-docs
+SERVICES__DOCS__CLIENT_ID=impress
+
+# Drive service
+SERVICES__DRIVE__TOKEN=find-api-key-for-drive
+SERVICES__DRIVE__CLIENT_ID=drive

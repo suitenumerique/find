@@ -1,5 +1,7 @@
 """Fixtures for tests in the find core application"""
 
+from django.utils.text import slugify
+
 import pytest
 from faker import Faker
 from lasuite.oidc_resource_server.authentication import (
@@ -8,8 +10,43 @@ from lasuite.oidc_resource_server.authentication import (
 from opensearchpy.exceptions import NotFoundError
 
 from core.services import opensearch
+from core.services.config import ServiceConfig, ServicesSettings
 
 fake = Faker()
+
+
+@pytest.fixture
+def create_service(monkeypatch):
+    """
+    Factory fixture to create service configs for testing.
+
+    Usage:
+        service = create_service()  # Creates with random defaults
+        service = create_service(name="docs", token="my-token", client_id="impress")
+
+    Returns a ServiceConfig with .token, .client_id, .name, and .index_name properties.
+    Automatically patches services_settings in authentication and indexing modules.
+    """
+    services_settings = ServicesSettings()
+
+    monkeypatch.setattr("core.authentication.services_settings", services_settings)
+    monkeypatch.setattr("core.services.indexing.services_settings", services_settings)
+
+    def _create(name=None, token=None, client_id=None, **kwargs):
+        if name is None:
+            name = slugify(fake.word())
+        else:
+            name = slugify(name)
+        if token is None:
+            token = "".join(fake.random_letters(32))
+        if client_id is None:
+            client_id = fake.word()
+
+        config = ServiceConfig(token=token, client_id=client_id, name=name)
+        services_settings.services[name] = config
+        return config
+
+    return _create
 
 
 @pytest.fixture(name="jwt_rs_backend")

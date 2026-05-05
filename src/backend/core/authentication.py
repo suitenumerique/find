@@ -8,15 +8,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from lasuite.oidc_resource_server.backend import ResourceServerBackend
 from rest_framework import authentication, exceptions
 
-from .models import Service
+from find.settings import services_settings
 
 logger = logging.getLogger(__name__)
 
 
 class ServiceTokenAuthentication(authentication.BaseAuthentication):
     """A custom authentication looking for valid tokens among registered services"""
-
-    model = Service
 
     def authenticate(self, request):
         """Authenticate token from the "Authorization" header."""
@@ -30,13 +28,12 @@ class ServiceTokenAuthentication(authentication.BaseAuthentication):
 
     def authenticate_credentials(self, token):
         """Check that the token is registered and valid."""
-        try:
-            service = self.model.objects.only("name").get(token=token, is_active=True)
-        except self.model.DoesNotExist as excpt:
-            raise exceptions.AuthenticationFailed("Invalid token.") from excpt
+        service_config = services_settings.get_service_by_token(token)
+        if service_config is None:
+            raise exceptions.AuthenticationFailed("Invalid token.")
 
         # We don't associate tokens with a user
-        return AnonymousUser(), service
+        return AnonymousUser(), service_config
 
 
 class ResourceUserManager:

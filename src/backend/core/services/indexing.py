@@ -14,7 +14,9 @@ from core.services.opensearch_configuration import (
     MAPPINGS,
 )
 
-from ..models import Service, get_opensearch_index_name
+from find.settings import services_settings
+
+from ..models import get_opensearch_index_name
 from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
@@ -82,24 +84,15 @@ def detect_language_code(text):
     return detected_code
 
 
-def get_opensearch_indices(audience, services):
+def get_opensearch_indices(audience):
     """
-    Get OpenSearch indices for the given audience and services.
+    Get OpenSearch indices for the given audience.
+    Each service can only search its own index.
     """
-    try:
-        user_service = Service.objects.get(client_id=audience, is_active=True)
-    except Service.DoesNotExist as e:
+    service_config = services_settings.get_service_by_client_id(audience)
+    if service_config is None:
         logger.warning("Login failed: No service %s found", audience)
-        raise SuspiciousOperation("Service is not available") from e
+        raise SuspiciousOperation("Service is not available")
 
-    # Find allowed sub-services for this service
-    allowed_services = set(user_service.services.values_list("name", flat=True))
-    allowed_services.add(user_service.name)
-
-    if services:
-        available_service = set(services).intersection(allowed_services)
-
-        if len(available_service) < len(services):
-            raise SuspiciousOperation("Some requested services are not available")
-
-    return [get_opensearch_index_name(service) for service in allowed_services]
+    # Each service searches only its own index (no cross-service)
+    return [get_opensearch_index_name(service_config.name)]

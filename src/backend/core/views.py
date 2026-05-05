@@ -226,9 +226,9 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         """
         params = schemas.DeleteDocumentsSchema(**request.data)
         try:
-            index_name = get_opensearch_indices(
-                self._get_service_provider_audience(), services=[params.service]
-            )[0]
+            index_name = get_opensearch_indices(self._get_service_provider_audience())[
+                0
+            ]
         except SuspiciousOperation as e:
             logger.error(e)
             return Response(
@@ -366,7 +366,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         # Get index list for search query
         try:
-            search_indices = get_opensearch_indices(audience, services=params.services)
+            search_indices = get_opensearch_indices(audience)
         except SuspiciousOperation as e:
             logger.error(e, exc_info=True)
             return Response(

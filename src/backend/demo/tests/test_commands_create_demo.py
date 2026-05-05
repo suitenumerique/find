@@ -7,7 +7,6 @@ from django.test import override_settings
 
 import pytest
 
-from core import models
 from core.services.opensearch import opensearch_client
 
 from demo import defaults
@@ -26,11 +25,12 @@ def test_commands_create_demo():
     """The create_demo management command should create objects as expected."""
     call_command("create_demo")
 
-    assert models.Service.objects.exclude(name="docs").count() == 4
+    # Service model no longer exists, just verify indices were created
+    # and documents were indexed
     assert opensearch_client().count()["count"] == 4
 
-    docs = models.Service.objects.get(name="docs")
-    assert docs.client_id == "impress"
-
-    drive = models.Service.objects.get(name="drive")
-    assert drive.client_id == "drive"
+    # Verify that the dev service indices exist
+    indices = opensearch_client().indices.get_alias(index="*")
+    assert "docs" in indices
+    assert "drive" in indices
+    assert "conversations" in indices

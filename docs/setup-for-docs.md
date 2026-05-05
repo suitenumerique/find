@@ -22,7 +22,7 @@ SEARCH_INDEXER_CLASS="core.services.search_indexers.FindDocumentIndexer"
 SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
 # The token from service "docs" of Find application (development).
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+SEARCH_INDEXER_SECRET="find-api-key-for-docs"
 SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
 
 # Search endpoint. Uses the OIDC token for authentication

@@ -18,7 +18,7 @@ def test_api_documents_delete_anonymous():
     """Anonymous requests should not be allowed to delete documents."""
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": "service-name", "document_ids": ["doc1"]},
+        {"document_ids": ["doc1"]},
         format="json",
     )
 
@@ -26,13 +26,13 @@ def test_api_documents_delete_anonymous():
 
 
 @responses.activate
-def test_api_documents_delete_wrong_service_name(settings):
-    """Requests with a wrong service name should return 400 Bad Request."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+def test_api_documents_delete_unknown_audience(settings):
+    """Requests with unknown OIDC audience should return 400 Bad Request."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="unknown")
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": "wrong-service", "document_ids": ["0"]},
+        {"document_ids": ["0"]},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -42,11 +42,11 @@ def test_api_documents_delete_wrong_service_name(settings):
 
 
 @responses.activate
-def test_api_documents_delete_success(settings):
+def test_api_documents_delete_success(settings, create_service):
     """Authenticated users should be able to delete documents they have access to."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
     # Create documents user has access to
     documents = factories.DocumentSchemaFactory.build_batch(3, users=["user_sub"])
     prepare_index(service.index_name, documents)
@@ -54,7 +54,7 @@ def test_api_documents_delete_success(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": document_to_delete_ids},
+        {"document_ids": document_to_delete_ids},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -74,10 +74,10 @@ def test_api_documents_delete_success(settings):
 
 
 @responses.activate
-def test_api_documents_delete_no_access(settings):
+def test_api_documents_delete_no_access(settings, create_service):
     """Users should not be able to delete documents they don't have access to."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
     # Create documents where user_sub does NOT have access
     documents = factories.DocumentSchemaFactory.build_batch(2, users=["other_sub"])
     prepare_index(service.index_name, documents)
@@ -86,7 +86,7 @@ def test_api_documents_delete_no_access(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": document_ids},
+        {"document_ids": document_ids},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -103,11 +103,11 @@ def test_api_documents_delete_no_access(settings):
 
 
 @responses.activate
-def test_api_documents_delete_mixed_access(settings):
+def test_api_documents_delete_mixed_access(settings, create_service):
     """Deleting a mix of owned and non-owned documents should only delete owned ones."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
     # Create documents with different access
     owned_documents = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
     other_documents = factories.DocumentSchemaFactory.build_batch(
@@ -122,7 +122,6 @@ def test_api_documents_delete_mixed_access(settings):
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {
-            "service": service.name,
             "document_ids": owned_document_ids
             + other_document_ids
             + non_existing_document_ids,
@@ -149,17 +148,15 @@ def test_api_documents_delete_mixed_access(settings):
 
 
 @responses.activate
-def test_api_documents_delete_invalid_params(settings):
+def test_api_documents_delete_invalid_params(settings, create_service):
     """Requests with invalid parameters should return 400 Bad Request."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    create_service(client_id="some_client_id")
 
     # Missing both document_ids and tags
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {
-            "service": service.name,
-        },
+        {},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -173,7 +170,7 @@ def test_api_documents_delete_invalid_params(settings):
     # Empty document_ids and no tags
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": []},
+        {"document_ids": []},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -187,7 +184,7 @@ def test_api_documents_delete_invalid_params(settings):
     # Both empty
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": [], "tags": []},
+        {"document_ids": [], "tags": []},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -198,31 +195,21 @@ def test_api_documents_delete_invalid_params(settings):
         == "Value error, At least one of 'document_ids' or 'tags' must be provided"
     )
 
-    # Missing service
-    response = APIClient().post(
-        "/api/v1.0/documents/delete/",
-        {"document_ids": ["doc1"]},
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
-    )
-
-    assert response.status_code == 400
-
 
 @responses.activate
-def test_api_documents_delete_nonexistent_documents(settings):
+def test_api_documents_delete_nonexistent_documents(settings, create_service):
     """
     Deleting non-existent documents should not raise an error
     and return the list of undeleted ids.
     """
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
     # Create index but with no documents
     prepare_index(service.index_name, [])
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "document_ids": ["non-existent-id"]},
+        {"document_ids": ["non-existent-id"]},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -233,10 +220,10 @@ def test_api_documents_delete_nonexistent_documents(settings):
 
 
 @responses.activate
-def test_api_documents_delete_by_single_tag(settings):
+def test_api_documents_delete_by_single_tag(settings, create_service):
     """Users should be able to delete documents by tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
 
     document_to_deletes = [
         factories.DocumentSchemaFactory.build(
@@ -259,7 +246,7 @@ def test_api_documents_delete_by_single_tag(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "tags": ["delete-tag"]},
+        {"tags": ["delete-tag"]},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -279,10 +266,10 @@ def test_api_documents_delete_by_single_tag(settings):
 
 
 @responses.activate
-def test_api_documents_delete_by_multiple_tags(settings):
+def test_api_documents_delete_by_multiple_tags(settings, create_service):
     """Users should be able to delete documents matching any of multiple tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
 
     document_to_deletes = [
         factories.DocumentSchemaFactory.build(
@@ -308,7 +295,7 @@ def test_api_documents_delete_by_multiple_tags(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {"service": service.name, "tags": ["delete-tag-1", "delete-tag-2"]},
+        {"tags": ["delete-tag-1", "delete-tag-2"]},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -328,10 +315,10 @@ def test_api_documents_delete_by_multiple_tags(settings):
 
 
 @responses.activate
-def test_api_documents_delete_by_ids_and_tags(settings):
+def test_api_documents_delete_by_ids_and_tags(settings, create_service):
     """Users should be able to delete documents by both IDs and tags (AND logic)."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    service = create_service(client_id="some_client_id")
 
     document_delete_by_tag_and_id = factories.DocumentSchemaFactory.build(
         users=["user_sub"], tags=["delete-tag"]
@@ -355,7 +342,6 @@ def test_api_documents_delete_by_ids_and_tags(settings):
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {
-            "service": service.name,
             "document_ids": [
                 document_delete_by_tag_and_id["id"],
                 document_keep_by_tag_delete_by_id["id"],

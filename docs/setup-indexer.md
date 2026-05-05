@@ -60,31 +60,42 @@ either an absolute number or proportion.
 
 Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
 
-For each application a new **Service** must be created through the admin interface
-(see http://localhost:9071/admin/core/service/add/)
+For each application, configure a service through environment variables using the pattern `SERVICES__<NAME>__TOKEN` and `SERVICES__<NAME>__CLIENT_ID`:
 
-| Field                       | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| Name                        | Name of the service and also the name of the index in Opensearch database |
-| Is active                   | Toggle service availability                        |
-| Client id                   | Calling service client_id (e.g `impress` for docs) |
-| Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication    |
+| Variable | Description |
+|----------|-------------|
+| `SERVICES__<SERVICE_NAME>__TOKEN` | Authentication token for the calling service |
+| `SERVICES__<SERVICE_NAME>__CLIENT_ID` | The OIDC client ID of the calling service (e.g., `impress` for docs) |
 
-And add the key in the calling application Django settings.
+Then add the token in the calling application Django settings.
 
 **Development Mode (Docs + Find)**
 
-The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
+First, copy `env.d/development/services.dist` to `env.d/development/services` and restart the app.
+The command `make demo` then creates OpenSearch indices and sample documents for `docs` and `drive`.
+
+The service configuration uses these environment variables:
+
+```bash
+# Docs service
+SERVICES__DOCS__TOKEN=find-api-key-for-docs
+SERVICES__DOCS__CLIENT_ID=impress
+
+# Drive service
+SERVICES__DRIVE__TOKEN=find-api-key-for-drive
+SERVICES__DRIVE__CLIENT_ID=drive
+```
+
+In the calling application (e.g., Docs), set the indexer secret:
 
 ```python
-# Docs
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+# Docs settings.py
+SEARCH_INDEXER_SECRET="find-api-key-for-docs"
 ```
 
 ```python
-# Drive
-SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
+# Drive settings.py
+SEARCH_INDEXER_SECRET="find-api-key-for-drive"
 ```
 
 ## Setup search API

@@ -60,6 +60,7 @@ services:
     env_file:
       - env.d/development/common
       - env.d/development/postgresql
+      - env.d/development/services
     ports:
       - "8081:8000"
     networks:
@@ -88,6 +89,7 @@ services:
     env_file:
       - env.d/development/common
       - env.d/development/postgresql
+      - env.d/development/services
     volumes:
       - ./src/backend:/app
       - ./data/static:/data/static
