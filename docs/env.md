@@ -1,107 +1,238 @@
-# Find variables
+# Environment Variables
 
-Here we describe all environment variables that can be set for the find application.
+Complete reference for Find configuration.
 
-## find-backend container
+## Core Settings
 
-These are the environment variables you can set for the `find-backend` container.
+### Django Configuration
 
-| Option                                          | Description                                                                                                                 | default                                                                 |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| API_USERS_LIST_LIMIT                            | Limit on API users                                                                                                          | 5                                                                       |
-| API_USERS_LIST_THROTTLE_RATE_BURST              | Throttle rate for api on burst                                                                                              | 30/minute                                                               |
-| API_USERS_LIST_THROTTLE_RATE_SUSTAINED          | Throttle rate for api                                                                                                       | 180/hour                                                                |
-| CACHES_DEFAULT_TIMEOUT                          | Cache default timeout                                                                                                       | 30                                                                      |
-| CACHES_KEY_PREFIX                               | The prefix used to every cache keys.                                                                                        | docs                                                                    |
-| DB_ENGINE                                       | Engine to use for database connections                                                                                      | django.db.backends.postgresql_psycopg2                                  |
-| DB_HOST                                         | Host of the database                                                                                                        | localhost                                                               |
-| DB_NAME                                         | Name of the database                                                                                                        | impress                                                                 |
-| DB_PASSWORD                                     | Password to authenticate with                                                                                               | pass                                                                    |
-| DB_PORT                                         | Port of the database                                                                                                        | 5432                                                                    |
-| DB_USER                                         | User to authenticate with                                                                                                   | dinum                                                                   |
-| DJANGO_ALLOWED_HOSTS                            | Allowed hosts                                                                                                               | []                                                                      |
-| DJANGO_CELERY_BROKER_TRANSPORT_OPTIONS          | Celery broker transport options                                                                                             | {}                                                                      |
-| DJANGO_CELERY_BROKER_URL                        | Celery broker url                                                                                                           | redis://redis:6379/0                                                    |
-| DJANGO_CORS_ALLOW_ALL_ORIGINS                   | Allow all CORS origins                                                                                                      | false                                                                   |
-| DJANGO_CORS_ALLOWED_ORIGIN_REGEXES              | List of origins allowed for CORS using regular expressions                                                                 | []                                                                      |
-| DJANGO_CORS_ALLOWED_ORIGINS                     | List of origins allowed for CORS                                                                                            | []                                                                      |
-| DJANGO_CSRF_TRUSTED_ORIGINS                     | CSRF trusted origins                                                                                                        | []                                                                      |
-| DJANGO_EMAIL_BACKEND                            | Email backend library                                                                                                       | django.core.mail.backends.smtp.EmailBackend                             |
-| DJANGO_EMAIL_BRAND_NAME                         | Brand name for email                                                                                                        |                                                                         |
-| DJANGO_EMAIL_FROM                               | Email address used as sender                                                                                                | from@example.com                                                        |
-| DJANGO_EMAIL_HOST                               | Hostname of email                                                                                                           |                                                                         |
-| DJANGO_EMAIL_HOST_PASSWORD                      | Password to authenticate with on the email host                                                                             |                                                                         |
-| DJANGO_EMAIL_HOST_USER                          | User to authenticate with on the email host                                                                                 |                                                                         |
-| DJANGO_EMAIL_LOGO_IMG                           | Logo for the email                                                                                                          |                                                                         |
-| DJANGO_EMAIL_PORT                               | Port used to connect to email host                                                                                          |                                                                         |
-| DJANGO_EMAIL_USE_SSL                            | Use ssl for email host connection                                                                                           | false                                                                   |
-| DJANGO_EMAIL_USE_TLS                            | Use tls for email host connection                                                                                           | false                                                                   |
-| DJANGO_SECRET_KEY                               | Secret key                                                                                                                  |                                                                         |
-| DJANGO_SERVER_TO_SERVER_API_TOKENS              |                                                                                                                             | []                                                                      |
-| DOCUMENT_IMAGE_MAX_SIZE                         | Maximum size of document in bytes                                                                                           | 10485760                                                                |
-| FRONTEND_CSS_URL                                | To add a external css file to the app                                                                                       |                                                                         |
-| FRONTEND_HOMEPAGE_FEATURE_ENABLED               | Frontend feature flag to display the homepage                                                                               | false                                                                   |
-| FRONTEND_THEME                                  | Frontend theme to use                                                                                                       |                                                                         |
-| LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD         | Language detection confidence threshold                                                                                     | 0.75                                                                    |
-| LOGGING_LEVEL_LOGGERS_APP                       | Application logging level. options are "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"                                         | INFO                                                                    |
-| LOGGING_LEVEL_LOGGERS_ROOT                      | Default logging level. options are "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"                                             | INFO                                                                    |
-| LOGIN_REDIRECT_URL                              | Login redirect url                                                                                                          |                                                                         |
-| LOGIN_REDIRECT_URL_FAILURE                      | Login redirect url on failure                                                                                               |                                                                         |
-| LOGOUT_REDIRECT_URL                             | Logout redirect url                                                                                                         |                                                                         |
-| MALWARE_DETECTION_BACKEND                       | The malware detection backend use from the django-lasuite package                                                           | lasuite.malware_detection.backends.dummy.DummyBackend                   |
-| MALWARE_DETECTION_PARAMETERS                    | A dict containing all the parameters to initiate the malware detection backend                                              | {"callback_path": "core.malware_detection.malware_detection_callback",} |
-| MEDIA_BASE_URL                                  |                                                                                                                             |                                                                         |
-| NO_WEBSOCKET_CACHE_TIMEOUT                      | Cache used to store current editor session key when only users without websocket are editing a document                     | 120                                                                     |
-| OIDC_ALLOW_DUPLICATE_EMAILS                     | Allow duplicate emails                                                                                                      | false                                                                   |
-| OIDC_AUTH_REQUEST_EXTRA_PARAMS                  | OIDC extra auth parameters                                                                                                  | {}                                                                      |
-| OIDC_CREATE_USER                                | Create used on OIDC                                                                                                         | false                                                                   |
-| OIDC_DRF_AUTH_BACKEND                           | DRF Authentication backend class for OIDC                                                                                   | lasuite.oidc_login.backends.OIDCAuthenticationBackend                   |
-| OIDC_FALLBACK_TO_EMAIL_FOR_IDENTIFICATION       | Fallback to email for identification                                                                                        | true                                                                    |
-| OIDC_OP_AUTHORIZATION_ENDPOINT                  | Authorization endpoint for OIDC                                                                                             |                                                                         |
-| OIDC_OP_INTROSPECTION_ENDPOINT                  | Introspection endpoint for OIDC                                                                                             |                                                                         |
-| OIDC_OP_JWKS_ENDPOINT                           | JWKS endpoint for OIDC                                                                                                      |                                                                         |
-| OIDC_OP_LOGOUT_ENDPOINT                         | Logout endpoint for OIDC                                                                                                    |                                                                         |
-| OIDC_OP_TOKEN_ENDPOINT                          | Token endpoint for OIDC                                                                                                     |                                                                         |
-| OIDC_OP_USER_ENDPOINT                           | User endpoint for OIDC                                                                                                      |                                                                         |
-| OIDC_REDIRECT_ALLOWED_HOSTS                     | Allowed hosts for OIDC redirect url                                                                                         | []                                                                      |
-| OIDC_REDIRECT_REQUIRE_HTTPS                     | Require https for OIDC redirect url                                                                                         | false                                                                   |
-| OIDC_RP_CLIENT_ID                               | Client id used for OIDC                                                                                                     | impress                                                                 |
-| OIDC_RP_CLIENT_SECRET                           | Client secret used for OIDC                                                                                                 |                                                                         |
-| OIDC_RP_SCOPES                                  | Scopes requested for OIDC                                                                                                   | openid email                                                            |
-| OIDC_RP_SIGN_ALGO                               | verification algorithm used OIDC tokens                                                                                     | RS256                                                                   |
-| OIDC_RS_BACKEND_CLASS                           | Resource server backend class for OIDC                                                                                      | core.authentication.FinderResourceServerBackend                         |
-| OIDC_RS_AUDIENCE_CLAIM                          | The claim used to identify the audience                                                                                     | client_id                                                               |
-| OIDC_RS_CLIENT_ID                               | Client id used for OIDC resource server                                                                                     |                                                                         |
-| OIDC_RS_CLIENT_SECRET                           | Client secret used for OIDC resource server                                                                                 |                                                                         |
-| OIDC_RS_SIGNING_ALGO                            | Signing algorithm                                                                                                           | ES256                                                                   |
-| OIDC_RS_SCOPES                                  | Required scopes for authentication                                                                                          | ["openid"]                                                              |
-| OIDC_RS_PRIVATE_KEY_STR                         | Private key for encryption/decryption                                                                                       |                                                                         |
-| OIDC_RS_ENCRYPTION_KEY_TYPE                     | Encryption key type (RSA, EC, etc.)                                                                                         | RSA                                                                     |
-| OIDC_RS_ENCRYPTION_ALGO                         | Encryption algorithm                                                                                                        | RSA-OAEP                                                                |
-| OIDC_RS_ENCRYPTION_ENCODING                     | Encryption encoding algorithm                                                                                               | A256GCM                                                                 |
-| OIDC_STORE_ID_TOKEN                             | Store OIDC token                                                                                                            | true                                                                    |
-| OIDC_USE_NONCE                                  | Use nonce for OIDC                                                                                                          | true                                                                    |
-| OIDC_USERINFO_FULLNAME_FIELDS                   | OIDC token claims to create full name                                                                                       | ["first_name", "last_name"]                                             |
-| OIDC_USERINFO_SHORTNAME_FIELD                   | OIDC token claims to create shortname                                                                                       | first_name                                                              |
-| OIDC_VERIFY_SSL                                 | Enable SSL validation for OIDC                                                                                              | true                                                                    |
-| OIDC_TIMEOUT                                    | Timeout delay for OID requests                                                                                              |                                                                         |
-| OIDC_PROXY                                      | Defines a proxy for all requests to the OpenID Connect provider                                                             |                                                                         |
-| OPENSEARCH_HOST                                 | Opensearch database url                                                                                                     | default                                                                 |
-| OPENSEARCH_PORT                                 | Port of Opensearch database                                                                                                 | 9200                                                                    |
-| OPENSEARCH_USER                                 | Opensearch database user                                                                                                    | admin                                                                   |
-| OPENSEARCH_PASSWORD                             | Opensearch database user password                                                                                           |                                                                         |
-| OPENSEARCH_USE_SSL                              | Enable SSL connection for Opensearch database                                                                               | true                                                                    |
-| POSTHOG_KEY                                     | Posthog key for analytics                                                                                                   |                                                                         |
-| REDIS_URL                                       | Cache url                                                                                                                   | redis://redis:6379/1                                                    |
-| SENTRY_DSN                                      | Sentry host                                                                                                                 |                                                                         |
-| SESSION_COOKIE_AGE                              | duration of the cookie session                                                                                              | 60*60*12                                                                |
-| SPECTACULAR_SETTINGS_ENABLE_DJANGO_DEPLOY_CHECK |                                                                                                                             | false                                                                   |
-| STORAGES_STATICFILES_BACKEND                    |                                                                                                                             | whitenoise.storage.CompressedManifestStaticFilesStorage                 |
-| THEME_CUSTOMIZATION_CACHE_TIMEOUT               | Cache duration for the customization settings                                                                               | 86400                                                                   |
-| THEME_CUSTOMIZATION_FILE_PATH                   | Full path to the file customizing the theme. An example is provided in src/backend/impress/configuration/theme/default.json | BASE_DIR/impress/configuration/theme/default.json                       |
-| TRASHBIN_CUTOFF_DAYS                            | Trashbin cutoff                                                                                                             | 30                                                                      |
-| TRIGRAMS_BOOST                                  | weight boost applied to trigram score in document matching score                                                            | 0.25                                                                    |
-| TRIGRAMS_MINIMUM_SHOULD_MATCH                   | minimal number or proportion of trigrams having to match to score                                                           | 0.75%                                                                   |
-| USER_OIDC_ESSENTIAL_CLAIMS                      | Essential claims in OIDC token                                                                                              | []                                                                      |
-| Y_PROVIDER_API_BASE_URL                         | Y Provider url                                                                                                              |                                                                         |
-| Y_PROVIDER_API_KEY                              | Y provider API key                                                                                                          |                                                                         |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `DJANGO_SECRET_KEY` | Cryptographic signing key | - | **Yes** |
+| `DJANGO_DEBUG` | Enable debug mode | `false` | No |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hostnames | `*` | Production |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Comma-separated trusted origins for CSRF | - | Production |
+| `DJANGO_SETTINGS_MODULE` | Settings module path | `find.settings` | No |
+
+### Database (PostgreSQL)
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `POSTGRES_HOST` | Database hostname | `localhost` | **Yes** |
+| `POSTGRES_PORT` | Database port | `5432` | No |
+| `POSTGRES_DB` | Database name | `find` | **Yes** |
+| `POSTGRES_USER` | Database user | `find` | **Yes** |
+| `POSTGRES_PASSWORD` | Database password | - | **Yes** |
+
+### Redis / Celery
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` | **Yes** |
+| `CELERY_BROKER_URL` | Celery broker URL | `$REDIS_URL` | No |
+| `CELERY_RESULT_BACKEND` | Celery result backend | `$REDIS_URL` | No |
+
+## Search Backend Configuration
+
+### Backend Selection
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SEARCH_BACKEND` | Search backend to use | `opensearch` | No |
+| `SEARCH_INDEX_NAME` | Name of the unified index | `find` | No |
+| `SEARCH_DEFAULT_LANGUAGE` | Default search language | `french` | No |
+
+Supported values for `SEARCH_BACKEND`:
+- `opensearch` - OpenSearch 2.x
+- `typesense` - TypeSense 0.25+
+- `meilisearch` - Meilisearch 1.x
+
+### OpenSearch Configuration
+
+Required when `SEARCH_BACKEND=opensearch`:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OPENSEARCH_HOST` | OpenSearch hostname | `localhost` | **Yes** |
+| `OPENSEARCH_PORT` | OpenSearch port | `9200` | No |
+| `OPENSEARCH_USE_SSL` | Enable SSL/TLS | `false` | No |
+| `OPENSEARCH_VERIFY_CERTS` | Verify SSL certificates | `true` | No |
+| `OPENSEARCH_USER` | OpenSearch username | - | If auth enabled |
+| `OPENSEARCH_PASSWORD` | OpenSearch password | - | If auth enabled |
+| `OPENSEARCH_CA_CERTS` | Path to CA certificate | - | If custom CA |
+
+### TypeSense Configuration
+
+Required when `SEARCH_BACKEND=typesense`:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `TYPESENSE_HOST` | TypeSense hostname | `localhost` | **Yes** |
+| `TYPESENSE_PORT` | TypeSense port | `8108` | No |
+| `TYPESENSE_PROTOCOL` | Protocol (http/https) | `http` | No |
+| `TYPESENSE_API_KEY` | TypeSense API key | - | **Yes** |
+
+### Meilisearch Configuration
+
+Required when `SEARCH_BACKEND=meilisearch`:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MEILISEARCH_HOST` | Meilisearch hostname | `localhost` | **Yes** |
+| `MEILISEARCH_PORT` | Meilisearch port | `7700` | No |
+| `MEILISEARCH_PROTOCOL` | Protocol (http/https) | `http` | No |
+| `MEILISEARCH_API_KEY` | Meilisearch master key | - | **Yes** |
+
+## Authentication
+
+### OIDC Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OIDC_OP_ISSUER` | OIDC provider issuer URL | - | **Yes** |
+| `OIDC_OP_JWKS_ENDPOINT` | JWKS endpoint URL | `{issuer}/.well-known/jwks.json` | No |
+| `OIDC_OP_AUTHORIZATION_ENDPOINT` | Authorization endpoint | Auto-discovered | No |
+| `OIDC_OP_TOKEN_ENDPOINT` | Token endpoint | Auto-discovered | No |
+| `OIDC_OP_USER_ENDPOINT` | Userinfo endpoint | Auto-discovered | No |
+| `OIDC_RP_CLIENT_ID` | Find's OIDC client ID | - | **Yes** |
+| `OIDC_RP_CLIENT_SECRET` | Find's OIDC client secret | - | **Yes** |
+| `OIDC_VERIFY_SSL` | Verify OIDC provider SSL | `true` | No |
+| `OIDC_AUDIENCE` | Expected audience claim | `$OIDC_RP_CLIENT_ID` | No |
+
+### User Claims Mapping
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OIDC_CLAIM_SUB` | Claim for user identifier | `sub` | No |
+| `OIDC_CLAIM_EMAIL` | Claim for email | `email` | No |
+| `OIDC_CLAIM_GROUPS` | Claim for group memberships | `groups` | No |
+
+## Search Behavior
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SEARCH_MAX_RESULTS` | Maximum results per search | `100` | No |
+| `SEARCH_DEFAULT_PAGE_SIZE` | Default page size | `20` | No |
+| `SEARCH_HIGHLIGHT_ENABLED` | Enable result highlighting | `true` | No |
+| `SEARCH_HIGHLIGHT_FRAGMENT_SIZE` | Highlight fragment size | `150` | No |
+| `SEARCH_FUZZINESS` | Fuzzy matching level | `AUTO` | No |
+
+## Indexing Behavior
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `INDEX_BATCH_SIZE` | Bulk indexing batch size | `100` | No |
+| `INDEX_REFRESH_INTERVAL` | Index refresh interval | `1s` | No |
+| `INDEX_MAX_CONTENT_LENGTH` | Max document content length | `1000000` | No |
+
+## Observability
+
+### Logging
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `LOG_LEVEL` | Application log level | `INFO` | No |
+| `LOG_FORMAT` | Log format (json/text) | `json` | No |
+
+### Sentry (Error Tracking)
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SENTRY_DSN` | Sentry DSN | - | No |
+| `SENTRY_ENVIRONMENT` | Sentry environment name | `production` | No |
+| `SENTRY_TRACES_SAMPLE_RATE` | Transaction sampling rate | `0.1` | No |
+
+## Example Configurations
+
+### Development
+
+```bash
+# Core
+DJANGO_DEBUG=true
+DJANGO_SECRET_KEY=dev-secret-key-not-for-production
+
+# Database
+POSTGRES_HOST=localhost
+POSTGRES_PORT=25432
+POSTGRES_DB=find
+POSTGRES_USER=find
+POSTGRES_PASSWORD=find
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Search (OpenSearch)
+SEARCH_BACKEND=opensearch
+OPENSEARCH_HOST=localhost
+OPENSEARCH_PORT=9200
+
+# OIDC (local Keycloak)
+OIDC_OP_ISSUER=http://localhost:8080/realms/find
+OIDC_RP_CLIENT_ID=find
+OIDC_RP_CLIENT_SECRET=dev-secret
+```
+
+### Production
+
+```bash
+# Core
+DJANGO_DEBUG=false
+DJANGO_SECRET_KEY=<64-char-random-string>
+DJANGO_ALLOWED_HOSTS=find.example.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://find.example.com
+
+# Database
+POSTGRES_HOST=postgres.internal
+POSTGRES_PORT=5432
+POSTGRES_DB=find
+POSTGRES_USER=find
+POSTGRES_PASSWORD=<secure-password>
+
+# Redis
+REDIS_URL=redis://redis.internal:6379/0
+
+# Search (OpenSearch with SSL)
+SEARCH_BACKEND=opensearch
+OPENSEARCH_HOST=opensearch.internal
+OPENSEARCH_PORT=9200
+OPENSEARCH_USE_SSL=true
+OPENSEARCH_USER=find
+OPENSEARCH_PASSWORD=<secure-password>
+
+# OIDC
+OIDC_OP_ISSUER=https://auth.example.com/realms/main
+OIDC_RP_CLIENT_ID=find
+OIDC_RP_CLIENT_SECRET=<client-secret>
+
+# Observability
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+SENTRY_DSN=https://xxx@sentry.io/123
+SENTRY_ENVIRONMENT=production
+```
+
+### Using TypeSense
+
+```bash
+SEARCH_BACKEND=typesense
+TYPESENSE_HOST=typesense.internal
+TYPESENSE_PORT=8108
+TYPESENSE_PROTOCOL=https
+TYPESENSE_API_KEY=<api-key>
+```
+
+### Using Meilisearch
+
+```bash
+SEARCH_BACKEND=meilisearch
+MEILISEARCH_HOST=meilisearch.internal
+MEILISEARCH_PORT=7700
+MEILISEARCH_PROTOCOL=https
+MEILISEARCH_API_KEY=<master-key>
+```
+
+## Related Documentation
+
+- [Setup Guide](setup-indexer.md) - Installation and deployment
+- [Architecture](architecture.md) - System design
+- [Core Concepts](concepts.md) - Unified index, claims, abstraction

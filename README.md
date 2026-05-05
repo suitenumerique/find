@@ -1,92 +1,144 @@
 # Find
 
-Find can index documents from several applications sharing a common OIDC federation
-and allows users to search documents with their access rights accross all applications
-in the federation.
+**Federated document search for OIDC-connected applications.**
 
-Find is built on top of [Django Rest
-Framework](https://www.django-rest-framework.org/).
+Find provides a unified search API that enables applications in an OIDC federation to index and search documents with proper access control. It abstracts the underlying search engine, allowing you to choose the backend that best fits your needs.
 
-## Getting started
+## Key Features
 
-### Prerequisite
+- **Unified Index**: All documents stored in a single index, isolated by service
+- **Access Control**: Fine-grained permissions via users, groups, and reach levels
+- **Search Abstraction**: Swap search backends without changing application code
+- **OIDC Integration**: Seamless authentication with your identity provider
 
-Make sure you have a recent version of Docker and [Docker
-Compose](https://docs.docker.com/compose/install) installed on your laptop:
+## How It Works
 
-```bash
-$ docker -v
-  Docker version 27.4.1, build b9d17ea
-
-$ docker compose version
-  Docker Compose version v2.32.1
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Applications                              │
+│              (Docs, Drive, Messaging)                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                         Find                                 │
+│         • Index documents with access control                │
+│         • Search with automatic permission filtering         │
+│         • Backend-agnostic API                              │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+    ┌─────────┐      ┌──────────┐      ┌───────────┐
+    │OpenSearch│      │TypeSense │      │Meilisearch│
+    └─────────┘      └──────────┘      └───────────┘
 ```
 
-> ⚠️ You may need to run the following commands with `sudo` but this can be
-> avoided by assigning your user to the `docker` group. See docker 
-> [Documentation](https://docs.docker.com/engine/install/linux-postinstall/)
-
-#### Optional: pre-commit
-
-For local code quality checks before committing, you can install
-[pre-commit](https://pre-commit.com/) system-wide:
+## Quick Start
 
 ```bash
-$ pip install pre-commit
-# or
-$ pipx install pre-commit
+# Clone and setup
+git clone https://github.com/suitenumerique/find.git
+cd find
+cp env.d/development/common.dist.env env.d/development/common.env
+
+# Start services
+make bootstrap
+make migrate
+make create-index
+
+# Find is running at http://localhost:8081
 ```
 
-Then enable the hooks with:
+## API Overview
+
+### Index a Document
 
 ```bash
-$ make pre-commit-install
+curl -X POST http://localhost:8081/api/v1.0/documents/index/ \
+  -H "Authorization: Token YOUR_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "doc-123",
+    "title": "Project Roadmap",
+    "content": "Q1 objectives and milestones...",
+    "users": ["user-sub-1"],
+    "groups": ["engineering"],
+    "reach": "restricted"
+  }'
 ```
 
-### Project bootstrap
-
-The easiest way to start working on the project is to use GNU Make:
+### Search Documents
 
 ```bash
-$ make bootstrap
+curl -X POST http://localhost:8081/api/v1.0/documents/search/ \
+  -H "Authorization: Bearer OIDC_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "roadmap"
+  }'
 ```
 
-This command builds the `app` container, installs dependencies, performs
-database migrations and compile translations. It's a good idea to use this
-command each time you are pulling code from the project repository to avoid
-dependency-related or migration-related issues.
+## Supported Search Backends
 
-Your Docker services should now be up and running 🎉
+| Backend | Best For |
+|---------|----------|
+| **OpenSearch** | Large-scale deployments, complex queries |
+| **TypeSense** | Low-latency, typo-tolerant search |
+| **Meilisearch** | Quick setup, excellent relevance |
 
-### Adding content
-
-You can create a basic demo site by running:
-
-    $ make demo
-
-Finally, you can check all available Make rules using:
+Configure via environment variable:
 
 ```bash
-$ make help
+SEARCH_BACKEND=opensearch  # or typesense, meilisearch
 ```
 
-### Django admin
+## Access Control
 
-You can access the Django admin site at
-[http://localhost:8071/admin](http://localhost:8071/admin).
+Documents are protected by claims set during indexation:
 
-You first need to create a superuser account:
+| Field | Description |
+|-------|-------------|
+| `users` | List of user SUBs who can access |
+| `groups` | List of group slugs who can access |
+| `reach` | `public`, `authenticated`, or `restricted` |
+
+Find automatically filters search results based on the authenticated user's identity and group memberships.
+
+## Documentation
+
+- [Core Concepts](docs/concepts.md) - Unified index, claims, search abstraction
+- [Architecture](docs/architecture.md) - System design and data flow
+- [Setup Guide](docs/setup-indexer.md) - Installation and configuration
+- [Environment Variables](docs/env.md) - Complete configuration reference
+- [Docs Integration](docs/setup-for-docs.md) - Integrate with Docs
+- [Drive Integration](docs/setup-for-drive.md) - Integrate with Drive
+
+## Tech Stack
+
+- **Backend**: Django 6.0, Django REST Framework
+- **Search**: OpenSearch / TypeSense / Meilisearch
+- **Database**: PostgreSQL
+- **Queue**: Celery + Redis
+- **Auth**: OIDC (Mozilla Django OIDC)
+
+## Development
 
 ```bash
-$ make superuser
+# Run tests
+make test
+
+# Code quality
+make lint
+make format
+
+# Build Docker image
+make build
 ```
-
-## Contributing
-
-This project is intended to be community-driven, so please, do not hesitate to
-get in touch if you have any question related to our implementation or design
-decisions.
 
 ## License
 
-This work is released under the MIT License (see [LICENSE](./LICENSE)).
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Contributing
+
+Contributions welcome! Please read our contributing guidelines before submitting PRs.

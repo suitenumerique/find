@@ -1,128 +1,287 @@
-# Using the Find indexer
+# Setting Up Find
 
-This guide explains how to setup the Find service which provide an API for indexation and fulltext search of
-documents from various sources in a secure way : only the documents within the scope of the user's OIDC token
-are visible.
+This guide covers deploying and configuring Find for your environment.
 
-## Setup Opensearch
+## Prerequisites
 
-### General
+- Python 3.11+
+- PostgreSQL 14+
+- Redis 7+
+- One of: OpenSearch 2.x, TypeSense 0.25+, or Meilisearch 1.x
+- Docker & Docker Compose (for development)
 
-Add the following variables to your Django settings to configure Find and enable full-text search.
+## Quick Start (Development)
 
-```python
-# Login for opensearch
-OPENSEARCH_USER=opensearch-user
-OPENSEARCH_PASSWORD=your-opensearch-password
+```bash
+# Clone the repository
+git clone https://github.com/suitenumerique/find.git
+cd find
 
-# Host configuration
-OPENSEARCH_HOST=opensearch
+# Copy environment file
+cp env.d/development/common.dist.env env.d/development/common.env
+
+# Start services
+make bootstrap
+
+# Run migrations
+make migrate
+
+# Create the unified index
+make create-index
+```
+
+Find is now running at `http://localhost:8081`.
+
+## Configuration
+
+### Search Backend Selection
+
+Find supports multiple search backends. Set the `SEARCH_BACKEND` environment variable:
+
+```bash
+# OpenSearch (default)
+SEARCH_BACKEND=opensearch
+
+# TypeSense
+SEARCH_BACKEND=typesense
+
+# Meilisearch
+SEARCH_BACKEND=meilisearch
+```
+
+Each backend requires its own configuration. See [Environment Variables](env.md) for details.
+
+### Database Configuration
+
+```bash
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=find
+POSTGRES_USER=find
+POSTGRES_PASSWORD=<secure-password>
+```
+
+### Redis Configuration
+
+```bash
+REDIS_URL=redis://localhost:6379/0
+```
+
+## Unified Index
+
+Find uses a single unified index for all documents. The index is created automatically on first startup, or manually:
+
+```bash
+# Create the index with proper mappings
+make create-index
+
+# Or via Django management command
+python manage.py create_index
+```
+
+### Index Structure
+
+The unified index contains documents from all services:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "service": { "type": "keyword" },
+      "title": { "type": "text", "analyzer": "french" },
+      "content": { "type": "text", "analyzer": "french" },
+      "users": { "type": "keyword" },
+      "groups": { "type": "keyword" },
+      "reach": { "type": "keyword" },
+      "tags": { "type": "keyword" },
+      "path": { "type": "keyword" },
+      "depth": { "type": "integer" },
+      "is_active": { "type": "boolean" },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
+```
+
+### Language Support
+
+Find supports multiple languages with appropriate analyzers:
+
+| Language | Analyzer |
+|----------|----------|
+| French | `french` with elision, stopwords |
+| English | `english` with stemming |
+| German | `german` with compound words |
+| Dutch | `dutch` with stemming |
+
+Configure the default language:
+
+```bash
+SEARCH_DEFAULT_LANGUAGE=french
+```
+
+## Service Registration
+
+Services (applications) must be registered before they can index documents.
+
+### Create a Service
+
+```bash
+# Via Django admin
+python manage.py createsuperuser
+# Then visit http://localhost:8081/admin/core/service/
+
+# Or via management command
+python manage.py create_service --name docs --client-id docs-client-id
+```
+
+### Service Token
+
+Each service receives a 50-character token for authentication:
+
+```
+Token: 8f3a9b2c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x
+```
+
+**Keep this token secure.** It grants full write access to documents for that service.
+
+### Service Configuration
+
+| Field | Description |
+|-------|-------------|
+| `name` | Service identifier (e.g., "docs", "drive") |
+| `client_id` | OIDC client ID for the service |
+| `token` | Authentication token for indexing API |
+| `is_active` | Enable/disable the service |
+
+## Access Control Setup
+
+Documents are indexed with access control fields that determine who can search them.
+
+### Access Control Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `users` | array | User SUBs who can access |
+| `groups` | array | Group slugs who can access |
+| `reach` | string | Visibility level |
+
+### Reach Levels
+
+| Value | Who Can See |
+|-------|-------------|
+| `public` | Anyone (requires explicit visit) |
+| `authenticated` | Any authenticated user (requires explicit visit) |
+| `restricted` | Only users in `users` or `groups` |
+
+### Example Document with Access Control
+
+```json
+{
+  "id": "doc-123",
+  "service": "docs",
+  "title": "Project Roadmap",
+  "content": "Q1 objectives...",
+  "users": ["user-sub-alice", "user-sub-bob"],
+  "groups": ["engineering-team"],
+  "reach": "restricted"
+}
+```
+
+This document is visible only to:
+- Users with SUB `user-sub-alice` or `user-sub-bob`
+- Users who are members of `engineering-team` group
+
+## Health Checks
+
+Find exposes health check endpoints:
+
+```bash
+# Overall health
+curl http://localhost:8081/api/v1.0/health/
+
+# Search backend health
+curl http://localhost:8081/api/v1.0/health/search/
+```
+
+## Production Deployment
+
+### Environment Variables
+
+For production, ensure these are set:
+
+```bash
+# Security
+DJANGO_SECRET_KEY=<cryptographically-secure-key>
+DJANGO_ALLOWED_HOSTS=find.example.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://find.example.com
+
+# Search Backend
+SEARCH_BACKEND=opensearch
+OPENSEARCH_HOST=opensearch.internal
 OPENSEARCH_PORT=9200
+OPENSEARCH_USE_SSL=true
 
-# Enable SSL for opensearch connection (False in dev mode)
-OPENSEARCH_USE_SSL=True
+# Database
+POSTGRES_HOST=postgres.internal
+POSTGRES_PASSWORD=<secure-password>
 
-# Prefix for the index name of the registered services.
-OPENSEARCH_INDEX_PREFIX=find
+# Redis
+REDIS_URL=redis://redis.internal:6379/0
 ```
 
-### Language
+See [Environment Variables](env.md) for complete reference.
 
-Language specific operations are applied to document titles and contents to improve search results. 
-The language is automatically detected  by Find.
-If the language can not be detected no language specific operation are applied and the indexing process is not affected.
+### Scaling
 
-Find supports french, english, german and dutch. 
+| Component | Scaling Strategy |
+|-----------|-----------------|
+| **API** | Horizontal (multiple replicas behind load balancer) |
+| **Celery Workers** | Horizontal (increase for indexing throughput) |
+| **Search Backend** | Per backend documentation (cluster mode) |
+| **PostgreSQL** | Vertical (or managed service with replicas) |
+| **Redis** | Vertical (or Redis Cluster for high availability) |
 
-The search process is not language specific, a query can get documents of any language.
+### Monitoring
 
-Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
-This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
+Key metrics to monitor:
 
-```python
-LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
+- API response times (p50, p95, p99)
+- Search query latency
+- Indexing queue depth (Celery)
+- Search backend health
+- Document count by service
+
+## Troubleshooting
+
+### Index Not Created
+
+```bash
+# Check search backend connectivity
+curl http://localhost:9200/_cluster/health
+
+# Recreate index
+make create-index
 ```
 
-## trigrams
+### Service Cannot Index
 
-Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 
+1. Verify service token is correct
+2. Check service is active in database
+3. Verify search backend is healthy
 
-````
-TRIGRAMS_BOOST=0.25
-TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
-````
+### Search Returns No Results
 
-`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
-`TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
-either an absolute number or proportion.
+1. Verify documents are indexed: `GET /api/v1.0/documents/count/`
+2. Check user has access (correct SUB, group membership)
+3. Verify `reach` level is appropriate
 
-## Setup indexation API
+## Next Steps
 
-Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
-
-For each application a new **Service** must be created through the admin interface
-(see http://localhost:9071/admin/core/service/add/)
-
-| Field                       | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| Name                        | Name of the service and also the name of the index in Opensearch database |
-| Is active                   | Toggle service availability                        |
-| Client id                   | Calling service client_id (e.g `impress` for docs) |
-| Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication    |
-
-And add the key in the calling application Django settings.
-
-**Development Mode (Docs + Find)**
-
-The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
-
-```python
-# Docs
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
-```
-
-```python
-# Drive
-SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
-```
-
-## Setup search API
-
-The **`/search/`** endpoint is an OIDC ResourceServer view and needs extra Django settings (see [lasuite](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-resource-server-backend.md) for details)
-
-```shell
-OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/certs
-OIDC_OP_AUTHORIZATION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/auth
-OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token
-OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/userinfo
-
-# To run Find in development mode along other projects like docs/impress
-# we should to use OIDC endpoints on a common keycloak realm. e.g :
-# OIDC_OP_URL = http://nginx:8083/realms/impress
-#
-# This will cause a conflict with the 'iss' claim validation rule because the docs realm
-# gives {'iss': 'http://localhost:8083/realms/impress'} so it must be the same
-OIDC_OP_URL=http://localhost:8083/realms/impress
-
-# Introspection endpoint is needed to get the "audience" and "sub" from the user token
-OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token/introspect
-
-# In development, the resource server use insecure settings
-# OIDC_VERIFY_SSL=False
-
-# Resource server
-OIDC_RS_SCOPES="openid"
-OIDC_RS_SIGN_ALGO=RS256
-
-# This backend allows authentication without any model in database. 
-OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
-```
-
-**Development mode (Docs + Find)**
-
-Docs and Find projects stacks can be run together but must have the same keycloak server.
-
-So the endpoints of Docs on the 'nginx' domain for ResourceServer authentication and introspection are also used for Find.
-
-**IMPORTANT:** Keep OIDC_OP_URL on 'localhost' or it will break the OIDC token claims validation : the `iss` claim from the token of the 'impress' users are 'localhost' and not 'nginx'.
+- [Core Concepts](concepts.md) - Understand unified index, claims, abstraction
+- [Architecture](architecture.md) - System architecture overview
+- [Integration: Docs](setup-for-docs.md) - Integrate with Docs application
+- [Integration: Drive](setup-for-drive.md) - Integrate with Drive application
+- [Environment Variables](env.md) - Complete configuration reference
