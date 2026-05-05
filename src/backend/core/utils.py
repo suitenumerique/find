@@ -5,32 +5,12 @@ from typing import List
 
 from django.conf import settings as django_settings
 
-from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
-from core import factories
 from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
 from core.services.opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
-
-
-def bulk_create_documents(document_payloads):
-    """Create documents in bulk from payloads"""
-    return [
-        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
-        for document_payload in document_payloads
-    ]
-
-
-def delete_index(index_name):
-    """Delete the search index if it exists"""
-    logger.info("Deleting Index %s", index_name)
-
-    try:
-        opensearch_client().indices.delete(index=index_name)
-    except NotFoundError:
-        logger.info("Search pipeline %s not found, nothing to delete.", index_name)
 
 
 def prepare_index(index_name, documents: List):

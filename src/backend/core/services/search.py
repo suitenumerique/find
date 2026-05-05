@@ -50,7 +50,6 @@ def search(  # noqa : PLR0913
             "size": nb_results,
             "query": query,
         },
-        params=get_params(),
         # disable=unexpected-keyword-arg because
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
@@ -173,8 +172,3 @@ def get_sort(order_by, order_direction):
         return {"_score": {"order": order_direction}}
 
     return {order_by: {"order": order_direction}}
-
-
-def get_params():
-    """Build OpenSearch search parameters"""
-    return {}

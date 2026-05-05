@@ -66,11 +66,6 @@ def prepare_document_for_indexing(document):
     }
 
 
-def format_document(title, content):
-    """Format document for language detection"""
-    return f"<{title}>:<{content}>"
-
-
 def detect_language_code(text):
     """Detect the language code of the document content."""
 
