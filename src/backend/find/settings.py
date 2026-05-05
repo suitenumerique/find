@@ -196,7 +196,6 @@ class Base(Configuration):
         # find
         "core",
         "demo",
-        "evaluation",
         # Third party apps
         "corsheaders",
         "dockerflow.django",
