@@ -28,23 +28,23 @@ dependencies = [
     "celery[redis]==5.6.3",
     "django-configurations==2.5.1",
     "django-cors-headers==4.9.0",
-    "redis==5.3.1",
+    "django-lasuite[all]==0.0.26",
     "django-redis==6.0.0",
     "django==6.0.4",
-    "django-lasuite[all]==0.0.26",
     "djangorestframework==3.17.1",
-    "drf_spectacular==0.29.0",
     "dockerflow==2026.3.4",
+    "drf_spectacular==0.29.0",
     "gunicorn==25.3.0",
-    "py3langid==0.3.0",
     "langchain-text-splitters==1.1.2",
     "mozilla-django-oidc==5.0.2",
+    "opensearch-py==3.1.0",
     "psycopg[binary]==3.3.3",
+    "py3langid==0.3.0",
     "pydantic==2.12.5",
     "pyjwt==2.12.1",
+    "redis==6.4.0",
     "requests==2.33.1",
     "sentry-sdk==2.58.0",
-    "opensearch-py==3.1.0",
     "whitenoise==6.12.0",
 ]
 
@@ -56,23 +56,23 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "django-extensions==4.1",
-    "factory_boy==3.3.3",
-    "drf-spectacular-sidecar==2026.4.14",
-    "faker==40.15.0",
-    "ipdb==0.13.13",
-    "ipython==9.13.0",
-    "pyfakefs==6.2.0",
-    "pylint-django==2.7.0",
-    "pylint==4.0.5",
-    "pytest-cov==7.1.0",
-    "pytest-django==4.12.0",
-    "pytest==9.0.3",
-    "pytest-icdiff==0.9",
-    "pytest-xdist==3.8.0",
-    "responses==0.26.0",
-    "ruff==0.15.12",
-    "types-requests==2.33.0.20260408",
+  "django-extensions==4.1",
+  "drf-spectacular-sidecar==2026.4.14",
+  "factory_boy==3.3.3",
+  "faker==40.15.0",
+  "ipdb==0.13.13",
+  "ipython==9.13.0",
+  "pyfakefs==6.2.0",
+  "pylint-django==2.7.0",
+  "pylint==4.0.5",
+  "pytest-cov==7.1.0",
+  "pytest-django==4.12.0",
+  "pytest-icdiff==0.9",
+  "pytest-xdist==3.8.0",
+  "pytest==9.0.3",
+  "responses==0.26.0",
+  "ruff==0.15.12",
+  "types-requests==2.33.0.20260408",
 ]
 
 [tool.setuptools]
@@ -84,52 +84,57 @@ universal = true
 
 [tool.ruff]
 exclude = [
-    ".git",
-    ".venv",
-    "build",
-    "venv",
-    "__pycache__",
-    "*/migrations/*",
-    ".vscode*"
+  ".git",
+  ".venv",
+  "build",
+  "venv",
+  "__pycache__",
+  "*/migrations/*",
+  ".vscode*",
 ]
 line-length = 88
 
 
 [tool.ruff.lint]
 select = [
-    "B", # flake8-bugbear
-    "BLE", # flake8-blind-except
-    "C4", # flake8-comprehensions
-    "DJ", # flake8-django
-    "I", # isort
-    "PLC", # pylint-convention
-    "PLE", # pylint-error
-    "PLR", # pylint-refactoring
-    "PLW", # pylint-warning
-    "RUF100", # Ruff unused-noqa
-    "RUF200", # Ruff check pyproject.toml
-    "S", # flake8-bandit
-    "SLF", # flake8-self
-    "T20", # flake8-print
+  "B",      # flake8-bugbear
+  "BLE",    # flake8-blind-except
+  "C4",     # flake8-comprehensions
+  "DJ",     # flake8-django
+  "I",      # isort
+  "PLC",    # pylint-convention
+  "PLE",    # pylint-error
+  "PLR",    # pylint-refactoring
+  "PLW",    # pylint-warning
+  "RUF100", # Ruff unused-noqa
+  "RUF200", # Ruff check pyproject.toml
+  "S",      # flake8-bandit
+  "SLF",    # flake8-self
+  "T20",    # flake8-print
 ]
-ignore= ["DJ001", "PLR2004"]
+ignore = ["DJ001", "PLR2004"]
 
 [tool.ruff.lint.isort]
-section-order = ["future","standard-library","django","third-party","find","first-party","local-folder"]
-sections = { find=["core"], django=["django"] }
+section-order = [
+  "future",
+  "standard-library",
+  "django",
+  "third-party",
+  "find",
+  "first-party",
+  "local-folder",
+]
+sections = { find = ["core"], django = ["django"] }
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["S", "SLF"]
 
 [tool.pytest.ini_options]
 addopts = [
-    "-v",
-    "--cov-report",
-    "term-missing",
-    # Allow test files to have the same name in different directories.
-    "--import-mode=importlib",
+  "-v",
+  "--cov-report",
+  "term-missing",
+  # Allow test files to have the same name in different directories.
+  "--import-mode=importlib",
 ]
-python_files = [
-    "test_*.py",
-    "tests.py",
-]
+python_files = ["test_*.py", "tests.py"]
