@@ -5,29 +5,7 @@ import json
 import logging
 from functools import partial
 
-from core.management.commands.create_search_pipeline import (
-    ensure_search_pipeline_exists,
-)
-from core.services.opensearch import (
-    check_hybrid_search_enabled,
-)
-
 logger = logging.getLogger(__name__)
-
-
-def enable_hybrid_search(settings):
-    """Enable hybrid search settings for tests."""
-    settings.HYBRID_SEARCH_ENABLED = True
-    settings.HYBRID_SEARCH_WEIGHTS = [0.3, 0.7]
-    settings.EMBEDDING_API_KEY = "test-api-key"
-    settings.EMBEDDING_API_PATH = "https://test.embedding.api/v1/embeddings"
-    settings.EMBEDDING_REQUEST_TIMEOUT = 10
-    settings.EMBEDDING_API_MODEL_NAME = "embeddings-small"
-    settings.EMBEDDING_DIMENSION = 1024
-
-    # Clear the cache here or the hybrid search will remain disabled
-    check_hybrid_search_enabled.cache_clear()
-    ensure_search_pipeline_exists()
 
 
 def build_authorization_bearer(token="some_token"):

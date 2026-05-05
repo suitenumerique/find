@@ -5,10 +5,8 @@ import logging
 from django.conf import settings
 
 from core import enums
-from core.enums import SearchTypeEnum
 
-from .embedding import embed_text
-from .opensearch import check_hybrid_search_enabled, opensearch_client
+from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
@@ -25,20 +23,17 @@ def search(  # noqa : PLR0913
     user_sub,
     groups,
     tags,
-    search_type,
     path=None,
 ):
     """Perform an OpenSearch search"""
     query = get_query(
         q=q,
-        nb_results=nb_results,
         reach=reach,
         visited=visited,
         user_sub=user_sub,
         groups=groups,
         tags=tags,
         path=path,
-        search_type=search_type,
     )
     return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
@@ -49,14 +44,13 @@ def search(  # noqa : PLR0913
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
             "sort": get_sort(
-                query_keys=query.keys(),
                 order_by=order_by,
                 order_direction=order_direction,
             ),
             "size": nb_results,
             "query": query,
         },
-        params=get_params(query_keys=query.keys()),
+        params=get_params(),
         # disable=unexpected-keyword-arg because
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
@@ -66,13 +60,11 @@ def search(  # noqa : PLR0913
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 def get_query(  # noqa : PLR0913
     q,
-    nb_results,
     reach,
     visited,
     user_sub,
     groups,
     tags,
-    search_type,
     path=None,
 ):
     """Build OpenSearch query body based on parameters"""
@@ -87,60 +79,8 @@ def get_query(  # noqa : PLR0913
             },
         }
 
-    q_vector = vectorize_query(q, search_type)
-
-    if not q_vector:
-        logger.info("Performing full-text search without embedding: %s", q)
-        return get_full_text_query(q, filter_)
-
-    logger.info("Performing hybrid search with embedding: %s", q)
-    return {
-        "hybrid": {
-            "queries": [
-                get_full_text_query(q, filter_),
-                get_semantic_search_query(q_vector, filter_, nb_results),
-            ],
-        }
-    }
-
-
-def vectorize_query(q, search_type):
-    """Vectorize the query if hybrid search is enabled and requested"""
-    hybrid_search_enabled = check_hybrid_search_enabled()
-
-    if search_type == SearchTypeEnum.HYBRID:
-        if not hybrid_search_enabled:
-            logger.warning(
-                "Hybrid search was requested (search_type=hybrid) but is disabled on server",
-            )
-            return None
-
-        return embed_text(q)
-
-    return None
-
-
-def get_semantic_search_query(q_vector, filter_, nb_results):
-    """Build OpenSearch semantic search query"""
-    return {
-        "bool": {
-            "must": {
-                "nested": {
-                    "path": "chunks",
-                    "score_mode": "max",
-                    "query": {
-                        "knn": {
-                            "chunks.embedding": {
-                                "vector": q_vector,
-                                "k": nb_results,
-                            }
-                        }
-                    },
-                }
-            },
-            "filter": filter_,
-        }
-    }
+    logger.info("Performing full-text search: %s", q)
+    return get_full_text_query(q, filter_)
 
 
 def get_full_text_query(q, filter_):
@@ -227,21 +167,14 @@ def get_filter(  # noqa : PLR0913
     return filters
 
 
-def get_sort(query_keys, order_by, order_direction):
+def get_sort(order_by, order_direction):
     """Build OpenSearch sort clause"""
-    # Add sorting logic based on relevance or specified field
-    if "hybrid" in query_keys:
-        # sorting by other field than "_score" is not supported in hybrid search
-        # see: https://github.com/opensearch-project/neural-search/issues/866
-        return {"_score": {"order": order_direction}}
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
 
     return {order_by: {"order": order_direction}}
 
 
-def get_params(query_keys):
+def get_params():
     """Build OpenSearch search parameters"""
-    if "hybrid" in query_keys:
-        return {"search_pipeline": settings.HYBRID_SEARCH_PIPELINE_ID}
     return {}

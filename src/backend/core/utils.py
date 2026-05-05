@@ -23,23 +23,8 @@ def bulk_create_documents(document_payloads):
     ]
 
 
-def delete_search_pipeline():
-    """Delete the hybrid search pipeline if it exists"""
-    logger.info(
-        "Deleting search pipeline %s", django_settings.HYBRID_SEARCH_PIPELINE_ID
-    )
-
-    try:
-        opensearch_client().transport.perform_request(
-            method="DELETE",
-            url=f"/_search/pipeline/{django_settings.HYBRID_SEARCH_PIPELINE_ID}",
-        )
-    except NotFoundError:
-        logger.info("Search pipeline not found, nothing to delete.")
-
-
 def delete_index(index_name):
-    """Delete the hybrid search pipeline if it exists"""
+    """Delete the search index if it exists"""
     logger.info("Deleting Index %s", index_name)
 
     try:

@@ -43,39 +43,6 @@ This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD en
 LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
 ```
 
-### Semantic search
-
-Find offers a semantic search feature. You can either use pure full-text search or a hybrid full-text + semantic search. To enable the hybrid search, add the following settings. 
-
-```python
-# Enable flag
-HYBRID_SEARCH_ENABLED = True
-
-# weighted sum: full_text_weight, semantic_search_weight
-HYBRID_SEARCH_WEIGHTS = 0.7,0.3
-
-# Embedding
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-EMBEDDING_API_PATH = https://embedding.api.example.com/full/path/
-EMBEDDING_API_KEY = your-embedding-api-key
-EMBEDDING_REQUEST_TIMEOUT = 10
-EMBEDDING_API_MODEL_NAME = embedding-api-model-name
-EMBEDDING_DIMENSION = 1024
-```
-
-The hybrid search computes a score for full-text and semantic search and combines them through a weighted sum. HYBRID_SEARCH_WEIGHTS contains the weights of full-text and semantic respectively. 
-
-You need to use an embedding api similar to https://albert.api.etalab.gouv.fr/documentation#tag/Embeddings/operation/embeddings_v1_embeddings_post. 
-
-### document chunking
-
-The indexing process embeds documents by converting their content into vector representations (embeddings). When a document exceeds the character dimension defined by CHUNK_SIZE, it's divided into smaller segments (chunks), with each chunk embedded independently. Each chunk must be smaller than the embedding model's context window . 
-
-The chunking algorithm works recursively. It attempts to create the largest possible segments first, then subdivides them further if they still exceed the size limit defined by CHUNK_SIZE. Segments can share overlapping content between them (set CHUNK_OVERLAP=0 to disable overlapping). 
-
-During the search, the matching of a document is the matching of its best chunk.
-
 ## trigrams
 
 Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 

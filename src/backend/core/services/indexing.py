@@ -5,7 +5,6 @@ import logging
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from opensearchpy.exceptions import NotFoundError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
 
@@ -16,8 +15,7 @@ from core.services.opensearch_configuration import (
 )
 
 from ..models import Service, get_opensearch_index_name
-from .embedding import embed_text
-from .opensearch import check_hybrid_search_enabled, opensearch_client
+from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +23,6 @@ logger = logging.getLogger(__name__)
 # see https://pypi.org/project/py3langid/
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
 LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
-
-TEXT_SPLITER = RecursiveCharacterTextSplitter(
-    chunk_size=settings.CHUNK_SIZE,
-    chunk_overlap=settings.CHUNK_OVERLAP,
-)
 
 
 def ensure_index_exists(index_name):
@@ -42,7 +35,6 @@ def ensure_index_exists(index_name):
             index=index_name,
             body={
                 "settings": {
-                    "index.knn": True,
                     "analysis": {
                         "analyzer": ANALYZERS,
                         "filter": FILTERS,
@@ -54,19 +46,12 @@ def ensure_index_exists(index_name):
 
 
 def prepare_document_for_indexing(document):
-    """Prepare document for indexing using nested language structure and handle embedding"""
+    """Prepare document for indexing using nested language structure"""
     language_code = detect_language_code(f"{document['title']} {document['content']}")
-    chunks = (
-        chunk_document(document["title"], document["content"])
-        if check_hybrid_search_enabled()
-        else None
-    )
     return {
         "id": document["id"],
         f"title.{language_code}": document["title"],
         f"content.{language_code}": document["content"],
-        "chunks": chunks,
-        "embedding_model": settings.EMBEDDING_API_MODEL_NAME if chunks else None,
         "depth": document["depth"],
         "path": document["path"],
         "numchild": document["numchild"],
@@ -81,37 +66,8 @@ def prepare_document_for_indexing(document):
     }
 
 
-def chunk_document(title, content):
-    """
-    Chunk a document into multiple pieces and embed them.
-    """
-    chunks = []
-    for idx, chunked_content in enumerate(TEXT_SPLITER.split_text(content)):
-        embedding = embed_text(format_document(title, chunked_content))
-
-        if not embedding:
-            logger.warning(
-                "Failed to embed chunk %d of document '%s'. Document embedding is skipped",
-                idx,
-                title,
-            )
-            # if embedding fails for any chunk, we skip chunking the document
-            return None
-
-        chunks.append(
-            {
-                "index": idx,
-                "content": chunked_content,
-                "embedding": embedding,
-            }
-        )
-
-    logger.info("Document %s chunked into %d pieces", title, len(chunks))
-    return chunks
-
-
 def format_document(title, content):
-    """Get the embedding input format for a document"""
+    """Format document for language detection"""
     return f"<{title}>:<{content}>"
 
 

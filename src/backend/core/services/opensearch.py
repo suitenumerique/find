@@ -40,27 +40,3 @@ def opensearch_client():
         use_ssl=settings.OPENSEARCH_USE_SSL,
         verify_certs=False,
     )
-
-
-@cache
-def check_hybrid_search_enabled():
-    """Check that all required environment variables are set for hybrid search."""
-    if settings.HYBRID_SEARCH_ENABLED is not True:
-        logger.info("Hybrid search is disabled via HYBRID_SEARCH_ENABLED setting")
-        return False
-
-    required_vars = [
-        "HYBRID_SEARCH_WEIGHTS",
-        "EMBEDDING_API_PATH",
-        "EMBEDDING_API_KEY",
-        "EMBEDDING_API_MODEL_NAME",
-        "EMBEDDING_DIMENSION",
-    ]
-    missing_vars = [var for var in required_vars if not getattr(settings, var, None)]
-    if missing_vars:
-        logger.warning(
-            "Missing variables for hybrid search: %s", ", ".join(missing_vars)
-        )
-        return False
-
-    return True

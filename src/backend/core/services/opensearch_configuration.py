@@ -1,7 +1,5 @@
 """OpenSearch configuration."""
 
-from django.conf import settings
-
 ANALYZERS = {
     "french_analyzer": {
         "type": "custom",
@@ -270,23 +268,5 @@ MAPPINGS = {
         "reach": {"type": "keyword"},
         "tags": {"type": "keyword"},
         "is_active": {"type": "boolean"},
-        "chunks": {
-            "type": "nested",
-            "properties": {
-                "index": {"type": "integer"},
-                "content": {"type": "text"},
-                "embedding": {
-                    "type": "knn_vector",
-                    "dimension": settings.EMBEDDING_DIMENSION,
-                    "method": {
-                        "engine": "lucene",
-                        "space_type": "l2",
-                        "name": "hnsw",
-                        "parameters": {},
-                    },
-                },
-            },
-        },
-        "embedding_model": {"type": "keyword"},
     },
 }
