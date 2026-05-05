@@ -4,6 +4,8 @@ Find can index documents from several applications sharing a common OIDC federat
 and allows users to search documents with their access rights accross all applications
 in the federation.
 
+Find supports French, English, German and Dutch.
+
 Find is built on top of [Django Rest
 Framework](https://www.django-rest-framework.org/).
 

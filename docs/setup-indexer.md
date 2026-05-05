@@ -28,15 +28,15 @@ OPENSEARCH_INDEX_PREFIX=find
 
 ### Language
 
-Language specific operations are applied to document titles and contents to improve search results. 
+Language specific operations are applied to document titles and contents to improve search results.
 The language is automatically detected  by Find.
 If the language can not be detected no language specific operation are applied and the indexing process is not affected.
 
-Find supports french, english, german and dutch. 
+Find supports French, English, German and Dutch.
 
 The search process is not language specific, a query can get documents of any language.
 
-Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
+Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized.
 This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
 
 ```python
@@ -45,14 +45,14 @@ LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
 
 ## trigrams
 
-Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 
+Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables.
 
 ````
 TRIGRAMS_BOOST=0.25
 TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
 ````
 
-`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
+`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching.
 `TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
 either an absolute number or proportion.
 
@@ -60,31 +60,42 @@ either an absolute number or proportion.
 
 Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
 
-For each application a new **Service** must be created through the admin interface
-(see http://localhost:9071/admin/core/service/add/)
+Services are configured via environment variables using the pattern `SERVICES__<NAME>__<FIELD>`:
 
-| Field                       | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| Name                        | Name of the service and also the name of the index in Opensearch database |
-| Is active                   | Toggle service availability                        |
-| Client id                   | Calling service client_id (e.g `impress` for docs) |
-| Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication    |
+| Environment Variable | Description |
+|---------------------|-------------|
+| `SERVICES__<NAME>__TOKEN` | Authentication token for the service |
+| `SERVICES__<NAME>__CLIENT_ID` | Client identifier (typically the OIDC client ID) |
 
-And add the key in the calling application Django settings.
+**Example Configuration:**
+
+```bash
+# Configure a "docs" service
+SERVICES__DOCS__TOKEN=your-secret-token
+SERVICES__DOCS__CLIENT_ID=impress
+
+# Configure a "drive" service
+SERVICES__DRIVE__TOKEN=another-secret-token
+SERVICES__DRIVE__CLIENT_ID=drive
+```
+
+Service names are automatically normalized (lowercase, slugified). Multiple services can be configured by adding more `SERVICES__<NAME>__*` environment variables.
 
 **Development Mode (Docs + Find)**
 
-The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
+The Docker Compose setup includes pre-configured development tokens in `env.d/development/common`.
+The command `make demo` creates OpenSearch indices and sample documents for `docs` and `drive`.
+
+In the calling application (e.g., Docs), set the indexer secret to match the token in your environment:
 
 ```python
-# Docs
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+# Docs settings.py
+SEARCH_INDEXER_SECRET="find-api-key-for-docs"
 ```
 
 ```python
-# Drive
-SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
+# Drive settings.py
+SEARCH_INDEXER_SECRET="find-api-key-for-drive"
 ```
 
 ## Setup search API
@@ -115,7 +126,7 @@ OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-
 OIDC_RS_SCOPES="openid"
 OIDC_RS_SIGN_ALGO=RS256
 
-# This backend allows authentication without any model in database. 
+# This backend allows authentication without any model in database.
 OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
 ```
 

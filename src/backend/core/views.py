@@ -204,8 +204,6 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
 
         Body Parameters:
         ---------------
-        service: str
-            service name to determine the index from which to delete documents.
         document_ids : List[str], optional
             A list of document IDs to delete from the index.
         tags : List[str], optional
@@ -226,9 +224,9 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         """
         params = schemas.DeleteDocumentsSchema(**request.data)
         try:
-            index_name = get_opensearch_indices(
-                self._get_service_provider_audience(), services=[params.service]
-            )[0]
+            index_name = get_opensearch_indices(self._get_service_provider_audience())[
+                0
+            ]
         except SuspiciousOperation as e:
             logger.error(e)
             return Response(
@@ -339,8 +337,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         nb_results : int, optional
             The number of results to return.
             Defaults to 50 if not specified.
-        services: List[str], optional
-            List of services on which we intend to run the query (current service if left empty)
         visited: List[sub], optional
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
@@ -366,7 +362,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         # Get index list for search query
         try:
-            search_indices = get_opensearch_indices(audience, services=params.services)
+            search_indices = get_opensearch_indices(audience)
         except SuspiciousOperation as e:
             logger.error(e, exc_info=True)
             return Response(

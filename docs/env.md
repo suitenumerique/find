@@ -105,3 +105,23 @@ These are the environment variables you can set for the `find-backend` container
 | USER_OIDC_ESSENTIAL_CLAIMS                      | Essential claims in OIDC token                                                                                              | []                                                                      |
 | Y_PROVIDER_API_BASE_URL                         | Y Provider url                                                                                                              |                                                                         |
 | Y_PROVIDER_API_KEY                              | Y provider API key                                                                                                          |                                                                         |
+
+## Service Configuration
+
+Services are configured via environment variables using the `SERVICES__<NAME>__<FIELD>` pattern.
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `SERVICES__<NAME>__TOKEN` | Authentication token for the service |
+| `SERVICES__<NAME>__CLIENT_ID` | Client identifier (typically the OIDC client ID) |
+
+Example for configuring `docs` and `drive` services:
+
+```bash
+SERVICES__DOCS__TOKEN=your-secret-token
+SERVICES__DOCS__CLIENT_ID=impress
+SERVICES__DRIVE__TOKEN=another-secret-token
+SERVICES__DRIVE__CLIENT_ID=drive
+```
+
+See [setup-indexer.md](setup-indexer.md) for full details.

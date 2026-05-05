@@ -1,42 +1,31 @@
-"""Tests Service model for find's core app."""
-
-from django.db import DataError, IntegrityError
+"""Tests ServiceConfig for find's core app."""
 
 import pytest
+from pydantic import ValidationError
 
-from core import factories
-
-pytestmark = pytest.mark.django_db
-
-
-def test_models_services_name_unique():
-    """The name field should be unique across services."""
-    service = factories.ServiceFactory()
-
-    with pytest.raises(IntegrityError):
-        factories.ServiceFactory(name=service.name)
+from core.services.config import ServiceConfig
 
 
-def test_models_services_name_slugified(settings):
+def test_service_config_name_slugified(settings, create_service):
     """The name field should be slugified."""
-    service = factories.ServiceFactory(name="My service name")
+    service = create_service(name="My service name")
     assert service.name == "my-service-name"
     assert service.index_name == f"{settings.OPENSEARCH_INDEX_PREFIX}-my-service-name"
 
 
-def test_models_services_token_50_characters_exact():
-    """The token field should be 50 characters long."""
-    service = factories.ServiceFactory()
-    assert len(service.token) == 50
+def test_service_config_name_slugified_directly():
+    """ServiceConfig slugifies name when created directly."""
+    config = ServiceConfig(token="test-token", client_id="test-client", name="My Name")
+    assert config.name == "my-name"
 
 
-def test_models_services_token_50_characters_less():
-    """The token field should not be less than 50 characters long."""
-    with pytest.raises(IntegrityError):
-        factories.ServiceFactory(token="a" * 49)
+def test_service_config_empty_token_rejected():
+    """Empty token should be rejected at model creation."""
+    with pytest.raises(ValidationError):
+        ServiceConfig(token="", client_id="test-client")
 
 
-def test_models_services_token_50_characters_more():
-    """The token field should be 50 characters long."""
-    with pytest.raises(DataError):
-        factories.ServiceFactory(token="a" * 51)
+def test_service_config_empty_client_id_rejected():
+    """Empty client_id should be rejected at model creation."""
+    with pytest.raises(ValidationError):
+        ServiceConfig(token="test-token", client_id="")

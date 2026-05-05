@@ -11,18 +11,24 @@ Configure a **Service** for Docs application with these settings
 - **Name**: `drive`<br>_request.auth.name of the Docs application._
 - **Client id**: `drive`<br>_Name of the token audience or client_id of the Docs application._
 
-See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
+Configure in Find via environment variables:
+```bash
+SERVICES__DRIVE__TOKEN=find-api-key-for-drive
+SERVICES__DRIVE__CLIENT_ID=drive
+```
+
+See [setup-indexer.md](setup-indexer.md) for details.
 
 ## Configure settings of Drive
 
 Add those Django settings the Docs application to enable the feature.
 
-```python
+```shell
 SEARCH_INDEXER_CLASS="core.services.search_indexers.SearchIndexer"
 SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
-# The token from service "drive" of Find application (development)
-SEARCH_INDEXER_SECRET=find-api-key-for-driv-with-exactly-50-chars-length
+# Must match SERVICES__DRIVE__TOKEN in Find application
+SEARCH_INDEXER_SECRET=find-api-key-for-drive
 SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
 
 # Search endpoint. Uses the OIDC token for authentication

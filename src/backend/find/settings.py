@@ -21,6 +21,8 @@ from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import ignore_logger
 
+from find.values import ServicesValue
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join("/", "data")
@@ -255,6 +257,8 @@ class Base(Configuration):
     OPENSEARCH_INDEX_PREFIX = values.Value(
         default="find", environ_name="OPENSEARCH_INDEX_PREFIX", environ_prefix=None
     )
+
+    SERVICES = ServicesValue()
 
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",

@@ -11,7 +11,13 @@ Configure a **Service** for Docs application with these settings
 - **Name**: `docs`<br>_request.auth.name of the Docs application._
 - **Client id**: `impress`<br>_Name of the token audience or client_id of the Docs application._
 
-See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
+Configure in Find via environment variables:
+```bash
+SERVICES__DOCS__TOKEN=find-api-key-for-docs
+SERVICES__DOCS__CLIENT_ID=impress
+```
+
+See [setup-indexer.md](setup-indexer.md) for details.
 
 ## Configure settings of Docs
 
@@ -21,8 +27,8 @@ Add those Django settings the Docs application to enable the feature.
 SEARCH_INDEXER_CLASS="core.services.search_indexers.FindDocumentIndexer"
 SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
-# The token from service "docs" of Find application (development).
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+# Must match SERVICES__DOCS__TOKEN in Find application
+SEARCH_INDEXER_SECRET="find-api-key-for-docs"
 SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
 
 # Search endpoint. Uses the OIDC token for authentication
