@@ -95,9 +95,6 @@ services:
     depends_on:
       - app
 
-  dockerize:
-    image: jwilder/dockerize
-
   crowdin:
     image: crowdin/cli:3.16.0
     volumes:
