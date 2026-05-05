@@ -138,6 +138,10 @@ lint-pylint: ## lint back-end python sources with pylint only on changed files f
 	bin/pylint .
 .PHONY: lint-pylint
 
+pre-commit-install: ## install pre-commit hooks
+	@pre-commit install --install-hooks -t pre-commit -t commit-msg
+.PHONY: pre-commit-install
+
 test: ## run project tests
 	@$(MAKE) test-back-parallel
 .PHONY: test
@@ -261,4 +265,3 @@ build-k8s-cluster: ## build the kubernetes cluster using kind
 start-tilt: ## start the kubernetes cluster using kind
 	tilt up -f ./bin/Tiltfile
 .PHONY: build-k8s-cluster
-
