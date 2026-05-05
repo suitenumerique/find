@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static %}
+{% load static %}
 
 {% block extrastyle %}
     {{ block.super }}
@@ -173,17 +173,17 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
-    &rsaquo; {% trans 'System Self-Tests' %}
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; System Self-Tests
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="selftest-container">
     {% if not run_tests %}
-        <a href="?run=true" class="run-tests-btn">{% trans "Run All Tests" %}</a>
+        <a href="?run=true" class="run-tests-btn">Run All Tests</a>
     {% else %}
-        <a href="{% url 'admin:selftest' %}" class="run-tests-btn" style="opacity: 0.8;">{% trans "Reset" %}</a>
+        <a href="{% url 'admin:selftest' %}" class="run-tests-btn" style="opacity: 0.8;">Reset</a>
     {% endif %}
 
     {% if run_tests %}
@@ -191,16 +191,16 @@
         <div class="selftest-module">
             <div class="overall-status {% if all_passed %}success{% else %}failure{% endif %}">
                 {% if all_passed %}
-                    ✅ {% trans "All tests passed successfully!" %}
+                    ✅ All tests passed successfully!
                 {% else %}
-                    ❌ {% trans "Some tests failed. Please check the details below." %}
+                    ❌ Some tests failed. Please check the details below.
                 {% endif %}
             </div>
         </div>
         {% endif %}
 
         <div class="selftest-module">
-            <h2>{% trans "Test Results" %}</h2>
+            <h2>Test Results</h2>
             <div class="module-content">
                 {% for result in results %}
                     <div class="test-item">
@@ -208,9 +208,9 @@
                             <span class="test-name">{{ result.name }}</span>
                             <span class="test-status {% if result.success %}success{% else %}failure{% endif %}">
                                 {% if result.success %}
-                                    ✓ {% trans "Pass" %}
+                                    ✓ Pass
                                 {% else %}
-                                    ✗ {% trans "Fail" %}
+                                    ✗ Fail
                                 {% endif %}
                             </span>
                         </div>
@@ -223,7 +223,7 @@
                             </div>
                             {% if result.details %}
                                 <div class="test-details">
-                                    <strong>{% trans "Details:" %}</strong>
+                                    <strong>Details:</strong>
                                     <dl>
                                         {% for key, value in result.details.items %}
                                             <dt>{{ key }}:</dt>
@@ -239,9 +239,9 @@
         </div>
     {% else %}
         <div class="selftest-module">
-            <h2>{% trans "Available Tests" %}</h2>
+            <h2>Available Tests</h2>
             <div class="module-content">
-                <p>{% trans "Click 'Run All Tests' to execute the following system health checks:" %}</p>
+                <p>Click 'Run All Tests' to execute the following system health checks:</p>
                 <ul class="available-tests-list">
                     {% for test in available_tests %}
                         <li>
@@ -255,4 +255,3 @@
     {% endif %}
 </div>
 {% endblock %}
-

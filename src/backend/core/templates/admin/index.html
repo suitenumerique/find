@@ -1,5 +1,4 @@
 {% extends "admin/index.html" %}
-{% load i18n %}
 
 {% block sidebar %}
 {{ block.super }}
@@ -8,14 +7,14 @@
     <div class="module" style="margin-top: 20px;">
         <table>
             <caption>
-                {% trans 'System Tools' %}
+                System Tools
             </caption>
             <tbody>
                 <tr>
                     <th scope="row">
-                        <a href="{% url 'admin:selftest' %}">{% trans 'System Self-Tests' %}</a>
+                        <a href="{% url 'admin:selftest' %}">System Self-Tests</a>
                     </th>
-                    <td>{% trans 'Run selftest checks' %}</td>
+                    <td>Run selftest checks</td>
                 </tr>
             </tbody>
         </table>
@@ -23,4 +22,3 @@
 </div>
 
 {% endblock %}
-

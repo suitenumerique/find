@@ -43,7 +43,6 @@ COMPOSE_EXEC        = $(COMPOSE) exec
 COMPOSE_EXEC_APP    = $(COMPOSE_EXEC) app
 COMPOSE_RUN         = $(COMPOSE) run --rm
 COMPOSE_RUN_APP     = $(COMPOSE_RUN) app
-COMPOSE_RUN_CROWDIN = $(COMPOSE_RUN) crowdin crowdin
 WAIT_DB             = @$(COMPOSE_RUN) dockerize -wait tcp://$(DB_HOST):$(DB_PORT) -timeout 60s
 
 # -- Backend
@@ -65,7 +64,6 @@ data/static:
 create-env-files: ## Copy the dist env files to env files
 create-env-files: \
 	env.d/development/common \
-	env.d/development/crowdin \
 	env.d/development/postgresql
 .PHONY: create-env-files
 
@@ -76,9 +74,7 @@ bootstrap: \
 	create-env-files \
 	build \
 	migrate \
-	demo \
-	back-i18n-generate \
-	back-i18n-compile
+	demo
 .PHONY: bootstrap
 
 # -- Docker/compose
@@ -172,14 +168,6 @@ superuser: ## Create an admin superuser with password "admin"
 	@$(MANAGE) shell -c "from core.models import User; not User.objects.filter(username='admin').exists() and User.objects.create_superuser('admin', 'admin@example.com', 'admin')"
 .PHONY: superuser
 
-back-i18n-compile: ## compile the gettext files
-	@$(MANAGE) compilemessages --ignore=".venv/**/*"
-.PHONY: back-i18n-compile
-
-back-i18n-generate: ## create the .pot files used for i18n
-	@$(MANAGE) makemessages -a --keep-pot
-.PHONY: back-i18n-generate
-
 shell: ## connect to database shell
 	@$(MANAGE) shell #_plus
 .PHONY: dbshell
@@ -202,45 +190,6 @@ env.d/development/common:
 
 env.d/development/postgresql:
 	cp --update=none env.d/development/postgresql.dist env.d/development/postgresql
-
-# -- Internationalization
-
-env.d/development/crowdin:
-	cp --update=none env.d/development/crowdin.dist env.d/development/crowdin
-
-crowdin-download: ## Download translated message from crowdin
-	@$(COMPOSE_RUN_CROWDIN) download -c crowdin/config.yml
-.PHONY: crowdin-download
-
-crowdin-download-sources: ## Download sources from Crowdin
-	@$(COMPOSE_RUN_CROWDIN) download sources -c crowdin/config.yml
-.PHONY: crowdin-download-sources
-
-crowdin-upload: ## Upload source translations to crowdin
-	@$(COMPOSE_RUN_CROWDIN) upload sources -c crowdin/config.yml
-.PHONY: crowdin-upload
-
-i18n-compile: ## compile all translations
-i18n-compile: \
-	back-i18n-compile
-.PHONY: i18n-compile
-
-i18n-generate: ## create the .pot files used for i18n
-i18n-generate: \
-	back-i18n-generate
-.PHONY: i18n-generate
-
-i18n-download-and-compile: ## download all translated messages and compile them to be used by all applications
-i18n-download-and-compile: \
-  crowdin-download \
-  i18n-compile
-.PHONY: i18n-download-and-compile
-
-i18n-generate-and-upload: ## generate source translations for all applications and upload them to Crowdin
-i18n-generate-and-upload: \
-  i18n-generate \
-  crowdin-upload
-.PHONY: i18n-generate-and-upload
 
 # -- Misc
 clean: ## restore repository state as it was freshly cloned

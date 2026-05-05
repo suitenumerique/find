@@ -9,7 +9,6 @@ from django.db import models
 from django.db.models.functions import Length
 from django.utils.functional import cached_property
 from django.utils.text import slugify
-from django.utils.translation import gettext_lazy as _
 
 models.CharField.register_lookup(Length)
 TOKEN_LENGTH = 50
@@ -34,14 +33,14 @@ class Service(models.Model):
     client_id = models.CharField(blank=True, null=True)
     services = models.ManyToManyField(
         "self",
-        verbose_name=_("Allowed services for search"),
+        verbose_name="Allowed services for search",
         blank=True,
     )
 
     class Meta:
         db_table = "find_service"
-        verbose_name = _("service")
-        verbose_name_plural = _("services")
+        verbose_name = "service"
+        verbose_name_plural = "services"
         ordering = ["-is_active", "-created_at"]
         constraints = [
             models.CheckConstraint(

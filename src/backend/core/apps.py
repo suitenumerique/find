@@ -1,7 +1,6 @@
 """Find Core application"""
 
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
 
 from core.management.commands.create_search_pipeline import (
     ensure_search_pipeline_exists,
@@ -16,7 +15,7 @@ class CoreConfig(AppConfig):
 
     name = "core"
     app_label = "core"
-    verbose_name = _("Find core application")
+    verbose_name = "Find core application"
 
     def ready(self):
         """

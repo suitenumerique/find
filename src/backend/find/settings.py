@@ -14,8 +14,6 @@ import json
 import os
 from socket import gethostbyname, gethostname
 
-from django.utils.translation import gettext_lazy as _
-
 import sentry_sdk
 from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -126,10 +124,10 @@ class Base(Configuration):
     # Languages
     LANGUAGES = values.SingleNestedTupleValue(
         (
-            ("fr", _("French")),
-            ("en", _("English")),
-            ("de", _("German")),
-            ("nl", _("Dutch")),
+            ("fr", "French"),
+            ("en", "English"),
+            ("de", "German"),
+            ("nl", "Dutch"),
             ("und", None),
         )
     )
@@ -143,10 +141,8 @@ class Base(Configuration):
     )
     UNDETERMINED_LANGUAGE_CODE = "und"
 
-    LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
-
     TIME_ZONE = "UTC"
-    USE_I18N = True
+    USE_I18N = False
     USE_TZ = True
 
     # Templates
@@ -160,7 +156,6 @@ class Base(Configuration):
                     "django.contrib.messages.context_processors.messages",
                     "django.template.context_processors.csrf",
                     "django.template.context_processors.debug",
-                    "django.template.context_processors.i18n",
                     "django.template.context_processors.media",
                     "django.template.context_processors.request",
                     "django.template.context_processors.tz",
@@ -177,7 +172,6 @@ class Base(Configuration):
         "django.middleware.security.SecurityMiddleware",
         "whitenoise.middleware.WhiteNoiseMiddleware",
         "django.contrib.sessions.middleware.SessionMiddleware",
-        "django.middleware.locale.LocaleMiddleware",
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "corsheaders.middleware.CorsMiddleware",
         "django.middleware.common.CommonMiddleware",
