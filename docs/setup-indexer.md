@@ -23,8 +23,8 @@ OPENSEARCH_PORT=9200
 # Enable SSL for opensearch connection (False in dev mode)
 OPENSEARCH_USE_SSL=True
 
-# Prefix for the index name of the registered services.
-OPENSEARCH_INDEX_PREFIX=find
+# Unified index name for all services
+OPENSEARCH_INDEX=find
 ```
 
 ### Language
@@ -64,13 +64,13 @@ Other applications can index their files through the **`/index/`** endpoint with
 For each application a new **Service** must be created through the admin interface
 (see http://localhost:9071/admin/core/service/add/)
 
-| Field                       | Description                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Name                        | Name of the service and also the name of the index in Opensearch database                 |
-| Is active                   | Toggle service availability                                                               |
-| Client id                   | Calling service client_id (e.g `impress` for docs)                                        |
-| Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication                                           |
+| Field                       | Description                                        |
+|-----------------------------|----------------------------------------------------|
+| Name                        | Name of the service (used as `service` field) |
+| Is active                   | Toggle service availability                        |
+| Client id                   | Calling service client_id (e.g `impress` for docs) |
+| Allowed services for search | List of sub-services. Will add the results from all these services<br>to the search results. |
+| Token (_read-only_)         | Random token for calling service authentication    |
 
 And add the key in the calling application Django settings.
 

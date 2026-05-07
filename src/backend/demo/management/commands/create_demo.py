@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from faker import Faker
+from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
 from core import enums, factories
@@ -144,40 +145,35 @@ def create_demo(stdout):
     Create a database with demo data for developers to work in a realistic environment.
     """
     opensearch_client_ = opensearch_client()
-    opensearch_client_.indices.delete(index="*")
+    try:
+        opensearch_client_.indices.delete(index="*")
+    except NotFoundError:
+        pass
 
     with Timeit(stdout, "Creating services"):
         services = factories.ServiceFactory.create_batch(
             defaults.NB_OBJECTS["services"]
         )
 
-        for service in services:
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
+        ensure_index_exists(settings.OPENSEARCH_INDEX)
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
         for _ in range(defaults.NB_OBJECTS["documents"]):
             service = random.choice(services)
             document = generate_document()
-            actions.push(service.name, uuid4(), document)
+            document["service"] = service.name
+            actions.push(settings.OPENSEARCH_INDEX, uuid4(), document)
         actions.flush()
 
     with Timeit(stdout, "Creating dev services"):
         for conf in defaults.DEV_SERVICES:
             service = factories.ServiceFactory(**conf)
-            ensure_index_exists(service.name)
-            opensearch_client_.indices.refresh(index=service.name)
 
     # Check and report on indexed documents
-    total_indexed = 0
-    for service in services:
-        opensearch_client_.indices.refresh(index=service.name)
-        indexed = opensearch_client_.count(index=service.name)["count"]
-        stdout.write(f"  - {service.name:s}: {indexed:d} documents")
-        total_indexed += indexed
-
-    stdout.write(f"  TOTAL: {total_indexed:d} documents")
+    opensearch_client_.indices.refresh(index=settings.OPENSEARCH_INDEX)
+    indexed = opensearch_client_.count(index=settings.OPENSEARCH_INDEX)["count"]
+    stdout.write(f"  TOTAL: {indexed:d} documents")
 
 
 class Command(BaseCommand):

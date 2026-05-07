@@ -3,7 +3,6 @@
 import logging
 
 from django.conf import settings
-from django.core.exceptions import SuspiciousOperation
 
 from opensearchpy.exceptions import NotFoundError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
@@ -14,7 +13,6 @@ from core.services.opensearch_configuration import (
     MAPPINGS,
 )
 
-from ..models import Service, get_opensearch_index_name
 from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
@@ -45,11 +43,12 @@ def ensure_index_exists(index_name):
         )
 
 
-def prepare_document_for_indexing(document):
-    """Prepare document for indexing using nested language structure"""
+def prepare_document_for_indexing(document, service_name):
+    """Prepare document for indexing using nested language structure."""
     language_code = detect_language_code(f"{document['title']} {document['content']}")
     return {
         "id": document["id"],
+        "service": service_name,
         f"title.{language_code}": document["title"],
         f"content.{language_code}": document["content"],
         "depth": document["depth"],
@@ -75,26 +74,3 @@ def detect_language_code(text):
         return settings.UNDETERMINED_LANGUAGE_CODE
 
     return detected_code
-
-
-def get_opensearch_indices(audience, services):
-    """
-    Get OpenSearch indices for the given audience and services.
-    """
-    try:
-        user_service = Service.objects.get(client_id=audience, is_active=True)
-    except Service.DoesNotExist as e:
-        logger.warning("Login failed: No service %s found", audience)
-        raise SuspiciousOperation("Service is not available") from e
-
-    # Find allowed sub-services for this service
-    allowed_services = set(user_service.services.values_list("name", flat=True))
-    allowed_services.add(user_service.name)
-
-    if services:
-        available_service = set(services).intersection(allowed_services)
-
-        if len(available_service) < len(services):
-            raise SuspiciousOperation("Some requested services are not available")
-
-    return [get_opensearch_index_name(service) for service in allowed_services]

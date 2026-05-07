@@ -22,12 +22,12 @@ TEST_NB_OBJECTS = {
 
 @override_settings(DEBUG=True)
 @mock.patch.dict(defaults.NB_OBJECTS, TEST_NB_OBJECTS)
-def test_commands_create_demo():
+def test_commands_create_demo(settings):
     """The create_demo management command should create objects as expected."""
     call_command("create_demo")
 
     assert models.Service.objects.exclude(name="docs").count() == 4
-    assert opensearch_client().count()["count"] == 4
+    assert opensearch_client().count(index=settings.OPENSEARCH_INDEX)["count"] == 4
 
     docs = models.Service.objects.get(name="docs")
     assert docs.client_id == "impress"

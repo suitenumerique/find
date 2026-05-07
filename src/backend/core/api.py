@@ -2,6 +2,7 @@
 
 from django.core.exceptions import ValidationError
 
+from opensearchpy.exceptions import NotFoundError as OpenSearchNotFoundError
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import exceptions as drf_exceptions
 from rest_framework import status
@@ -32,6 +33,12 @@ def exception_handler(exc, context):
                 for error in exc.errors()
             ],
             status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    elif isinstance(exc, OpenSearchNotFoundError):
+        return Response(
+            {"detail": "Search index not found. Please contact administrator."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
     return drf_views.exception_handler(exc, context)

@@ -3,6 +3,7 @@
 import datetime
 from unittest import mock
 
+from django.conf import settings
 from django.utils import timezone
 
 import pytest
@@ -17,7 +18,7 @@ pytestmark = pytest.mark.django_db
 
 def test_api_documents_index_bulk_anonymous():
     """Anonymous requests should not be allowed to index documents in bulk."""
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     response = APIClient().post("/api/v1.0/documents/index/", documents, format="json")
 
@@ -29,7 +30,7 @@ def test_api_documents_index_bulk_anonymous():
 
 def test_api_documents_index_bulk_invalid_token():
     """Requests with invalid tokens should not be allowed to index documents in bulk."""
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -45,7 +46,7 @@ def test_api_documents_index_bulk_invalid_token():
 def test_api_documents_index_bulk_success():
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -66,10 +67,10 @@ def test_api_documents_index_bulk_ensure_index():
     """A registered service should be created the opensearch index if needed."""
     opensearch_client_ = opensearch.opensearch_client()
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     with pytest.raises(NotFoundError):
-        opensearch_client_.indices.get(index=service.index_name)
+        opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -86,7 +87,7 @@ def test_api_documents_index_bulk_ensure_index():
     ]
 
     # The index has been rebuilt
-    opensearch_client_.indices.get(index=service.index_name)
+    opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
 
 
 @pytest.mark.parametrize(
@@ -203,7 +204,7 @@ def test_api_documents_index_bulk_invalid_document(
 ):
     """Test bulk document indexing with various invalid fields."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     # Modify the first document with the invalid value for the specified field
     documents[0][field] = invalid_value
@@ -248,7 +249,7 @@ def test_api_documents_index_bulk_invalid_document(
 def test_api_documents_index_bulk_required(field):
     """Test bulk document indexing with a required field missing."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     del documents[0][field]
 
@@ -282,7 +283,7 @@ def test_api_documents_index_bulk_required(field):
 def test_api_documents_index_bulk_default(field, default_value):
     """Test bulk document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     del documents[0][field]
 
@@ -301,7 +302,7 @@ def test_api_documents_index_bulk_default(field, default_value):
     ]
 
     indexed_document = opensearch.opensearch_client().get(
-        index=service.index_name, id=documents[0]["id"]
+        index=settings.OPENSEARCH_INDEX, id=documents[0]["id"]
     )["_source"]
     assert indexed_document[field] == default_value
 
@@ -309,7 +310,7 @@ def test_api_documents_index_bulk_default(field, default_value):
 def test_api_documents_index_bulk_updated_at_before_created_at():
     """Test bulk document indexing with updated_at before created_at."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     documents[0]["updated_at"] = documents[0]["created_at"] - datetime.timedelta(
         seconds=1
@@ -347,7 +348,7 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
 def test_api_documents_index_bulk_datetime_future(field):
     """Test bulk document indexing with datetimes in the future."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     now = timezone.now()
     documents[0][field] = now + datetime.timedelta(seconds=3)
@@ -380,7 +381,7 @@ def test_api_documents_index_bulk_datetime_future(field):
 def test_api_documents_index_empty_content_check():
     """Test bulk document indexing with both empty title & content."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     documents[0]["content"] = ""
     documents[0]["title"] = ""
@@ -413,7 +414,7 @@ def test_api_documents_index_empty_content_check():
 def test_api_documents_index_opensearch_errors():
     """Test bulk document indexing errors"""
     service = factories.ServiceFactory()
-    documents = factories.DocumentSchemaFactory.build_batch(3)
+    documents = factories.DocumentFactory.build_batch(3)
 
     with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
         mock_bulk.return_value = {

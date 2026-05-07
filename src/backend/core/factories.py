@@ -13,7 +13,7 @@ from . import enums, models
 fake = Faker()
 
 
-class DocumentSchemaFactory(factory.DictFactory):
+class DocumentFactory(factory.DictFactory):
     """
     A factory for generating dictionaries that represent a document for
     indexation for testing and development purposes.

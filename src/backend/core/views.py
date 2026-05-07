@@ -2,7 +2,7 @@
 
 import logging
 
-from django.core.exceptions import SuspiciousOperation
+from django.conf import settings
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
@@ -15,7 +15,6 @@ from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
     ensure_index_exists,
-    get_opensearch_indices,
     prepare_document_for_indexing,
 )
 from .services.opensearch import opensearch_client
@@ -29,8 +28,8 @@ class IndexDocumentView(views.APIView):
     """
     API view for indexing documents in OpenSearch.
         - Handles both single document and bulk document indexing.
-        - The index is dynamically determined based on the service authentication token,
-          ensuring that each service has its own isolated index.
+        - Documents are indexed into a single shared index with a `service` field
+          for scoping, derived from the service authentication token.
     """
 
     authentication_classes = [ServiceTokenAuthentication]
@@ -38,29 +37,13 @@ class IndexDocumentView(views.APIView):
 
     def post(self, request, *args, **kwargs):
         """
-        API view for indexing documents into OpenSearch index of the authenticated service.
+        Index documents into OpenSearch for the authenticated service.
 
-        This view supports both single document indexing and bulk indexing. It handles
-        the following scenarios based on the type of request data:
+        Supports single document and bulk indexing. Documents are stored in a shared
+        index with a `service` field set to the authenticated service's name.
 
-        1. **Single Document Indexing**: If the request contains a single document (as a
-            dictionary), it will be indexed into an OpenSearch index named `find-{auth_token}`.
-            On success, the indexed document is returned with a `201 Created` status. If an
-            error occurs, a `400 Bad Request` response with an error message is returned.
-
-        2. **Bulk Indexing**: If the request contains a list of documents, each document is
-            validated and indexed in bulk. The response includes a detailed status of each
-            document, indicating whether it was successfully indexed or if an error occurred.
-            The HTTP status code for the bulk indexing operation is `207 Multi-Status`, and the
-            response body contains information about the success or failure of each individual
-            document.
-
-        Methods:
-        -------
-        post(request, *args, **kwargs):
-            Handles POST requests to index either a single document or a list of documents.
-            - **Single Document**: Expects a dictionary representing a document.
-            - **Bulk Indexing**: Expects a list of dictionaries, each representing a document.
+        1. **Single Document**: Dictionary input returns `201 Created` with document ID.
+        2. **Bulk Indexing**: List input returns `207 Multi-Status` with per-document results.
 
         Request Data:
         -------------
@@ -84,7 +67,7 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = request.auth.index_name
+        index_name = settings.OPENSEARCH_INDEX
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
@@ -107,7 +90,8 @@ class IndexDocumentView(views.APIView):
                 - 400 Bad Request: Returns an error message if the document is invalid.
         """
         document_dict = prepare_document_for_indexing(
-            schemas.DocumentSchema(**request.data).model_dump()
+            schemas.Document(**request.data).model_dump(),
+            service_name=request.auth.name,
         )
         _id = document_dict.pop("id")
         logger.info(
@@ -148,7 +132,7 @@ class IndexDocumentView(views.APIView):
 
         for i, document_data in enumerate(request.data):
             try:
-                document = schemas.DocumentSchema(**document_data)
+                document = schemas.Document(**document_data)
             except PydanticValidationError as excpt:
                 errors = [
                     {key: error[key] for key in ("msg", "type", "loc")}
@@ -157,7 +141,10 @@ class IndexDocumentView(views.APIView):
                 results.append({"index": i, "status": "error", "errors": errors})
                 has_errors = True
             else:
-                document_dict = prepare_document_for_indexing(document.model_dump())
+                document_dict = prepare_document_for_indexing(
+                    document.model_dump(),
+                    service_name=request.auth.name,
+                )
                 logger.info(
                     "Indexing document %s on index %s",
                     get_language_value(document_dict, "title"),
@@ -224,28 +211,17 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 because the user is not authorized to delete it or because a tag filter was used.
             - 400 Bad Request: If parameters are invalid or missing.
         """
-        params = schemas.DeleteDocumentsSchema(**request.data)
-        try:
-            index_name = get_opensearch_indices(
-                self._get_service_provider_audience(), services=[params.service]
-            )[0]
-        except SuspiciousOperation as e:
-            logger.error(e)
-            return Response(
-                {"detail": "Invalid request."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        params = schemas.DeleteDocuments(**request.data)
 
         logger.info(
-            "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
-            index_name,
+            "Deleting documents with filters: document_ids=%s, tags=%s",
             params.document_ids,
             params.tags,
         )
 
         client = opensearch_client()
         deletable_matches = client.search(
-            index=index_name,
+            index=settings.OPENSEARCH_INDEX,
             body={
                 "query": self._build_query(
                     self.request.user.sub,
@@ -258,7 +234,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
 
         if deletable_ids:
             response = client.delete_by_query(
-                index=index_name,
+                index=settings.OPENSEARCH_INDEX,
                 body={"query": {"ids": {"values": deletable_ids}}},
             )
             nb_deleted = response.get("deleted", 0)
@@ -289,7 +265,9 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         Returns:
             Deletion OpenSearch query.
         """
-        filters = [{"term": {"users": user_sub}}]
+        filters = [
+            {"term": {"users": user_sub}},
+        ]
         if document_ids:
             filters.append({"ids": {"values": document_ids}})
         if tags:
@@ -353,34 +331,23 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
         # Get list of groups related to the user from SCIM provider (consider caching result)
-        audience = self._get_service_provider_audience()
         user_sub = self.request.user.sub
         groups = []
 
         try:
-            params = schemas.SearchQueryParametersSchema(**request.data)
+            params = schemas.SearchQueryParameters(**request.data)
         except PydanticValidationError as excpt:
             errors = {error["loc"][0]: error["msg"] for error in excpt.errors()}
             logger.error("Validation error: %s", errors)
             raise excpt
 
-        # Get index list for search query
-        try:
-            search_indices = get_opensearch_indices(audience, services=params.services)
-        except SuspiciousOperation as e:
-            logger.error(e, exc_info=True)
-            return Response(
-                {"detail": "Invalid request."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        logger.info("Search '%s' on indices %s", params.q, search_indices)
+        logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
         result = search(
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,
-            search_indices=search_indices,
+            search_indices=[settings.OPENSEARCH_INDEX],
             reach=params.reach,
             visited=params.visited,
             user_sub=user_sub,
