@@ -35,7 +35,7 @@ def test_selftest_requires_authentication(client):
 
     # Should redirect to login
     assert response.status_code == 302
-    assert "/admin/login/" in response.url
+    assert response.url == "/admin/login/?next=/admin/selftest/"
 
 
 def test_selftest_requires_staff_permission(client):
@@ -53,6 +53,7 @@ def test_selftest_requires_staff_permission(client):
 
     # Regular users should be redirected
     assert response.status_code == 302
+    assert response.url == "/admin/login/?next=/admin/selftest/"
 
 
 def test_selftest_accessible_by_admin(client):

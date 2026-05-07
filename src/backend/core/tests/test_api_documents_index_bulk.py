@@ -55,8 +55,11 @@ def test_api_documents_index_bulk_success():
     )
 
     assert response.status_code == 201
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["success"] * 3
+    assert response.json() == [
+        {"index": 0, "_id": documents[0]["id"], "status": "success"},
+        {"index": 1, "_id": documents[1]["id"], "status": "success"},
+        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+    ]
 
 
 def test_api_documents_index_bulk_ensure_index():
@@ -76,9 +79,11 @@ def test_api_documents_index_bulk_ensure_index():
     )
 
     assert response.status_code == 201
-    responses = response.json()
-    assert len(responses) == 3
-    assert [d["status"] for d in responses] == ["success"] * 3
+    assert response.json() == [
+        {"index": 0, "_id": documents[0]["id"], "status": "success"},
+        {"index": 1, "_id": documents[1]["id"], "status": "success"},
+        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+    ]
 
     # The index has been rebuilt
     opensearch_client_.indices.get(index=service.index_name)
@@ -214,13 +219,18 @@ def test_api_documents_index_bulk_invalid_document(
     )
 
     assert response.status_code == 400
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
 
-    assert responses[0]["status"] == "error"
-    assert len(responses[0]["errors"]) == 1
-    assert responses[0]["errors"][0]["msg"] == error_message
-    assert responses[0]["errors"][0]["type"] == error_type
+    # When invalid_value is a list, the error loc includes the element index
+    expected_loc = [field, 0] if isinstance(invalid_value, list) else [field]
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [{"msg": error_message, "type": error_type, "loc": expected_loc}],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 @pytest.mark.parametrize(
@@ -253,13 +263,15 @@ def test_api_documents_index_bulk_required(field):
     )
 
     assert response.status_code == 400
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
-
-    assert responses[0]["status"] == "error"
-    assert len(responses[0]["errors"]) == 1
-    assert responses[0]["errors"][0]["msg"] == "Field required"
-    assert responses[0]["errors"][0]["type"] == "missing"
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [{"msg": "Field required", "type": "missing", "loc": [field]}],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 @pytest.mark.parametrize(
@@ -285,11 +297,14 @@ def test_api_documents_index_bulk_default(field, default_value):
     )
 
     assert response.status_code == 201
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["success"] * 3
+    assert response.json() == [
+        {"index": 0, "_id": documents[0]["id"], "status": "success"},
+        {"index": 1, "_id": documents[1]["id"], "status": "success"},
+        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+    ]
 
     indexed_document = opensearch.opensearch_client().get(
-        index=service.index_name, id=responses[0]["_id"]
+        index=service.index_name, id=documents[0]["id"]
     )["_source"]
     assert indexed_document[field] == default_value
 
@@ -311,17 +326,21 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
     )
 
     assert response.status_code == 400
-    responses = response.json()
-
-    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
-
-    assert responses[0]["status"] == "error"
-    assert len(responses[0]["errors"]) == 1
-    assert (
-        responses[0]["errors"][0]["msg"]
-        == "Value error, updated_at must be later than created_at"
-    )
-    assert responses[0]["errors"][0]["type"] == "value_error"
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [
+                {
+                    "msg": "Value error, updated_at must be later than created_at",
+                    "type": "value_error",
+                    "loc": [],
+                }
+            ],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 @pytest.mark.parametrize(
@@ -344,16 +363,21 @@ def test_api_documents_index_bulk_datetime_future(field):
     )
 
     assert response.status_code == 400
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
-
-    assert responses[0]["status"] == "error"
-    assert len(responses[0]["errors"]) == 1
-    assert (
-        responses[0]["errors"][0]["msg"]
-        == f"Value error, {field:s} must be earlier than now"
-    )
-    assert responses[0]["errors"][0]["type"] == "value_error"
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [
+                {
+                    "msg": f"Value error, {field:s} must be earlier than now",
+                    "type": "value_error",
+                    "loc": [field],
+                }
+            ],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 def test_api_documents_index_empty_content_check():
@@ -372,16 +396,21 @@ def test_api_documents_index_empty_content_check():
     )
 
     assert response.status_code == 400
-    responses = response.json()
-    assert [d["status"] for d in responses] == ["error", "valid", "valid"]
-
-    assert responses[0]["status"] == "error"
-    assert len(responses[0]["errors"]) == 1
-    assert (
-        responses[0]["errors"][0]["msg"]
-        == "Value error, Either title or content should have at least 1 character"
-    )
-    assert responses[0]["errors"][0]["type"] == "value_error"
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [
+                {
+                    "msg": "Value error, Either title or content should have at least 1 character",
+                    "type": "value_error",
+                    "loc": [],
+                }
+            ],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 def test_api_documents_index_opensearch_errors():
@@ -410,8 +439,7 @@ def test_api_documents_index_opensearch_errors():
         )
 
     assert response.status_code == 201
-    responses = response.json()
-    assert responses == [
+    assert response.json() == [
         {
             "_id": documents[0]["id"],
             "index": 0,

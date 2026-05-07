@@ -23,6 +23,9 @@ def test_api_documents_delete_anonymous():
     )
 
     assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Authentication credentials were not provided."
+    }
 
 
 @responses.activate
@@ -38,7 +41,7 @@ def test_api_documents_delete_wrong_service_name(settings):
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid request."
+    assert response.json() == {"detail": "Invalid request."}
 
 
 @responses.activate
@@ -60,8 +63,7 @@ def test_api_documents_delete_success(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 2
-    assert response.json()["undeleted-document-ids"] == []
+    assert response.json() == {"nb-deleted-documents": 2, "undeleted-document-ids": []}
 
     opensearch_client_ = opensearch_client()
     for document in documents:
@@ -92,8 +94,10 @@ def test_api_documents_delete_no_access(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 0
-    assert set(response.json()["undeleted-document-ids"]) == set(document_ids)
+    assert response.json() == {
+        "nb-deleted-documents": 0,
+        "undeleted-document-ids": document_ids,
+    }
 
     # Verify documents not deleted
     opensearch_client_ = opensearch_client()
@@ -132,10 +136,10 @@ def test_api_documents_delete_mixed_access(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 2
-    assert set(response.json()["undeleted-document-ids"]) == set(
-        other_document_ids + non_existing_document_ids
-    )
+    assert response.json() == {
+        "nb-deleted-documents": 2,
+        "undeleted-document-ids": other_document_ids + non_existing_document_ids,
+    }
 
     # Verify only owned documents are deleted
     opensearch_client_ = opensearch_client()
@@ -149,28 +153,34 @@ def test_api_documents_delete_mixed_access(settings):
 
 
 @responses.activate
-def test_api_documents_delete_invalid_params(settings):
-    """Requests with invalid parameters should return 400 Bad Request."""
+def test_api_documents_delete_missing_document_ids_and_tags(settings):
+    """Requests missing both document_ids and tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
 
-    # Missing both document_ids and tags
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {
-            "service": service.name,
-        },
+        {"service": service.name},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
     assert response.status_code == 400
-    assert (
-        response.json()[0]["msg"]
-        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
-    )
+    assert response.json() == [
+        {
+            "type": "value_error",
+            "loc": [],
+            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
+        }
+    ]
 
-    # Empty document_ids and no tags
+
+@responses.activate
+def test_api_documents_delete_empty_document_ids(settings):
+    """Requests with empty document_ids and no tags should return 400."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": []},
@@ -179,12 +189,21 @@ def test_api_documents_delete_invalid_params(settings):
     )
 
     assert response.status_code == 400
-    assert (
-        response.json()[0]["msg"]
-        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
-    )
+    assert response.json() == [
+        {
+            "type": "value_error",
+            "loc": [],
+            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
+        }
+    ]
 
-    # Both empty
+
+@responses.activate
+def test_api_documents_delete_both_filters_empty(settings):
+    """Requests with both document_ids and tags empty should return 400."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": [], "tags": []},
@@ -193,12 +212,20 @@ def test_api_documents_delete_invalid_params(settings):
     )
 
     assert response.status_code == 400
-    assert (
-        response.json()[0]["msg"]
-        == "Value error, At least one of 'document_ids' or 'tags' must be provided"
-    )
+    assert response.json() == [
+        {
+            "type": "value_error",
+            "loc": [],
+            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
+        }
+    ]
 
-    # Missing service
+
+@responses.activate
+def test_api_documents_delete_missing_service(settings):
+    """Requests missing the service field should return 400."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"document_ids": ["doc1"]},
@@ -207,6 +234,9 @@ def test_api_documents_delete_invalid_params(settings):
     )
 
     assert response.status_code == 400
+    assert response.json() == [
+        {"type": "missing", "loc": ["service"], "msg": "Field required"}
+    ]
 
 
 @responses.activate
@@ -228,8 +258,10 @@ def test_api_documents_delete_nonexistent_documents(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 0
-    assert response.json()["undeleted-document-ids"] == ["non-existent-id"]
+    assert response.json() == {
+        "nb-deleted-documents": 0,
+        "undeleted-document-ids": ["non-existent-id"],
+    }
 
 
 @responses.activate
@@ -265,8 +297,7 @@ def test_api_documents_delete_by_single_tag(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 2
-    assert response.json()["undeleted-document-ids"] == []
+    assert response.json() == {"nb-deleted-documents": 2, "undeleted-document-ids": []}
 
     opensearch_client_ = opensearch_client()
     for document in document_to_deletes:
@@ -314,8 +345,7 @@ def test_api_documents_delete_by_multiple_tags(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 3
-    assert response.json()["undeleted-document-ids"] == []
+    assert response.json() == {"nb-deleted-documents": 3, "undeleted-document-ids": []}
 
     opensearch_client_ = opensearch_client()
     for document in document_to_deletes:
@@ -367,10 +397,10 @@ def test_api_documents_delete_by_ids_and_tags(settings):
     )
 
     assert response.status_code == 200
-    assert response.json()["nb-deleted-documents"] == 1
-    assert response.json()["undeleted-document-ids"] == [
-        document_keep_by_tag_delete_by_id["id"]
-    ]
+    assert response.json() == {
+        "nb-deleted-documents": 1,
+        "undeleted-document-ids": [document_keep_by_tag_delete_by_id["id"]],
+    }
 
     opensearch_client_ = opensearch_client()
     with pytest.raises(opensearchpy.exceptions.NotFoundError):
