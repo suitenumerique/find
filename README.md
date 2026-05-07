@@ -23,7 +23,7 @@ $ docker compose version
 ```
 
 > ⚠️ You may need to run the following commands with `sudo` but this can be
-> avoided by assigning your user to the `docker` group. See docker 
+> avoided by assigning your user to the `docker` group. See docker
 > [Documentation](https://docs.docker.com/engine/install/linux-postinstall/)
 
 #### Optional: pre-commit

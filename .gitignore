@@ -69,7 +69,7 @@ src/frontend/tsclient
 .pylint.d
 .pytest_cache
 db.sqlite3
-*history.sqlite    
+*history.sqlite
 .mypy_cache
 
 # Site media

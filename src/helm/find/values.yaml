@@ -183,5 +183,5 @@ backend:
     command:
       - "python"
       - "manage.py"
-      - "createsuperuser"    
+      - "createsuperuser"
     restartPolicy: Never
