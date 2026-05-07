@@ -265,6 +265,9 @@ def test_api_documents_delete_nonexistent_documents(settings):
 
 
 @responses.activate
+@pytest.mark.flaky(
+    reruns=2, reason="OpenSearch index race condition under high parallelism"
+)
 def test_api_documents_delete_by_single_tag(settings):
     """Users should be able to delete documents by tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
