@@ -195,7 +195,6 @@ class Base(Configuration):
     INSTALLED_APPS = [
         # find
         "core",
-        "demo",
         # Third party apps
         "corsheaders",
         "dockerflow.django",

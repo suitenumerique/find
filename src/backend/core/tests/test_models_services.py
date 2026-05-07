@@ -4,7 +4,7 @@ from django.db import DataError, IntegrityError
 
 import pytest
 
-from core import factories
+from core.tests import factories
 
 pytestmark = pytest.mark.django_db
 

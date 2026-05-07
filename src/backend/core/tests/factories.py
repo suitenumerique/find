@@ -8,7 +8,7 @@ from django.utils.text import slugify
 import factory
 from faker import Faker
 
-from . import enums, models
+from core import enums, models
 
 fake = Faker()
 

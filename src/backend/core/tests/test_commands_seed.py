@@ -1,4 +1,4 @@
-"""Test the `create_demo` management command"""
+"""Test the `seed` management command"""
 
 from unittest import mock
 
@@ -10,8 +10,6 @@ import pytest
 from core import models
 from core.services.opensearch import opensearch_client
 
-from demo import defaults
-
 pytestmark = pytest.mark.django_db
 
 TEST_NB_OBJECTS = {
@@ -21,10 +19,10 @@ TEST_NB_OBJECTS = {
 
 
 @override_settings(DEBUG=True)
-@mock.patch.dict(defaults.NB_OBJECTS, TEST_NB_OBJECTS)
-def test_commands_create_demo():
-    """The create_demo management command should create objects as expected."""
-    call_command("create_demo")
+@mock.patch.dict("core.management.commands.seed.NB_OBJECTS", TEST_NB_OBJECTS)
+def test_commands_seed():
+    """The seed management command should create objects as expected."""
+    call_command("seed")
 
     assert models.Service.objects.exclude(name="docs").count() == 4
     assert opensearch_client().count()["count"] == 4

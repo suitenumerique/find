@@ -1,5 +1,5 @@
 # ruff: noqa: S311
-"""create_demo management command"""
+"""seed management command"""
 
 import logging
 import random
@@ -14,15 +14,35 @@ from django.utils.text import slugify
 from faker import Faker
 from opensearchpy.helpers import bulk
 
-from core import enums, factories
+from core import enums
 from core.services.indexing import ensure_index_exists
 from core.services.opensearch import opensearch_client
+from core.tests import factories
 
-from demo import defaults
+# Inlined constants from demo.defaults
+NB_OBJECTS = {"documents": 1000, "services": 5}
+
+DEV_SERVICES = (
+    {
+        "name": "docs",
+        "client_id": "impress",
+        "token": "find-api-key-for-docs-with-exactly-50-chars-length",
+    },
+    {
+        "name": "drive",
+        "client_id": "drive",
+        "token": "find-api-key-for-driv-with-exactly-50-chars-length",
+    },
+    {
+        "name": "conversations",
+        "client_id": "conversations",
+        "token": "find-api-key-for-conv-with-exactly-50-chars-length",
+    },
+)
 
 fake = Faker()
 
-logger = logging.getLogger("find.commands.demo.create_demo")
+logger = logging.getLogger("find.commands.seed")
 
 
 class BulkIndexing:
@@ -139,17 +159,15 @@ def generate_document():
     }
 
 
-def create_demo(stdout):
+def seed(stdout):
     """
-    Create a database with demo data for developers to work in a realistic environment.
+    Seed a database with demo data for developers to work in a realistic environment.
     """
     opensearch_client_ = opensearch_client()
     opensearch_client_.indices.delete(index="*")
 
     with Timeit(stdout, "Creating services"):
-        services = factories.ServiceFactory.create_batch(
-            defaults.NB_OBJECTS["services"]
-        )
+        services = factories.ServiceFactory.create_batch(NB_OBJECTS["services"])
 
         for service in services:
             ensure_index_exists(service.name)
@@ -157,14 +175,14 @@ def create_demo(stdout):
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
-        for _ in range(defaults.NB_OBJECTS["documents"]):
+        for _ in range(NB_OBJECTS["documents"]):
             service = random.choice(services)
             document = generate_document()
             actions.push(service.name, uuid4(), document)
         actions.flush()
 
     with Timeit(stdout, "Creating dev services"):
-        for conf in defaults.DEV_SERVICES:
+        for conf in DEV_SERVICES:
             service = factories.ServiceFactory(**conf)
             ensure_index_exists(service.name)
             opensearch_client_.indices.refresh(index=service.name)
@@ -181,7 +199,7 @@ def create_demo(stdout):
 
 
 class Command(BaseCommand):
-    """A management command to create a demo database."""
+    """A management command to seed a demo database."""
 
     help = __doc__
 
@@ -205,4 +223,4 @@ class Command(BaseCommand):
                 )
             )
 
-        create_demo(self.stdout)
+        seed(self.stdout)

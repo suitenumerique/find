@@ -28,15 +28,15 @@ OPENSEARCH_INDEX_PREFIX=find
 
 ### Language
 
-Language specific operations are applied to document titles and contents to improve search results. 
+Language specific operations are applied to document titles and contents to improve search results.
 The language is automatically detected  by Find.
 If the language can not be detected no language specific operation are applied and the indexing process is not affected.
 
-Find supports french, english, german and dutch. 
+Find supports french, english, german and dutch.
 
 The search process is not language specific, a query can get documents of any language.
 
-Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized. 
+Language detection estimates a confidence between 0 and 1. If the confidence is below a threshold the language is considered unrecognized.
 This threshold can be controlled with LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD environment variable.
 
 ```python
@@ -45,14 +45,14 @@ LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD=0.75
 
 ## trigrams
 
-Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables. 
+Find uses trigrams to improve the robustness of the full text search engine to spelling variations and errors. It can be configured by two environment variables.
 
 ````
 TRIGRAMS_BOOST=0.25
 TRIGRAMS_MINIMUM_SHOULD_MATCH=0.75%
 ````
 
-`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching. 
+`TRIGRAMS_BOOST` is weight boost applied to the trigram score in the document matching.
 `TRIGRAMS_MINIMUM_SHOULD_MATCH` is the minimal number or proportion of trigrams having to match to score. It is
 either an absolute number or proportion.
 
@@ -75,7 +75,7 @@ And add the key in the calling application Django settings.
 
 **Development Mode (Docs + Find)**
 
-The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
+The command `make seed` will create a working service configuration for `docs` and `drive` with predefined secret keys
 
 ```python
 # Docs
@@ -115,7 +115,7 @@ OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-
 OIDC_RS_SCOPES="openid"
 OIDC_RS_SIGN_ALGO=RS256
 
-# This backend allows authentication without any model in database. 
+# This backend allows authentication without any model in database.
 OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
 ```
 

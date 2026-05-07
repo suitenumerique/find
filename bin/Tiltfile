@@ -33,15 +33,15 @@ cmd_button('Migrate db',
            text='Run database migration',
 )
 
-create_demo = '''
+seed = '''
 set -eu
 # get k8s pod name from tilt resource name
 POD_NAME="$(tilt get kubernetesdiscovery find-backend -ojsonpath='{.status.pods[0].name}')"
-kubectl -n find exec "$POD_NAME" -- python manage.py create_demo --force
+kubectl -n find exec "$POD_NAME" -- python manage.py seed --force
 '''
-cmd_button('Create demo fixtures',
-           argv=['sh', '-c', create_demo],
+cmd_button('Seed database',
+           argv=['sh', '-c', seed],
            resource='find-backend',
            icon_name='developer_board',
-           text='Run demo fixtures',
+           text='Seed database',
 )

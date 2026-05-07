@@ -9,8 +9,8 @@ import pytest
 from opensearchpy import NotFoundError
 from rest_framework.test import APIClient
 
-from core import factories
 from core.services import opensearch
+from core.tests import factories
 
 pytestmark = pytest.mark.django_db
 
