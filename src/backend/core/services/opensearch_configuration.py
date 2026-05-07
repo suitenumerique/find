@@ -254,6 +254,7 @@ MAPPINGS = {
                 }
             },
         },
+        "content_hash": {"type": "keyword"},
         "depth": {"type": "integer"},
         "path": {
             "type": "keyword",

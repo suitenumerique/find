@@ -1,5 +1,6 @@
 """OpenSearch indexing utilities."""
 
+import hashlib
 import logging
 
 from django.conf import settings
@@ -45,10 +46,19 @@ def ensure_index_exists(index_name):
         )
 
 
+def compute_content_hash(title: str, content: str) -> str:
+    """Compute SHA-256 hash of title and content for change detection."""
+    h = hashlib.sha256()
+    h.update(title.encode("utf-8"))
+    h.update(b"\x00")
+    h.update(content.encode("utf-8"))
+    return h.hexdigest()
+
+
 def prepare_document_for_indexing(document):
     """Prepare document for indexing using nested language structure"""
     language_code = detect_language_code(f"{document['title']} {document['content']}")
-    return {
+    result = {
         "id": document["id"],
         f"title.{language_code}": document["title"],
         f"content.{language_code}": document["content"],
@@ -63,7 +73,9 @@ def prepare_document_for_indexing(document):
         "reach": document["reach"],
         "tags": document.get("tags", []),
         "is_active": document["is_active"],
+        "content_hash": compute_content_hash(document["title"], document["content"]),
     }
+    return result
 
 
 def detect_language_code(text):

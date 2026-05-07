@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 
 from core import factories
 from core.services import opensearch
+from core.services.indexing import compute_content_hash
 
 pytestmark = pytest.mark.django_db
 
@@ -57,6 +58,14 @@ def test_api_documents_index_bulk_success():
     assert response.status_code == 201
     responses = response.json()
     assert [d["status"] for d in responses] == ["success"] * 3
+
+    opensearch.opensearch_client().indices.refresh(index=service.index_name)
+    indexed = opensearch.opensearch_client().get(
+        index=service.index_name, id=responses[0]["_id"]
+    )["_source"]
+    assert indexed["content_hash"] == compute_content_hash(
+        documents[0]["title"].strip().lower(), documents[0]["content"]
+    )
 
 
 def test_api_documents_index_bulk_ensure_index():
