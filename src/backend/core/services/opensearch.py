@@ -21,7 +21,7 @@ REQUIRED_ENV_VARIABLES = [
 
 
 @cache
-def opensearch_client():
+def opensearch_client() -> OpenSearch:
     """Get OpenSearch client, ensuring required env variables are set"""
     missing_env_variables = [
         variable

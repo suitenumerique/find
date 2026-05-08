@@ -88,7 +88,7 @@ class SortClause(BaseModel):
 class SearchQuerySchema[FieldT = UserQueryField](BaseModel):
     """Top-level schema for structured search queries."""
 
-    query: str
+    query: Optional[str]
     where: Optional[WhereClause[FieldT]] = None
     sort: Optional[List[SortClause]] = None
     limit: Optional[int] = Field(default=50, ge=1, le=100)

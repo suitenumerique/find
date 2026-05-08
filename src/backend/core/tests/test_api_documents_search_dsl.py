@@ -39,7 +39,7 @@ def test_api_search_dsl_basic_query(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"query": "*"},
+        {"query": ""},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -72,7 +72,7 @@ def test_api_search_dsl_with_where_reach(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {"field": "reach", "op": "eq", "value": "public"},
         },
         format="json",
@@ -111,7 +111,7 @@ def test_api_search_dsl_with_where_tags(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {"field": "tags", "op": "in", "value": ["finance"]},
         },
         format="json",
@@ -156,7 +156,7 @@ def test_api_search_dsl_with_sort(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "sort": [{"field": "size", "direction": "asc"}],
         },
         format="json",
@@ -187,7 +187,7 @@ def test_api_search_dsl_with_limit(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "limit": 5,
         },
         format="json",
@@ -223,7 +223,7 @@ def test_api_search_dsl_empty_where(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"query": "*"},
+        {"query": ""},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
@@ -269,7 +269,7 @@ def test_api_search_dsl_with_and_clause(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {
                 "and": [
                     {"field": "reach", "op": "eq", "value": "public"},
@@ -297,7 +297,7 @@ def test_api_search_dsl_blocked_field_users(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {"field": "users", "op": "in", "value": ["malicious_user"]},
         },
         format="json",
@@ -316,7 +316,7 @@ def test_api_search_dsl_blocked_field_groups(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {"field": "groups", "op": "in", "value": ["admin_group"]},
         },
         format="json",
@@ -335,7 +335,7 @@ def test_api_search_dsl_blocked_field_is_active(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {"field": "is_active", "op": "eq", "value": False},
         },
         format="json",
@@ -354,7 +354,7 @@ def test_api_search_dsl_blocked_field_nested(settings):
     response = APIClient().post(
         "/api/v1.0/documents/search/",
         {
-            "query": "*",
+            "query": "",
             "where": {
                 "and": [
                     {"field": "reach", "op": "eq", "value": "public"},
@@ -395,7 +395,7 @@ def test_api_search_dsl_restricted_doc_invisible_without_access(settings):
 
     response = APIClient().post(
         "/api/v1.0/documents/search/",
-        {"query": "*"},
+        {"query": ""},
         format="json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )

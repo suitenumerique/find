@@ -61,7 +61,7 @@ def get_query(query: Optional[str], where: WhereClause):
     return get_full_text_query(query, filter_)
 
 
-def get_full_text_query(q, filter_):
+def get_full_text_query(query: str, filter_):
     """Build OpenSearch full-text query"""
     return {
         "bool": {
@@ -70,7 +70,7 @@ def get_full_text_query(q, filter_):
                     "should": [
                         {
                             "multi_match": {
-                                "query": q,
+                                "query": query,
                                 "fields": [
                                     "title.*.text^3",
                                     "content.*",
@@ -79,7 +79,7 @@ def get_full_text_query(q, filter_):
                         },
                         {
                             "multi_match": {
-                                "query": q,
+                                "query": query,
                                 "fields": [
                                     "title.*.text.trigrams^3",
                                     "content.*.trigrams",
@@ -97,7 +97,7 @@ def get_full_text_query(q, filter_):
     }
 
 
-def get_sort(order_by, order_direction):
+def get_sort(order_by: str, order_direction: str):
     """Build OpenSearch sort clause"""
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
