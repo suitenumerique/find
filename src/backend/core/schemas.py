@@ -103,23 +103,6 @@ def cleanlist(value):
     raise ValueError()
 
 
-StringListParameter = Annotated[List[str], BeforeValidator(cleanlist)]
-
-
-class SearchQueryParametersSchema(BaseModel):
-    """Schema for validating the querystring on the search API endpoint"""
-
-    q: str
-    services: StringListParameter = Field(default_factory=list)
-    visited: StringListParameter = Field(default_factory=list)
-    reach: Optional[enums.ReachEnum] = None
-    tags: StringListParameter = Field(default_factory=list)
-    path: Optional[str] = None
-    order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
-    order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
-    nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
-
-
 class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 

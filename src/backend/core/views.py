@@ -6,13 +6,15 @@ from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
-from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
+from .models import Service
 from .permissions import IsAuthAuthenticated
+from .query.builder import combine_with_system_scope
+from .query.dsl import SearchQuerySchema
 from .services.indexing import (
     ensure_index_exists,
     get_opensearch_indices,
@@ -309,85 +311,73 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
     def post(self, request, *args, **kwargs):
         """
-        Handle POST requests to perform a search on indexed documents with optional filtering
-        and ordering.
-
-        The search query should be provided as a "q" parameter. The method constructs a
-        search request to OpenSearch using the specified query, with the option to filter by
-        'reach' and order by 'relevance', 'created_at', 'updated_at', or 'size'.
-        The results are further filtered by 'users' and 'groups' based on the authentication
-        header.
+        Handle POST requests to search documents using structured query DSL.
 
         Body Parameters:
-        ---------------
-        q : str
-            The search query string. This is a required parameter.
-        reach : str, optional
-            Filter results based on the 'reach' field.
-        tags : List[str], optional
-            Filter results based on the 'tags' field. Documents matching any of the
-            provided tags will be returned.
-        path : str, optional
-            Filter results based on the 'path' field. Only documents whose path
-            starts with the provided value will be returned.
-        order_by : str, optional
-            Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
-            Defaults to 'relevance' if not specified.
-        order_direction : str, optional
-            Order direction, 'asc' for ascending or 'desc' for descending.
-            Defaults to 'desc'.
-        nb_results : int, optional
-            The number of results to return.
-            Defaults to 50 if not specified.
-        services: List[str], optional
-            List of services on which we intend to run the query (current service if left empty)
-        visited: List[sub], optional
-            List of public/authenticated documents the user has visited to limit
-            the document returned to the ones the current user has seen.
-            Built from linkreach list of a document in docs app.
+        ----------------
+        query : str
+            The search query string. Use "*" for match_all.
+        where : WhereClause, optional
+            Structured filter conditions. Supports:
+            - Field conditions: {"field": "reach", "op": "eq", "value": "public"}
+            - Boolean combinators: {"and": [...]}, {"or": [...]}, {"not": {...}}
+            - Operators: eq, in, all, prefix, gt, gte, lt, lte, exists
+        sort : List[SortClause], optional
+            Sort specifications: [{"field": "created_at", "direction": "desc"}]
+            Available fields: relevance, title, created_at, updated_at, size
+            Defaults to relevance descending.
+        limit : int, optional
+            Number of results (1-100). Defaults to 50.
+
+        Allowed Filter Fields:
+        ---------------------
+        id, reach, tags, path, created_at, updated_at, size, depth, numchild, title, content
+
+        Blocked Fields (return 400):
+        ---------------------------
+        users, groups, is_active
+
+        Visited Replacement:
+        -------------------
+        The old 'visited' parameter filtered non-restricted docs to those the user had seen.
+        To replicate this behavior, use a where clause:
+
+        {
+            "query": "search term",
+            "where": {
+                "or": [
+                    {"field": "reach", "op": "eq", "value": "restricted"},
+                    {"and": [
+                        {"field": "id", "op": "in", "value": ["doc-id-1", "doc-id-2"]},
+                        {"not": {"field": "reach", "op": "eq", "value": "restricted"}}
+                    ]}
+                ]
+            }
+        }
+
+        This returns: all restricted docs the user can access + non-restricted docs in the ID list.
 
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns a list of search results matching the query.
-            - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
+            - 200 OK: List of search results.
+            - 400 Bad Request: If validation fails or blocked fields are used.
         """
-        # Get list of groups related to the user from SCIM provider (consider caching result)
+        user_sub = None
+        # Service tokens have request.auth = Service instance; user tokens don't
+        if not isinstance(getattr(request, "auth", None), Service):
+            user_sub = getattr(request.user, "sub", None)
+
         audience = self._get_service_provider_audience()
-        user_sub = self.request.user.sub
-        groups = []
 
-        try:
-            params = schemas.SearchQueryParametersSchema(**request.data)
-        except PydanticValidationError as excpt:
-            errors = {error["loc"][0]: error["msg"] for error in excpt.errors()}
-            logger.error("Validation error: %s", errors)
-            raise excpt
+        params = SearchQuerySchema(**request.data)
+        combined_where = combine_with_system_scope(params.where, user_sub)
 
-        # Get index list for search query
-        try:
-            search_indices = get_opensearch_indices(audience, services=params.services)
-        except SuspiciousOperation as e:
-            logger.error(e, exc_info=True)
-            return Response(
-                {"detail": "Invalid request."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        search_params = params.model_copy(update={"where": combined_where})
+        search_indices = get_opensearch_indices(audience, services=None)
 
-        logger.info("Search '%s' on indices %s", params.q, search_indices)
-        result = search(
-            q=params.q,
-            nb_results=params.nb_results,
-            order_by=params.order_by,
-            order_direction=params.order_direction,
-            search_indices=search_indices,
-            reach=params.reach,
-            visited=params.visited,
-            user_sub=user_sub,
-            groups=groups,
-            tags=params.tags,
-            path=params.path,
-        )["hits"]["hits"]
+        logger.info("Search '%s' on indices %s", params.query, search_indices)
+        result = search(search_params, search_indices)["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
 

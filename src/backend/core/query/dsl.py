@@ -3,7 +3,9 @@
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+BLOCKED_FIELDS = frozenset({"users", "groups", "is_active"})
 
 
 class Operator(str, Enum):
@@ -73,3 +75,23 @@ class SearchQuerySchema(BaseModel):
     where: Optional[WhereClause] = None
     sort: Optional[List[SortClause]] = None
     limit: Optional[int] = Field(default=50, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def validate_where_clause(self) -> "SearchQuerySchema":
+        """Reject security-sensitive fields in user-provided where clause."""
+        if self.where is not None:
+            _check_blocked_fields(self.where)
+        return self
+
+
+def _check_blocked_fields(clause: WhereClause) -> None:
+    if isinstance(clause, AndClause):
+        for c in clause.and_:
+            _check_blocked_fields(c)
+    elif isinstance(clause, OrClause):
+        for c in clause.or_:
+            _check_blocked_fields(c)
+    elif isinstance(clause, NotClause):
+        _check_blocked_fields(clause.not_)
+    elif isinstance(clause, FieldCondition) and clause.field in BLOCKED_FIELDS:
+        raise ValueError(f"Field '{clause.field}' is not allowed in where clauses")

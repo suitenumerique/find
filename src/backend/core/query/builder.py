@@ -1,5 +1,7 @@
 """Convert query DSL to OpenSearch queries."""
 
+from typing import Optional
+
 from opensearchpy import Q
 from opensearchpy.helpers.query import Query
 
@@ -12,9 +14,54 @@ from .dsl import (
     WhereClause,
 )
 
-FIELD_MAPPING = {
-    "id": "_id",
-}
+FIELD_MAPPING = {"id": "_id"}
+
+
+def build_system_scope(user_sub: Optional[str] = None) -> WhereClause:
+    """Build system-level access control filter.
+
+    For user tokens: filters to active docs user can access via reach rules.
+    For service tokens: filters to active docs only.
+
+    Args:
+        user_sub: User subject identifier. If None, builds filter for service token.
+
+    Returns:
+        WhereClause: Access control filter DSL.
+    """
+    is_active_filter = FieldCondition(field="is_active", op=Operator.EQ, value=True)
+
+    if user_sub is None:
+        # Service token: just is_active
+        return AndClause(and_=[is_active_filter])
+
+    # User token: is_active AND (restricted-with-access OR not-restricted)
+    restricted_with_access = AndClause(
+        and_=[
+            FieldCondition(field="reach", op=Operator.EQ, value="restricted"),
+            FieldCondition(field="users", op=Operator.IN, value=[user_sub]),
+        ]
+    )
+
+    not_restricted = NotClause(
+        not_=FieldCondition(field="reach", op=Operator.EQ, value="restricted")
+    )
+
+    reach_filter = OrClause(or_=[restricted_with_access, not_restricted])
+
+    return AndClause(and_=[is_active_filter, reach_filter])
+
+
+def combine_with_system_scope(
+    user_where: Optional[WhereClause], user_sub: Optional[str]
+) -> WhereClause:
+    """Combine user's where clause with system-level access control."""
+    system_scope = build_system_scope(user_sub)
+
+    if user_where is None:
+        return system_scope
+
+    return AndClause(and_=[user_where, system_scope])
 
 
 def build_filter(where: WhereClause) -> Query:
