@@ -6,6 +6,7 @@ from django.conf import settings
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
+from opensearchpy import Q
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
@@ -253,7 +254,12 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             status=status.HTTP_200_OK,
         )
 
-    def _build_query(self, user_sub, document_ids=None, tags=None):
+    def _build_query(
+        self,
+        user_sub: str,
+        document_ids: list[str] | None = None,
+        tags: list[str] | None = None,
+    ) -> dict:
         """
         Build OpenSearch query for document deletion.
 
@@ -265,14 +271,12 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         Returns:
             Deletion OpenSearch query.
         """
-        filters = [
-            {"term": {"users": user_sub}},
-        ]
+        filters = [Q("term", users=user_sub)]
         if document_ids:
-            filters.append({"ids": {"values": document_ids}})
+            filters.append(Q("ids", values=document_ids))
         if tags:
-            filters.append({"terms": {"tags": tags}})
-        return {"bool": {"must": filters}}
+            filters.append(Q("terms", tags=tags))
+        return Q("bool", must=filters).to_dict()
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):
@@ -343,7 +347,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
 
         logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
         result = search(
-            q=params.q,
+            query=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,

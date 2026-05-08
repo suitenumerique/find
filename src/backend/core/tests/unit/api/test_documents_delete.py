@@ -9,6 +9,7 @@ import responses
 from rest_framework.test import APIClient
 
 from core import factories
+from core.views import DeleteDocumentsView
 
 from ...utils import build_authorization_bearer, setup_oicd_resource_server
 from ...utils_opensearch import mock_search_response
@@ -364,3 +365,84 @@ def test_api_documents_delete_by_ids_and_tags(
         "nb-deleted-documents": 1,
         "undeleted-document-ids": [document_keep_by_tag_delete_by_id["id"]],
     }
+
+
+# pylint: disable=protected-access
+class TestBuildQuery:
+    """Unit tests for DeleteDocumentsView._build_query() method."""
+
+    def test_build_query_user_only(self):
+        assert DeleteDocumentsView()._build_query(user_sub="test-user") == {
+            "bool": {"must": [{"term": {"users": "test-user"}}]}
+        }
+
+    def test_build_query_with_document_ids(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", document_ids=["doc1", "doc2"]
+        ) == {
+            "bool": {
+                "must": [
+                    {"term": {"users": "test-user"}},
+                    {"ids": {"values": ["doc1", "doc2"]}},
+                ]
+            }
+        }
+
+    def test_build_query_with_tags(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", tags=["tag1", "tag2"]
+        ) == {
+            "bool": {
+                "must": [
+                    {"term": {"users": "test-user"}},
+                    {"terms": {"tags": ["tag1", "tag2"]}},
+                ]
+            }
+        }
+
+    def test_build_query_with_document_ids_and_tags(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", document_ids=["doc1", "doc2"], tags=["tag1", "tag2"]
+        ) == {
+            "bool": {
+                "must": [
+                    {"term": {"users": "test-user"}},
+                    {"ids": {"values": ["doc1", "doc2"]}},
+                    {"terms": {"tags": ["tag1", "tag2"]}},
+                ]
+            }
+        }
+
+    def test_build_query_with_empty_document_ids(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", document_ids=[]
+        ) == {"bool": {"must": [{"term": {"users": "test-user"}}]}}
+
+    def test_build_query_with_empty_tags(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", tags=[]
+        ) == {"bool": {"must": [{"term": {"users": "test-user"}}]}}
+
+    def test_build_query_with_single_document_id(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", document_ids=["single-doc"]
+        ) == {
+            "bool": {
+                "must": [
+                    {"term": {"users": "test-user"}},
+                    {"ids": {"values": ["single-doc"]}},
+                ]
+            }
+        }
+
+    def test_build_query_with_single_tag(self):
+        assert DeleteDocumentsView()._build_query(
+            user_sub="test-user", tags=["single-tag"]
+        ) == {
+            "bool": {
+                "must": [
+                    {"term": {"users": "test-user"}},
+                    {"terms": {"tags": ["single-tag"]}},
+                ]
+            }
+        }
