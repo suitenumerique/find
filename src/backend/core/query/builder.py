@@ -11,60 +11,55 @@ from .dsl import (
     NotClause,
     Operator,
     OrClause,
+    QueryField,
     WhereClause,
 )
 
 FIELD_MAPPING = {"id": "_id"}
 
 
-def build_system_scope(user_sub: Optional[str] = None) -> WhereClause:
-    """Build system-level access control filter.
-
-    For user tokens: filters to active docs user can access via reach rules.
-    For service tokens: filters to active docs only.
-
-    Args:
-        user_sub: User subject identifier. If None, builds filter for service token.
-
-    Returns:
-        WhereClause: Access control filter DSL.
-    """
-    is_active_filter = FieldCondition(field="is_active", op=Operator.EQ, value=True)
+def build_system_scope(user_sub: Optional[str] = None) -> WhereClause[QueryField]:
+    """Build system-level access control filter."""
+    is_active = FieldCondition[QueryField](
+        field="is_active", op=Operator.EQ, value=True
+    )
 
     if user_sub is None:
-        # Service token: just is_active
-        return AndClause(and_=[is_active_filter])
+        return AndClause[QueryField](and_=[is_active])
 
-    # User token: is_active AND (restricted-with-access OR not-restricted)
-    restricted_with_access = AndClause(
+    restricted_with_access = AndClause[QueryField](
         and_=[
-            FieldCondition(field="reach", op=Operator.EQ, value="restricted"),
-            FieldCondition(field="users", op=Operator.IN, value=[user_sub]),
+            FieldCondition[QueryField](
+                field="reach", op=Operator.EQ, value="restricted"
+            ),
+            FieldCondition[QueryField](field="users", op=Operator.IN, value=[user_sub]),
         ]
     )
 
-    not_restricted = NotClause(
-        not_=FieldCondition(field="reach", op=Operator.EQ, value="restricted")
+    not_restricted = NotClause[QueryField](
+        not_=FieldCondition[QueryField](
+            field="reach", op=Operator.EQ, value="restricted"
+        )
     )
 
-    reach_filter = OrClause(or_=[restricted_with_access, not_restricted])
+    reach_filter = OrClause[QueryField](or_=[restricted_with_access, not_restricted])
 
-    return AndClause(and_=[is_active_filter, reach_filter])
+    return AndClause[QueryField](and_=[is_active, reach_filter])
 
 
 def combine_with_system_scope(
     user_where: Optional[WhereClause], user_sub: Optional[str]
-) -> WhereClause:
+) -> WhereClause[QueryField]:
     """Combine user's where clause with system-level access control."""
     system_scope = build_system_scope(user_sub)
 
     if user_where is None:
         return system_scope
 
-    return AndClause(and_=[user_where, system_scope])
+    return AndClause[QueryField](and_=[user_where, system_scope])  # type: ignore[list-item]
 
 
-def build_filter(where: WhereClause) -> Query:
+def build_filter(where: WhereClause[QueryField]) -> Query:
     """Convert a WhereClause DSL tree into an OpenSearch Query object."""
     if isinstance(where, AndClause):
         return Q("bool", must=[build_filter(c) for c in where.and_])
@@ -82,7 +77,7 @@ def build_filter(where: WhereClause) -> Query:
     return _build_field_condition(where)
 
 
-def _build_field_condition(condition: FieldCondition) -> Query:
+def _build_field_condition(condition: FieldCondition[QueryField]) -> Query:
     field = FIELD_MAPPING.get(condition.field, condition.field)
     op = condition.op
     value = condition.value

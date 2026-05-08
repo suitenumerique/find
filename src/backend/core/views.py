@@ -6,6 +6,7 @@ from django.core.exceptions import SuspiciousOperation
 
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
+from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status, views
 from rest_framework.response import Response
 

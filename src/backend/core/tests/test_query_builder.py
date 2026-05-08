@@ -9,6 +9,7 @@ from core.query.dsl import (
     NotClause,
     Operator,
     OrClause,
+    QueryField,
 )
 
 
@@ -22,7 +23,9 @@ class TestFieldConditions:
 
     def test_eq_operator_boolean(self):
         """The eq operator should handle boolean values."""
-        condition = FieldCondition(field="is_active", op=Operator.EQ, value=True)
+        condition = FieldCondition[QueryField](
+            field="is_active", op=Operator.EQ, value=True
+        )
         assert build_filter(condition).to_dict() == {"term": {"is_active": True}}
 
     def test_in_operator(self):
@@ -110,8 +113,8 @@ class TestFieldMapping:
 
     def test_unmapped_field_passes_through(self):
         """Unmapped fields should pass through unchanged."""
-        condition = FieldCondition(field="custom_field", op=Operator.EQ, value="test")
-        assert build_filter(condition).to_dict() == {"term": {"custom_field": "test"}}
+        condition = FieldCondition(field="title", op=Operator.EQ, value="test")
+        assert build_filter(condition).to_dict() == {"term": {"title": "test"}}
 
 
 class TestBooleanCombinators:
@@ -119,10 +122,14 @@ class TestBooleanCombinators:
 
     def test_and_clause(self):
         """The and clause should produce a bool must query."""
-        clause = AndClause(
+        clause = AndClause[QueryField](
             and_=[
-                FieldCondition(field="reach", op=Operator.EQ, value="public"),
-                FieldCondition(field="is_active", op=Operator.EQ, value=True),
+                FieldCondition[QueryField](
+                    field="reach", op=Operator.EQ, value="public"
+                ),
+                FieldCondition[QueryField](
+                    field="is_active", op=Operator.EQ, value=True
+                ),
             ]
         )
         assert build_filter(clause).to_dict() == {
@@ -220,32 +227,34 @@ class TestNestedExpressions:
 
     def test_deeply_nested_expression(self):
         """Deeply nested boolean expressions should be handled correctly."""
-        clause = AndClause(
+        clause = AndClause[QueryField](
             and_=[
-                FieldCondition(field="is_active", op=Operator.EQ, value=True),
-                OrClause(
+                FieldCondition[QueryField](
+                    field="is_active", op=Operator.EQ, value=True
+                ),
+                OrClause[QueryField](
                     or_=[
-                        AndClause(
+                        AndClause[QueryField](
                             and_=[
-                                FieldCondition(
+                                FieldCondition[QueryField](
                                     field="tags",
                                     op=Operator.ALL,
                                     value=["finance", "approved"],
                                 ),
-                                FieldCondition(
+                                FieldCondition[QueryField](
                                     field="path",
                                     op=Operator.PREFIX,
                                     value="/teams/finance",
                                 ),
                             ]
                         ),
-                        AndClause(
+                        AndClause[QueryField](
                             and_=[
-                                FieldCondition(
+                                FieldCondition[QueryField](
                                     field="tags", op=Operator.IN, value=["legal"]
                                 ),
-                                NotClause(
-                                    not_=FieldCondition(
+                                NotClause[QueryField](
+                                    not_=FieldCondition[QueryField](
                                         field="tags", op=Operator.IN, value=["draft"]
                                     )
                                 ),

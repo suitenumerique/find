@@ -305,7 +305,7 @@ def test_api_search_dsl_blocked_field_users(settings):
     )
 
     assert response.status_code == 400
-    assert "users" in str(response.json())
+    assert "literal_error" in str(response.json())
 
 
 @responses.activate
@@ -324,7 +324,7 @@ def test_api_search_dsl_blocked_field_groups(settings):
     )
 
     assert response.status_code == 400
-    assert "groups" in str(response.json())
+    assert "literal_error" in str(response.json())
 
 
 @responses.activate
@@ -343,7 +343,7 @@ def test_api_search_dsl_blocked_field_is_active(settings):
     )
 
     assert response.status_code == 400
-    assert "is_active" in str(response.json())
+    assert "literal_error" in str(response.json())
 
 
 @responses.activate
@@ -367,7 +367,7 @@ def test_api_search_dsl_blocked_field_nested(settings):
     )
 
     assert response.status_code == 400
-    assert "users" in str(response.json())
+    assert "literal_error" in str(response.json())
 
 
 @responses.activate

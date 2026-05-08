@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Optional
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -9,10 +9,8 @@ from pydantic import (
     UUID4,
     AwareDatetime,
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     Field,
-    conint,
     field_validator,
     model_validator,
 )

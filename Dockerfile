@@ -1,7 +1,7 @@
 # Django find
 
 # ---- base image to inherit from ----
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.13-slim-bookworm AS base
 
 # Upgrade system packages to install security updates
 RUN apt-get update && \
@@ -20,7 +20,7 @@ ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 
 # install uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.11 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -111,7 +111,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install development dependencies
-RUN --mount=from=ghcr.io/astral-sh/uv:0.9.10,source=/uv,target=/bin/uv \
+RUN --mount=from=ghcr.io/astral-sh/uv:0.11.11,source=/uv,target=/bin/uv \
     uv sync --locked --all-extras
 
 # Restore the un-privileged user running the application
