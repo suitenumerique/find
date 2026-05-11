@@ -1,7 +1,12 @@
 """Utility functions for OpenSearch testing."""
 
+from typing import Any
+from unittest.mock import MagicMock
 
-def mock_search_response(hits=None, total=0):
+
+def mock_search_response(
+    hits: list[dict[str, Any]] | None = None, total: int = 0
+) -> dict[str, Any]:
     """
     Create a properly structured OpenSearch search response.
 
@@ -31,7 +36,7 @@ def mock_search_response(hits=None, total=0):
     }
 
 
-def mock_index_response(doc_id="test-id", result="created"):
+def mock_index_response(doc_id: str = "test-id", result: str = "created") -> dict[str, str]:
     """
     Create a properly structured OpenSearch index response.
 
@@ -51,7 +56,9 @@ def mock_index_response(doc_id="test-id", result="created"):
     }
 
 
-def mock_bulk_response(items=None, errors=False):
+def mock_bulk_response(
+    items: list[dict[str, Any]] | None = None, errors: bool = False
+) -> dict[str, Any]:
     """
     Create a properly structured OpenSearch bulk response.
 
@@ -77,7 +84,7 @@ def mock_bulk_response(items=None, errors=False):
     }
 
 
-def mock_delete_by_query_response(deleted=0):
+def mock_delete_by_query_response(deleted: int = 0) -> dict[str, int]:
     """
     Create a properly structured OpenSearch delete_by_query response.
 
@@ -95,7 +102,11 @@ def mock_delete_by_query_response(deleted=0):
     }
 
 
-def setup_opensearch_mock(mock, search_hits=None, index_result="created"):
+def setup_opensearch_mock(
+    mock: MagicMock,
+    search_hits: list[dict[str, Any]] | None = None,
+    index_result: str = "created",
+) -> MagicMock:
     """
     Configure a mock OpenSearch client with sensible defaults.
 
