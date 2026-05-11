@@ -36,7 +36,7 @@ dependencies = [
   "drf_spectacular==0.29.0",
   "gunicorn==25.3.0",
   "mozilla-django-oidc==5.0.2",
-  "opensearch-py==3.1.0",
+  "opensearch-py==3.2.0",
   "psycopg[binary]==3.3.4",
   "py3langid==0.3.0",
   "pydantic==2.12.5",
