@@ -246,8 +246,8 @@ class Base(Configuration):
     OPENSEARCH_USER = values.Value(
         default="admin", environ_name="OPENSEARCH_USER", environ_prefix=None
     )
-    OPENSEARCH_PASSWORD = values.SecretValue(
-        environ_name="OPENSEARCH_PASSWORD", environ_prefix=None
+    OPENSEARCH_PASSWORD = values.Value(
+        default="", environ_name="OPENSEARCH_PASSWORD", environ_prefix=None
     )
     OPENSEARCH_USE_SSL = values.BooleanValue(
         default=True, environ_name="OPENSEARCH_USE_SSL", environ_prefix=None
