@@ -55,9 +55,11 @@ def mock_opensearch_client():
     mock_client.get.return_value = {"_id": "test_id", "_source": {}}
     mock_client.count.return_value = {"count": 0}
 
-    with patch.object(opensearch, "opensearch_client", return_value=mock_client), \
-         patch.object(views, "opensearch_client", return_value=mock_client), \
-         patch.object(indexing, "opensearch_client", return_value=mock_client):
+    with (
+        patch.object(opensearch, "opensearch_client", return_value=mock_client),
+        patch.object(views, "opensearch_client", return_value=mock_client),
+        patch.object(indexing, "opensearch_client", return_value=mock_client),
+    ):
         yield mock_client
 
     # Clear cache again after test to ensure clean state for next test

@@ -74,12 +74,16 @@ def test_api_documents_index_bulk_success(mock_opensearch_client: MagicMock) -> 
     ]
 
 
-def test_api_documents_index_bulk_ensure_index(mock_opensearch_client: MagicMock) -> None:
+def test_api_documents_index_bulk_ensure_index(
+    mock_opensearch_client: MagicMock,
+) -> None:
     """A registered service should be created the opensearch index if needed."""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
 
-    mock_opensearch_client.indices.get.side_effect = NotFoundError(404, "index_not_found_exception")
+    mock_opensearch_client.indices.get.side_effect = NotFoundError(
+        404, "index_not_found_exception"
+    )
     mock_opensearch_client.bulk.return_value = mock_bulk_response(
         items=[
             {"index": {"_id": documents[0]["id"], "status": 201}},
@@ -435,7 +439,9 @@ def test_api_documents_index_empty_content_check():
     ]
 
 
-def test_api_documents_index_opensearch_errors(mock_opensearch_client: MagicMock) -> None:
+def test_api_documents_index_opensearch_errors(
+    mock_opensearch_client: MagicMock,
+) -> None:
     """Test bulk document indexing errors"""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
