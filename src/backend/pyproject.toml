@@ -71,7 +71,7 @@ dev = [
   "pytest==9.0.3",
   "responses==0.26.0",
   "ruff==0.15.12",
-  "types-requests==2.33.0.20260408",
+  "types-requests==2.33.0.20260503",
 ]
 
 [tool.setuptools]
