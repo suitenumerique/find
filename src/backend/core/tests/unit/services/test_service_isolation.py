@@ -1,4 +1,4 @@
-"""Tests for service isolation."""
+"""Tests for service isolation (unit tests with mocked OpenSearch)."""
 
 from django.conf import settings
 
@@ -7,7 +7,6 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core import factories
-from core.services.opensearch import opensearch_client
 
 pytestmark = pytest.mark.django_db
 
@@ -15,10 +14,18 @@ pytestmark = pytest.mark.django_db
 class TestIndexServiceIsolation:
     """Test service field is correctly set during document indexing."""
 
-    def test_index_document_service_field_from_auth_not_payload(self):
+    def test_index_document_service_field_from_auth_not_payload(
+        self, mock_opensearch_client
+    ):
         """Service field in payload is ignored; auth token determines service."""
         service = factories.ServiceFactory(name="docs-service")
         document = factories.DocumentFactory.build(service="spoofed-drive")
+
+        # Configure mock to return the indexed document with correct service
+        mock_opensearch_client.get.return_value = {
+            "_id": document["id"],
+            "_source": {**document, "service": "docs-service"},
+        }
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -29,14 +36,29 @@ class TestIndexServiceIsolation:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        client = opensearch_client()
-        indexed_doc = client.get(index=settings.OPENSEARCH_INDEX, id=document["id"])
+        indexed_doc = mock_opensearch_client.get(
+            index=settings.OPENSEARCH_INDEX, id=document["id"]
+        )
         assert indexed_doc["_source"]["service"] == "docs-service"
 
-    def test_bulk_index_service_field_from_auth_not_payload(self):
+    def test_bulk_index_service_field_from_auth_not_payload(
+        self, mock_opensearch_client
+    ):
         """Verify service field is correctly set for bulk indexing."""
         service = factories.ServiceFactory(name="my-docs")
         documents = factories.DocumentFactory.build_batch(3, service="attempt-spoof")
+
+        # Configure mock to return indexed documents with correct service
+        def mock_get(index, id):
+            for doc in documents:
+                if doc["id"] == id:
+                    return {
+                        "_id": id,
+                        "_source": {**doc, "service": "my-docs"},
+                    }
+            return {"_id": id, "_source": {}}
+
+        mock_opensearch_client.get.side_effect = mock_get
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -47,7 +69,8 @@ class TestIndexServiceIsolation:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        client = opensearch_client()
         for doc in documents:
-            indexed_doc = client.get(index=settings.OPENSEARCH_INDEX, id=doc["id"])
+            indexed_doc = mock_opensearch_client.get(
+                index=settings.OPENSEARCH_INDEX, id=doc["id"]
+            )
             assert indexed_doc["_source"]["service"] == "my-docs"
