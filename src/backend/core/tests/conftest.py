@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+from django.conf import LazySettings
+
 import pytest
 from faker import Faker
 from opensearchpy.exceptions import NotFoundError
@@ -63,7 +65,7 @@ def mock_opensearch_client():
 
 
 @pytest.fixture(autouse=True)
-def cleanup_test_index(settings, request):
+def cleanup_test_index(settings: LazySettings, request: pytest.FixtureRequest) -> None:
     """
     Fixture to set a randomized index name for tests and remove it on tear down.
 
