@@ -11,9 +11,6 @@ from core.services import indexing, opensearch
 
 fake = Faker()
 
-# Flag to track if mock_opensearch_client fixture is active
-_mock_opensearch_active = False
-
 
 @pytest.fixture
 def mock_opensearch_client():
@@ -28,9 +25,6 @@ def mock_opensearch_client():
             mock_opensearch_client.search.return_value = {"hits": {"hits": [...], "total": {"value": 1}}}
             # ... test code ...
     """
-    global _mock_opensearch_active  # noqa: PLW0603
-    _mock_opensearch_active = True
-
     # Clear the cache to ensure we patch the actual function, not a cached result
     opensearch.opensearch_client.cache_clear()
 
@@ -66,7 +60,6 @@ def mock_opensearch_client():
 
     # Clear cache again after test to ensure clean state for next test
     opensearch.opensearch_client.cache_clear()
-    _mock_opensearch_active = False
 
 
 @pytest.fixture(autouse=True)
