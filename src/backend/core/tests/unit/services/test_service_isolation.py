@@ -48,15 +48,14 @@ class TestIndexServiceIsolation:
         service = factories.ServiceFactory(name="my-docs")
         documents = factories.DocumentFactory.build_batch(3, service="attempt-spoof")
 
-        # Configure mock to return indexed documents with correct service
-        def mock_get(index, id):
+        def mock_get(_index, doc_id):
             for doc in documents:
-                if doc["id"] == id:
+                if doc["id"] == doc_id:
                     return {
-                        "_id": id,
+                        "_id": doc_id,
                         "_source": {**doc, "service": "my-docs"},
                     }
-            return {"_id": id, "_source": {}}
+            return {"_id": doc_id, "_source": {}}
 
         mock_opensearch_client.get.side_effect = mock_get
 

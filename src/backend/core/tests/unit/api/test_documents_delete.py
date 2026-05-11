@@ -6,7 +6,6 @@ from django.conf import LazySettings
 
 import pytest
 import responses
-from opensearchpy.exceptions import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
@@ -139,7 +138,7 @@ def test_api_documents_delete_mixed_access(
 
 @responses.activate
 def test_api_documents_delete_missing_document_ids_and_tags(
-    settings: LazySettings, mock_opensearch_client: MagicMock
+    settings: LazySettings, _mock_opensearch_client: MagicMock
 ) -> None:
     """Requests missing both document_ids and tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -164,7 +163,7 @@ def test_api_documents_delete_missing_document_ids_and_tags(
 
 @responses.activate
 def test_api_documents_delete_empty_document_ids(
-    settings: LazySettings, mock_opensearch_client: MagicMock
+    settings: LazySettings, _mock_opensearch_client: MagicMock
 ) -> None:
     """Requests with empty document_ids and no tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -188,7 +187,7 @@ def test_api_documents_delete_empty_document_ids(
 
 @responses.activate
 def test_api_documents_delete_both_filters_empty(
-    settings: LazySettings, mock_opensearch_client: MagicMock
+    settings: LazySettings, _mock_opensearch_client: MagicMock
 ) -> None:
     """Requests with both document_ids and tags empty should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -326,9 +325,8 @@ def test_api_documents_delete_by_ids_and_tags(
     document_delete_by_tag_and_id = factories.DocumentFactory.build(
         users=["user_sub"], tags=["delete-tag"]
     )
-    document_delete_by_tag_keep_by_id = factories.DocumentFactory.build(
-        users=["user_sub"], tags=["delete-tag"]
-    )
+    # This document exists but won't be in the delete request's document_ids
+    factories.DocumentFactory.build(users=["user_sub"], tags=["delete-tag"])
     document_keep_by_tag_delete_by_id = factories.DocumentFactory.build(
         users=["user_sub"]
     )

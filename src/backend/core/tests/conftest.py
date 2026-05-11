@@ -24,7 +24,7 @@ def mock_opensearch_client():
 
     Usage:
         def test_something(mock_opensearch_client):
-            mock_opensearch_client.search.return_value = {"hits": {"hits": [...], "total": {"value": 1}}}
+            mock_opensearch_client.search.return_value = {"hits": {"hits": [], "total": 1}}
             # ... test code ...
     """
     # Clear the cache to ensure we patch the actual function, not a cached result

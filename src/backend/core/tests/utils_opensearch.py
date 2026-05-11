@@ -31,22 +31,22 @@ def mock_search_response(hits=None, total=0):
     }
 
 
-def mock_index_response(id="test-id", result="created"):
+def mock_index_response(doc_id="test-id", result="created"):
     """
     Create a properly structured OpenSearch index response.
 
     Args:
-        id: The document ID.
+        doc_id: The document ID.
         result: The result status (e.g., "created", "updated").
 
     Returns:
         dict: Properly structured OpenSearch index response.
 
     Example:
-        response = mock_index_response(id="doc-123", result="created")
+        response = mock_index_response(doc_id="doc-123", result="created")
     """
     return {
-        "_id": id,
+        "_id": doc_id,
         "result": result,
     }
 

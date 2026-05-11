@@ -1,10 +1,8 @@
 """Tests indexing documents in OpenSearch over the API (unit tests with mocked OpenSearch)"""
 
 import datetime
-from unittest import mock
 from unittest.mock import MagicMock
 
-from django.conf import settings
 from django.utils import timezone
 
 import pytest
@@ -117,7 +115,8 @@ def test_api_documents_index_bulk_ensure_index(
             "id",
             "0f9b1c9d-030f-427a-8a0e-6b7c202c5daz",
             "uuid_parsing",
-            "Input should be a valid UUID, invalid character: expected an optional prefix of `urn:uuid:` followed by [0-9a-fA-F-], found `z` at 36",
+            "Input should be a valid UUID, invalid character: expected an optional prefix "
+            "of `urn:uuid:` followed by [0-9a-fA-F-], found `z` at 36",
         ),
         ("title", 1, "string_type", "Input should be a valid string"),
         (
