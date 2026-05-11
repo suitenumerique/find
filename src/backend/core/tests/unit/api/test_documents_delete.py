@@ -138,7 +138,7 @@ def test_api_documents_delete_mixed_access(
 
 @responses.activate
 def test_api_documents_delete_missing_document_ids_and_tags(
-    settings: LazySettings, _mock_opensearch_client: MagicMock
+    settings: LazySettings, mock_opensearch_client: MagicMock  # pylint: disable=unused-argument
 ) -> None:
     """Requests missing both document_ids and tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -163,7 +163,7 @@ def test_api_documents_delete_missing_document_ids_and_tags(
 
 @responses.activate
 def test_api_documents_delete_empty_document_ids(
-    settings: LazySettings, _mock_opensearch_client: MagicMock
+    settings: LazySettings, mock_opensearch_client: MagicMock  # pylint: disable=unused-argument
 ) -> None:
     """Requests with empty document_ids and no tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
@@ -187,7 +187,7 @@ def test_api_documents_delete_empty_document_ids(
 
 @responses.activate
 def test_api_documents_delete_both_filters_empty(
-    settings: LazySettings, _mock_opensearch_client: MagicMock
+    settings: LazySettings, mock_opensearch_client: MagicMock  # pylint: disable=unused-argument
 ) -> None:
     """Requests with both document_ids and tags empty should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
