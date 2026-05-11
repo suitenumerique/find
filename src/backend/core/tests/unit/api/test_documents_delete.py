@@ -1,5 +1,9 @@
 """Tests for deleting documents from OpenSearch over the API (unit tests with mocked OpenSearch)"""
 
+from unittest.mock import MagicMock
+
+from django.conf import LazySettings
+
 import pytest
 import responses
 from opensearchpy.exceptions import NotFoundError
@@ -28,7 +32,9 @@ def test_api_documents_delete_anonymous():
 
 
 @responses.activate
-def test_api_documents_delete_success(settings, mock_opensearch_client):
+def test_api_documents_delete_success(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Authenticated users should be able to delete documents they have access to."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
@@ -59,7 +65,9 @@ def test_api_documents_delete_success(settings, mock_opensearch_client):
 
 
 @responses.activate
-def test_api_documents_delete_no_access(settings, mock_opensearch_client):
+def test_api_documents_delete_no_access(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Users should not be able to delete documents they don't have access to."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()
@@ -86,7 +94,9 @@ def test_api_documents_delete_no_access(settings, mock_opensearch_client):
 
 
 @responses.activate
-def test_api_documents_delete_mixed_access(settings, mock_opensearch_client):
+def test_api_documents_delete_mixed_access(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Deleting a mix of owned and non-owned documents should only delete owned ones."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
@@ -128,7 +138,9 @@ def test_api_documents_delete_mixed_access(settings, mock_opensearch_client):
 
 
 @responses.activate
-def test_api_documents_delete_missing_document_ids_and_tags(settings, mock_opensearch_client):
+def test_api_documents_delete_missing_document_ids_and_tags(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Requests missing both document_ids and tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()
@@ -151,7 +163,9 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings, mock_opens
 
 
 @responses.activate
-def test_api_documents_delete_empty_document_ids(settings, mock_opensearch_client):
+def test_api_documents_delete_empty_document_ids(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Requests with empty document_ids and no tags should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
@@ -173,7 +187,9 @@ def test_api_documents_delete_empty_document_ids(settings, mock_opensearch_clien
 
 
 @responses.activate
-def test_api_documents_delete_both_filters_empty(settings, mock_opensearch_client):
+def test_api_documents_delete_both_filters_empty(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Requests with both document_ids and tags empty should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
@@ -195,7 +211,9 @@ def test_api_documents_delete_both_filters_empty(settings, mock_opensearch_clien
 
 
 @responses.activate
-def test_api_documents_delete_nonexistent_documents(settings, mock_opensearch_client):
+def test_api_documents_delete_nonexistent_documents(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """
     Deleting non-existent documents should not raise an error
     and return the list of undeleted ids.
@@ -221,7 +239,9 @@ def test_api_documents_delete_nonexistent_documents(settings, mock_opensearch_cl
 
 
 @responses.activate
-def test_api_documents_delete_by_single_tag(settings, mock_opensearch_client):
+def test_api_documents_delete_by_single_tag(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Users should be able to delete documents by tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()
@@ -257,7 +277,9 @@ def test_api_documents_delete_by_single_tag(settings, mock_opensearch_client):
 
 
 @responses.activate
-def test_api_documents_delete_by_multiple_tags(settings, mock_opensearch_client):
+def test_api_documents_delete_by_multiple_tags(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Users should be able to delete documents matching any of multiple tags."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()
@@ -294,7 +316,9 @@ def test_api_documents_delete_by_multiple_tags(settings, mock_opensearch_client)
 
 
 @responses.activate
-def test_api_documents_delete_by_ids_and_tags(settings, mock_opensearch_client):
+def test_api_documents_delete_by_ids_and_tags(
+    settings: LazySettings, mock_opensearch_client: MagicMock
+) -> None:
     """Users should be able to delete documents by both IDs and tags (AND logic)."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     factories.ServiceFactory()

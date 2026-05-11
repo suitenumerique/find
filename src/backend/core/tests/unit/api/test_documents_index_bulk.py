@@ -2,6 +2,7 @@
 
 import datetime
 from unittest import mock
+from unittest.mock import MagicMock
 
 from django.conf import settings
 from django.utils import timezone
@@ -44,7 +45,7 @@ def test_api_documents_index_bulk_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
-def test_api_documents_index_bulk_success(mock_opensearch_client):
+def test_api_documents_index_bulk_success(mock_opensearch_client: MagicMock) -> None:
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
@@ -73,7 +74,7 @@ def test_api_documents_index_bulk_success(mock_opensearch_client):
     ]
 
 
-def test_api_documents_index_bulk_ensure_index(mock_opensearch_client):
+def test_api_documents_index_bulk_ensure_index(mock_opensearch_client: MagicMock) -> None:
     """A registered service should be created the opensearch index if needed."""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
@@ -293,7 +294,9 @@ def test_api_documents_index_bulk_required(field):
         ("reach", "restricted"),
     ],
 )
-def test_api_documents_index_bulk_default(field, default_value, mock_opensearch_client):
+def test_api_documents_index_bulk_default(
+    field: str, default_value: list | str, mock_opensearch_client: MagicMock
+) -> None:
     """Test bulk document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
@@ -432,7 +435,7 @@ def test_api_documents_index_empty_content_check():
     ]
 
 
-def test_api_documents_index_opensearch_errors(mock_opensearch_client):
+def test_api_documents_index_opensearch_errors(mock_opensearch_client: MagicMock) -> None:
     """Test bulk document indexing errors"""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
