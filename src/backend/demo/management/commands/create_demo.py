@@ -12,10 +12,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from faker import Faker
-from opensearchpy.helpers import bulk
 
 from core import enums, factories
-from core.services.indexing import ensure_index_exists
+from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
 from core.services.opensearch import opensearch_client
 
 from demo import defaults
@@ -23,57 +22,6 @@ from demo import defaults
 fake = Faker()
 
 logger = logging.getLogger("find.commands.demo.create_demo")
-
-
-class BulkIndexing:
-    """A utility class to index to OpenSearch in bulk by just pushing to a queue."""
-
-    BATCH_SIZE = 20000
-
-    def __init__(self, stdout, *args, **kwargs):
-        """Define actions as a list."""
-        self.actions = []
-        self.stdout = stdout
-        self.logger = logging.getLogger(__name__)
-
-    def bulk_index(self):
-        """Actually index documents in bulk to OpenSearch."""
-        _success, failed = bulk(opensearch_client(), self.actions, stats_only=False)
-
-        if failed:
-            self.handle_failures(failed)
-
-        # Clear the actions list after bulk indexing and display progress
-        self.actions.clear()
-        self.stdout.write(".", ending="")
-
-    def handle_failures(self, failed):
-        """Handle the failed bulk operations."""
-        for failure in failed:
-            self.logger.error("Failed to index document: %s", failure)
-
-    def push(self, index_name, _id, document):
-        """Add a document to queue so that it gets created in bulk."""
-        self.actions.append(
-            {
-                "_op_type": "index",
-                "_index": index_name,
-                "_id": _id,
-                "_source": document,
-            }
-        )
-
-        if len(self.actions) >= self.BATCH_SIZE:
-            self.bulk_index()
-
-    def flush(self):
-        """Flush any remaining documents in the queue."""
-        if self.actions:
-            self.bulk_index()
-
-    def __del__(self):
-        """Ensure that any remaining documents are indexed when the instance is deleted."""
-        self.flush()
 
 
 class Timeit:
@@ -156,12 +104,33 @@ def create_demo(stdout):
             opensearch_client_.indices.refresh(index=service.name)
 
     with Timeit(stdout, "Creating documents"):
-        actions = BulkIndexing(stdout)
-        for _ in range(defaults.NB_OBJECTS["documents"]):
+        for i in range(defaults.NB_OBJECTS["documents"]):
             service = random.choice(services)
             document = generate_document()
-            actions.push(service.name, uuid4(), document)
-        actions.flush()
+            doc_id = str(uuid4())
+
+            raw_document = {
+                "id": doc_id,
+                "title": document.get("title.en", ""),
+                "content": document.get("content.en", ""),
+                "depth": 0,
+                "path": "/",
+                "numchild": 0,
+                "created_at": document["created_at"],
+                "updated_at": document["updated_at"],
+                "size": document["size"],
+                "users": document["users"],
+                "groups": document["groups"],
+                "reach": document["reach"],
+                "is_active": True,
+            }
+
+            prepared = prepare_document_for_indexing(raw_document)
+            prepared.pop("id")
+            opensearch_client_.index(index=service.index_name, body=prepared, id=doc_id)
+
+            if (i + 1) % 100 == 0:
+                stdout.write(f"  Indexed {i + 1} documents...")
 
     with Timeit(stdout, "Creating dev services"):
         for conf in defaults.DEV_SERVICES:

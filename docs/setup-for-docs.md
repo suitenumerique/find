@@ -2,7 +2,7 @@
 
 This configuration will enable the fulltext search feature for Docs :
 - Each save on **core.Document** or **core.DocumentAccess** will trigger the indexer
-- The `api/v1.0/documents/search/` will work as a proxy with the Find API for fulltext search.
+- The `api/v1.0/resources/search/` will work as a proxy with the Find API for fulltext search.
 
 ## Create an index service for Docs
 
@@ -23,10 +23,10 @@ SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
 # The token from service "docs" of Find application (development).
 SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
-SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
+SEARCH_INDEXER_URL="http://find:8000/api/v1.0/resources/index/"
 
 # Search endpoint. Uses the OIDC token for authentication
-SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/documents/search/"
+SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/resources/search/"
 ```
 
 We also need to enable the **OIDC Token** refresh or the authentication will fail quickly.

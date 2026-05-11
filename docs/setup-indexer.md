@@ -58,7 +58,7 @@ either an absolute number or proportion.
 
 ## Setup indexation API
 
-Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
+Other applications can index their files through the `/resources/index/` endpoint with a simple token authentication.
 
 For each application a new **Service** must be created through the admin interface
 (see http://localhost:9071/admin/core/service/add/)
@@ -86,6 +86,24 @@ SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
 # Drive
 SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
 ```
+
+### Delete a document
+
+To delete a document from the index, use the DELETE endpoint:
+
+```
+DELETE /api/v1.0/resources/{document_id}/
+```
+
+This endpoint requires an OIDC user token for authentication (ResourceServerAuthentication).
+
+#### Responses
+
+| Status | Description |
+|--------|-------------|
+| 204 No Content | Document successfully deleted |
+| 404 Not Found | Document does not exist |
+| 403 Forbidden | User is not authorized to delete this document |
 
 ## Setup search API
 

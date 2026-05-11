@@ -23,10 +23,10 @@ SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
 # The token from service "drive" of Find application (development)
 SEARCH_INDEXER_SECRET=find-api-key-for-driv-with-exactly-50-chars-length
-SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
+SEARCH_INDEXER_URL="http://find:8000/api/v1.0/resources/index/"
 
 # Search endpoint. Uses the OIDC token for authentication
-SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/documents/search/"
+SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/resources/search/"
 
 # Limit the mimetypes and size of indexable files
 SEARCH_INDEXER_ALLOWED_MIMETYPES=["text/"]

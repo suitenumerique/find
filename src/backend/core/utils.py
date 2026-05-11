@@ -1,33 +1,39 @@
 """Tests Service model for find's core app."""
 
 import logging
-from typing import List
 
 from django.conf import settings as django_settings
 
-from opensearchpy.helpers import bulk
+from rest_framework.test import APIClient
 
-from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
+from core.models import Service
+from core.services.indexing import ensure_index_exists
 from core.services.opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
 
-def prepare_index(index_name, documents: List):
+def prepare_index(index_name: str, documents: list, service: Service) -> None:
     """Prepare the search index before testing a query on it."""
     logger.info("Preparing index %s with %d documents", index_name, len(documents))
 
     ensure_index_exists(index_name)
-    actions = [
-        {
-            "_op_type": "index",
-            "_index": index_name,
-            "_id": document["id"],
-            "_source": prepare_document_for_indexing(document),
-        }
-        for document in documents
-    ]
-    bulk(opensearch_client(), actions)
+
+    client = APIClient()
+    for document in documents:
+        response = client.post(
+            "/api/v1.0/resources/index/",
+            document,
+            HTTP_AUTHORIZATION=f"Bearer {service.token}",
+            format="json",
+        )
+        if response.status_code != 201:
+            logger.error(
+                "Failed to index document %s: %s",
+                document["id"],
+                response.content,
+            )
+
     opensearch_client().indices.refresh(index=index_name)
 
 

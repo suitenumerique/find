@@ -1,6 +1,6 @@
 """Impress core API endpoints"""
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import SuspiciousOperation, ValidationError
 
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import exceptions as drf_exceptions
@@ -31,6 +31,18 @@ def exception_handler(exc, context):
                 {key: error[key] for key in ("msg", "type", "loc")}
                 for error in exc.errors()
             ],
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    elif isinstance(exc, TypeError) and "argument after **" in str(exc):
+        return Response(
+            {"detail": "Expected object, got array."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    elif isinstance(exc, SuspiciousOperation):
+        return Response(
+            {"detail": "Invalid request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
