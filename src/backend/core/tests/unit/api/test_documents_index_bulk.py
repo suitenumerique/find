@@ -109,13 +109,13 @@ def test_api_documents_index_bulk_ensure_index(
 
 
 @pytest.mark.parametrize(
-    "field, invalid_value, error_type, error_message_contains",
+    "field, invalid_value, error_type, error_message",
     [
         (
             "id",
             "0f9b1c9d-030f-427a-8a0e-6b7c202c5daz",
             "uuid_parsing",
-            "Input should be a valid UUID",
+            "Input should be a valid UUID, invalid character: found `z` at 36",
         ),
         ("title", 1, "string_type", "Input should be a valid string"),
         (
@@ -218,7 +218,7 @@ def test_api_documents_index_bulk_ensure_index(
     ],
 )
 def test_api_documents_index_bulk_invalid_document(
-    field, invalid_value, error_type, error_message_contains
+    field, invalid_value, error_type, error_message
 ):
     """Test bulk document indexing with various invalid fields."""
     service = factories.ServiceFactory()
@@ -235,17 +235,16 @@ def test_api_documents_index_bulk_invalid_document(
 
     assert response.status_code == 400
 
-    result = response.json()
-    assert len(result) == 3
-    assert result[0]["index"] == 0
-    assert result[0]["status"] == "error"
-    assert len(result[0]["errors"]) == 1
-    assert result[0]["errors"][0]["type"] == error_type
-    assert error_message_contains in result[0]["errors"][0]["msg"]
     expected_loc = [field, 0] if isinstance(invalid_value, list) else [field]
-    assert result[0]["errors"][0]["loc"] == expected_loc
-    assert result[1] == {"index": 1, "_id": documents[1]["id"], "status": "valid"}
-    assert result[2] == {"index": 2, "_id": documents[2]["id"], "status": "valid"}
+    assert response.json() == [
+        {
+            "index": 0,
+            "status": "error",
+            "errors": [{"msg": error_message, "type": error_type, "loc": expected_loc}],
+        },
+        {"index": 1, "_id": documents[1]["id"], "status": "valid"},
+        {"index": 2, "_id": documents[2]["id"], "status": "valid"},
+    ]
 
 
 @pytest.mark.parametrize(
