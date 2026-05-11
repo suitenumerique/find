@@ -153,7 +153,7 @@ test-back: ## run back-end tests
 
 test-back-parallel: ## run all back-end tests in parallel
 	@args="$(filter-out $@,$(MAKECMDGOALS))" && \
-	bin/pytest -n 4 $${args:-${1}}
+	bin/pytest -n auto $${args:-${1}}
 .PHONY: test-back-parallel
 
 makemigrations:  ## run django makemigrations for the find project.

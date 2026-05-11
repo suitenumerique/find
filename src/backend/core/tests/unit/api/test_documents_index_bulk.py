@@ -1,17 +1,17 @@
-"""Tests indexing documents in OpenSearch over the API"""
+"""Tests indexing documents in OpenSearch over the API (unit tests with mocked OpenSearch)"""
 
 import datetime
-from unittest import mock
+from unittest.mock import MagicMock
 
-from django.conf import settings
 from django.utils import timezone
 
 import pytest
-from opensearchpy import NotFoundError
+from opensearchpy.exceptions import NotFoundError
 from rest_framework.test import APIClient
 
 from core import factories
-from core.services import opensearch
+
+from ...utils_opensearch import mock_bulk_response
 
 pytestmark = pytest.mark.django_db
 
@@ -43,10 +43,19 @@ def test_api_documents_index_bulk_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
-def test_api_documents_index_bulk_success():
+def test_api_documents_index_bulk_success(mock_opensearch_client: MagicMock) -> None:
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
+
+    mock_opensearch_client.bulk.return_value = mock_bulk_response(
+        items=[
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
+        ],
+        errors=False,
+    )
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -57,20 +66,29 @@ def test_api_documents_index_bulk_success():
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
 
 
-def test_api_documents_index_bulk_ensure_index():
+def test_api_documents_index_bulk_ensure_index(
+    mock_opensearch_client: MagicMock,
+) -> None:
     """A registered service should be created the opensearch index if needed."""
-    opensearch_client_ = opensearch.opensearch_client()
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
 
-    with pytest.raises(NotFoundError):
-        opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
+    mock_opensearch_client.indices.get.side_effect = NotFoundError(
+        404, "index_not_found_exception"
+    )
+    mock_opensearch_client.bulk.return_value = mock_bulk_response(
+        items=[
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
+        ],
+        errors=False,
+    )
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -81,13 +99,11 @@ def test_api_documents_index_bulk_ensure_index():
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
 
-    # The index has been rebuilt
-    opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
+    mock_opensearch_client.indices.create.assert_called()
 
 
 @pytest.mark.parametrize(
@@ -95,7 +111,7 @@ def test_api_documents_index_bulk_ensure_index():
     [
         (
             "id",
-            "0f9b1c9d-030f-427a-8a0e-6b7c202c5daz",  # invalid UUID b/c contains a z
+            "0f9b1c9d-030f-427a-8a0e-6b7c202c5daz",
             "uuid_parsing",
             "Input should be a valid UUID, invalid character: found `z` at 36",
         ),
@@ -206,7 +222,6 @@ def test_api_documents_index_bulk_invalid_document(
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
 
-    # Modify the first document with the invalid value for the specified field
     documents[0][field] = invalid_value
 
     response = APIClient().post(
@@ -218,7 +233,6 @@ def test_api_documents_index_bulk_invalid_document(
 
     assert response.status_code == 400
 
-    # When invalid_value is a list, the error loc includes the element index
     expected_loc = [field, 0] if isinstance(invalid_value, list) else [field]
     assert response.json() == [
         {
@@ -280,12 +294,23 @@ def test_api_documents_index_bulk_required(field):
         ("reach", "restricted"),
     ],
 )
-def test_api_documents_index_bulk_default(field, default_value):
+def test_api_documents_index_bulk_default(
+    field: str, default_value: list | str, mock_opensearch_client: MagicMock
+) -> None:
     """Test bulk document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
 
     del documents[0][field]
+
+    mock_opensearch_client.bulk.return_value = mock_bulk_response(
+        items=[
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
+        ],
+        errors=False,
+    )
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -296,15 +321,15 @@ def test_api_documents_index_bulk_default(field, default_value):
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
 
-    indexed_document = opensearch.opensearch_client().get(
-        index=settings.OPENSEARCH_INDEX, id=documents[0]["id"]
-    )["_source"]
-    assert indexed_document[field] == default_value
+    # Verify the default value was applied in the indexed document
+    mock_opensearch_client.bulk.assert_called_once()
+    bulk_body = mock_opensearch_client.bulk.call_args.kwargs["body"]
+    first_doc_body = bulk_body[1]  # [action, doc, action, doc, ...]
+    assert first_doc_body[field] == default_value
 
 
 def test_api_documents_index_bulk_updated_at_before_created_at():
@@ -411,30 +436,31 @@ def test_api_documents_index_empty_content_check():
     ]
 
 
-def test_api_documents_index_opensearch_errors():
+def test_api_documents_index_opensearch_errors(
+    mock_opensearch_client: MagicMock,
+) -> None:
     """Test bulk document indexing errors"""
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3)
 
-    with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
-        mock_bulk.return_value = {
-            "items": [
-                {"index": {"status": 201}},
-                {
-                    "index": {
-                        "status": 400,
-                    }
-                },
-                {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
-            ]
-        }
+    mock_opensearch_client.bulk.return_value = {
+        "items": [
+            {"index": {"status": 201}},
+            {
+                "index": {
+                    "status": 400,
+                }
+            },
+            {"index": {"status": 403, "error": {"reason": "This is forbidden"}}},
+        ]
+    }
 
-        response = APIClient().post(
-            "/api/v1.0/documents/index/",
-            documents,
-            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-            format="json",
-        )
+    response = APIClient().post(
+        "/api/v1.0/documents/index/",
+        documents,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        format="json",
+    )
 
     assert response.status_code == 201
     assert response.json() == [
