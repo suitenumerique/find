@@ -1,5 +1,7 @@
 """Tests for service isolation (unit tests with mocked OpenSearch)."""
 
+from unittest.mock import MagicMock
+
 from django.conf import settings
 
 import pytest
@@ -15,8 +17,8 @@ class TestIndexServiceIsolation:
     """Test service field is correctly set during document indexing."""
 
     def test_index_document_service_field_from_auth_not_payload(
-        self, mock_opensearch_client
-    ):
+        self, mock_opensearch_client: MagicMock
+    ) -> None:
         """Service field in payload is ignored; auth token determines service."""
         service = factories.ServiceFactory(name="docs-service")
         document = factories.DocumentFactory.build(service="spoofed-drive")
@@ -42,8 +44,8 @@ class TestIndexServiceIsolation:
         assert indexed_doc["_source"]["service"] == "docs-service"
 
     def test_bulk_index_service_field_from_auth_not_payload(
-        self, mock_opensearch_client
-    ):
+        self, mock_opensearch_client: MagicMock
+    ) -> None:
         """Verify service field is correctly set for bulk indexing."""
         service = factories.ServiceFactory(name="my-docs")
         documents = factories.DocumentFactory.build_batch(3, service="attempt-spoof")
