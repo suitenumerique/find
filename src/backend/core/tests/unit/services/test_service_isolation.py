@@ -2,13 +2,13 @@
 
 from unittest.mock import MagicMock
 
-from django.conf import settings
-
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from core import factories
+
+from ...utils_opensearch import mock_bulk_response
 
 pytestmark = pytest.mark.django_db
 
@@ -23,12 +23,6 @@ class TestIndexServiceIsolation:
         service = factories.ServiceFactory(name="docs-service")
         document = factories.DocumentFactory.build(service="spoofed-drive")
 
-        # Configure mock to return the indexed document with correct service
-        mock_opensearch_client.get.return_value = {
-            "_id": document["id"],
-            "_source": {**document, "service": "docs-service"},
-        }
-
         response = APIClient().post(
             "/api/v1.0/documents/index/",
             document,
@@ -38,28 +32,28 @@ class TestIndexServiceIsolation:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        indexed_doc = mock_opensearch_client.get(
-            index=settings.OPENSEARCH_INDEX, id=document["id"]
-        )
-        assert indexed_doc["_source"]["service"] == "docs-service"
+        # Verify that the document sent to OpenSearch has service from auth, not payload
+        mock_opensearch_client.index.assert_called_once()
+        call_kwargs = mock_opensearch_client.index.call_args.kwargs
+        indexed_body = call_kwargs["body"]
+        assert indexed_body["service"] == "docs-service"
+        assert indexed_body["service"] != "spoofed-drive"
 
     def test_bulk_index_service_field_from_auth_not_payload(
         self, mock_opensearch_client: MagicMock
     ) -> None:
         """Verify service field is correctly set for bulk indexing."""
         service = factories.ServiceFactory(name="my-docs")
-        documents = factories.DocumentFactory.build_batch(3, service="attempt-spoof")
+        n_documents = 3
+        documents = factories.DocumentFactory.build_batch(n_documents, service="attempt-spoof")
 
-        def mock_get(index=None, id=None):  # pylint: disable=redefined-builtin,unused-argument
-            for doc in documents:
-                if doc["id"] == id:
-                    return {
-                        "_id": id,
-                        "_source": {**doc, "service": "my-docs"},
-                    }
-            return {"_id": id, "_source": {}}
-
-        mock_opensearch_client.get.side_effect = mock_get
+        mock_opensearch_client.bulk.return_value = mock_bulk_response(
+            items=[
+                {"index": {"_id": doc["id"], "status": 201}}
+                for doc in documents
+            ],
+            errors=False,
+        )
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -70,8 +64,13 @@ class TestIndexServiceIsolation:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        for doc in documents:
-            indexed_doc = mock_opensearch_client.get(
-                index=settings.OPENSEARCH_INDEX, id=doc["id"]
-            )
-            assert indexed_doc["_source"]["service"] == "my-docs"
+        # Verify that all documents sent to OpenSearch have service from auth, not payload
+        mock_opensearch_client.bulk.assert_called_once()
+        call_kwargs = mock_opensearch_client.bulk.call_args.kwargs
+        bulk_body = call_kwargs["body"]
+
+        # bulk body is [action, doc, action, doc, ...] pattern
+        for i in range(n_documents):
+            doc_body = bulk_body[i * 2 + 1]  # Skip the action dict
+            assert doc_body["service"] == "my-docs"
+            assert doc_body["service"] != "attempt-spoof"

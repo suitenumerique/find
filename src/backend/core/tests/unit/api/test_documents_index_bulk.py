@@ -46,13 +46,13 @@ def test_api_documents_index_bulk_invalid_token():
 def test_api_documents_index_bulk_success(mock_opensearch_client: MagicMock) -> None:
     """A registered service should be able to index documents in bulk with a valid token."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
 
     mock_opensearch_client.bulk.return_value = mock_bulk_response(
         items=[
-            {"index": {"_id": documents[0]["id"], "status": 201}},
-            {"index": {"_id": documents[1]["id"], "status": 201}},
-            {"index": {"_id": documents[2]["id"], "status": 201}},
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
         ],
         errors=False,
     )
@@ -66,9 +66,8 @@ def test_api_documents_index_bulk_success(mock_opensearch_client: MagicMock) -> 
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
 
 
@@ -77,16 +76,16 @@ def test_api_documents_index_bulk_ensure_index(
 ) -> None:
     """A registered service should be created the opensearch index if needed."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
 
     mock_opensearch_client.indices.get.side_effect = NotFoundError(
         404, "index_not_found_exception"
     )
     mock_opensearch_client.bulk.return_value = mock_bulk_response(
         items=[
-            {"index": {"_id": documents[0]["id"], "status": 201}},
-            {"index": {"_id": documents[1]["id"], "status": 201}},
-            {"index": {"_id": documents[2]["id"], "status": 201}},
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
         ],
         errors=False,
     )
@@ -100,9 +99,8 @@ def test_api_documents_index_bulk_ensure_index(
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
 
     mock_opensearch_client.indices.create.assert_called()
@@ -301,22 +299,18 @@ def test_api_documents_index_bulk_default(
 ) -> None:
     """Test bulk document indexing while removing optional fields that have default values."""
     service = factories.ServiceFactory()
-    documents = factories.DocumentFactory.build_batch(3)
+    n_documents = 3
+    documents = factories.DocumentFactory.build_batch(n_documents)
 
     del documents[0][field]
 
     mock_opensearch_client.bulk.return_value = mock_bulk_response(
         items=[
-            {"index": {"_id": documents[0]["id"], "status": 201}},
-            {"index": {"_id": documents[1]["id"], "status": 201}},
-            {"index": {"_id": documents[2]["id"], "status": 201}},
+            {"index": {"_id": documents[idx]["id"], "status": 201}}
+            for idx in range(n_documents)
         ],
         errors=False,
     )
-    mock_opensearch_client.get.return_value = {
-        "_id": documents[0]["id"],
-        "_source": {field: default_value},
-    }
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -327,10 +321,15 @@ def test_api_documents_index_bulk_default(
 
     assert response.status_code == 201
     assert response.json() == [
-        {"index": 0, "_id": documents[0]["id"], "status": "success"},
-        {"index": 1, "_id": documents[1]["id"], "status": "success"},
-        {"index": 2, "_id": documents[2]["id"], "status": "success"},
+        {"index": idx, "_id": documents[idx]["id"], "status": "success"}
+        for idx in range(n_documents)
     ]
+
+    # Verify the default value was applied in the indexed document
+    mock_opensearch_client.bulk.assert_called_once()
+    bulk_body = mock_opensearch_client.bulk.call_args.kwargs["body"]
+    first_doc_body = bulk_body[1]  # [action, doc, action, doc, ...]
+    assert first_doc_body[field] == default_value
 
 
 def test_api_documents_index_bulk_updated_at_before_created_at():

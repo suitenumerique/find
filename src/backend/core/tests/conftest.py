@@ -26,7 +26,7 @@ def mock_opensearch_client():
     """
     Fixture that patches core.services.opensearch.opensearch_client with a MagicMock.
 
-    Handles the @cache decorator by calling cache_clear() before patching.
+    Handles the @cache decorator by calling cache_clear() after the test.
     Provides sensible default return values for all common OpenSearch operations.
 
     Usage:
@@ -34,9 +34,6 @@ def mock_opensearch_client():
             mock_opensearch_client.search.return_value = {"hits": {"hits": [], "total": 1}}
             # ... test code ...
     """
-    # Clear the cache to ensure we patch the actual function, not a cached result
-    opensearch.opensearch_client.cache_clear()
-
     mock_client = MagicMock()
 
     # Configure default return values for self-tests and health checks
