@@ -14,6 +14,13 @@ from core.services import indexing, opensearch
 fake = Faker()
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Force integration tests to run on a single worker (serial execution)."""
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(pytest.mark.xdist_group("integration"))
+
+
 @pytest.fixture
 def mock_opensearch_client():
     """
