@@ -36,7 +36,9 @@ def mock_search_response(
     }
 
 
-def mock_index_response(doc_id: str = "test-id", result: str = "created") -> dict[str, str]:
+def mock_index_response(
+    doc_id: str = "test-id", result: str = "created"
+) -> dict[str, str]:
     """
     Create a properly structured OpenSearch index response.
 
