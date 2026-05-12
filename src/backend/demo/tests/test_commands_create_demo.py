@@ -12,7 +12,7 @@ from core.services.opensearch import opensearch_client
 
 from demo import defaults
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.integration]
 
 TEST_NB_OBJECTS = {
     "documents": 4,
