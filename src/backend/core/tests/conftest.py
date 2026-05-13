@@ -9,7 +9,7 @@ from faker import Faker
 from opensearchpy.exceptions import NotFoundError
 
 from core import views
-from core.services import indexing, opensearch
+from core.services import indexing, opensearch, search
 
 fake = Faker()
 
@@ -63,6 +63,7 @@ def mock_opensearch_client():
         patch.object(opensearch, "opensearch_client", return_value=mock_client),
         patch.object(views, "opensearch_client", return_value=mock_client),
         patch.object(indexing, "opensearch_client", return_value=mock_client),
+        patch.object(search, "opensearch_client", return_value=mock_client),
     ):
         yield mock_client
 

@@ -14,6 +14,8 @@ from rest_framework.response import Response
 from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
+from .query.builder import combine_with_system_scope
+from .query.dsl import SearchQuerySchema
 from .services.indexing import (
     ensure_index_exists,
     prepare_document_for_indexing,
@@ -280,85 +282,31 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):
-    """
-    API view for searching documents in OpenSearch.
-        - Enables searching through indexed documents with support for various filters
-          and sorting options.
-        - The search results can be sorted or filtered via querystring parameters.
-    """
+    """API view for searching documents using structured DSL queries."""
 
     permission_classes = [IsAuthAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        """
-        Handle POST requests to perform a search on indexed documents with optional filtering
-        and ordering.
-
-        The search query should be provided as a "q" parameter. The method constructs a
-        search request to OpenSearch using the specified query, with the option to filter by
-        'reach' and order by 'relevance', 'created_at', 'updated_at', or 'size'.
-        The results are further filtered by 'users' and 'groups' based on the authentication
-        header.
-
-        Body Parameters:
-        ---------------
-        q : str
-            The search query string. This is a required parameter.
-        reach : str, optional
-            Filter results based on the 'reach' field.
-        tags : List[str], optional
-            Filter results based on the 'tags' field. Documents matching any of the
-            provided tags will be returned.
-        path : str, optional
-            Filter results based on the 'path' field. Only documents whose path
-            starts with the provided value will be returned.
-        order_by : str, optional
-            Order results by 'relevance', 'created_at', 'updated_at', or 'size'.
-            Defaults to 'relevance' if not specified.
-        order_direction : str, optional
-            Order direction, 'asc' for ascending or 'desc' for descending.
-            Defaults to 'desc'.
-        nb_results : int, optional
-            The number of results to return.
-            Defaults to 50 if not specified.
-        services: List[str], optional
-            List of services on which we intend to run the query (current service if left empty)
-        visited: List[sub], optional
-            List of public/authenticated documents the user has visited to limit
-            the document returned to the ones the current user has seen.
-            Built from linkreach list of a document in docs app.
-
-        Returns:
-        --------
-        Response : rest_framework.response.Response
-            - 200 OK: Returns a list of search results matching the query.
-            - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
-        """
-        # Get list of groups related to the user from SCIM provider (consider caching result)
-        user_sub = self.request.user.sub
-        groups = []
+        user_sub = getattr(getattr(self.request, "user", None), "sub", None)
+        service = getattr(request, "resource_server_token_audience", None)
 
         try:
-            params = schemas.SearchQueryParameters(**request.data)
+            params = SearchQuerySchema(**request.data)
         except PydanticValidationError as excpt:
             errors = {error["loc"][0]: error["msg"] for error in excpt.errors()}
             logger.error("Validation error: %s", errors)
             raise excpt
 
-        logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
-        result = search(
-            query=params.q,
-            nb_results=params.nb_results,
-            order_by=params.order_by,
-            order_direction=params.order_direction,
-            search_indices=[settings.OPENSEARCH_INDEX],
-            reach=params.reach,
-            visited=params.visited,
-            user_sub=user_sub,
-            groups=groups,
-            tags=params.tags,
-            path=params.path,
-        )["hits"]["hits"]
+        # Widen to QueryField when merging system scope (user input is UserQueryField)
+        combined_where = combine_with_system_scope(
+            params.where,
+            user_sub,
+            service,  # type: ignore[arg-type]
+        )
+        search_params = params.model_copy(update={"where": combined_where})
+
+        logger.info("Search '%s' on index %s", params.query, settings.OPENSEARCH_INDEX)
+        result = search(search_params, [settings.OPENSEARCH_INDEX])["hits"]["hits"]
         logger.info("found %d results", len(result))
         logger.debug("results %s", result)
 

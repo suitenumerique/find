@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Optional
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -9,10 +9,8 @@ from pydantic import (
     UUID4,
     AwareDatetime,
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     Field,
-    conint,
     field_validator,
     model_validator,
 )
@@ -85,38 +83,6 @@ class Document(BaseModel):
                 )
             validated_groups.append(value)
         return validated_groups
-
-
-def cleanlist(value):
-    """Build a list of strings from a string, None (empty list) or a list of objects."""
-    if isinstance(value, str):
-        # Convert comma-separated strings to list
-        return [s.strip() for s in value.split(",") if s.strip()]
-
-    if isinstance(value, list):
-        # Clean up list of strings
-        return [str(s).strip() for s in value if s is not None and str(s).strip()]
-
-    if value is None:
-        return []
-
-    raise ValueError()
-
-
-StringListParameter = Annotated[List[str], BeforeValidator(cleanlist)]
-
-
-class SearchQueryParameters(BaseModel):
-    """Schema for validating the querystring on the search API endpoint"""
-
-    q: str
-    visited: StringListParameter = Field(default_factory=list)
-    reach: Optional[enums.ReachEnum] = None
-    tags: StringListParameter = Field(default_factory=list)
-    path: Optional[str] = None
-    order_by: Optional[Literal[enums.ORDER_BY_OPTIONS]] = Field(default=enums.RELEVANCE)
-    order_direction: Optional[Literal["asc", "desc"]] = Field(default="desc")
-    nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
 
 
 class DeleteDocuments(BaseModel):
