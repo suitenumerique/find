@@ -270,6 +270,36 @@ class Base(Configuration):
         "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
         "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
         "REDOC_DIST": "SIDECAR",
+        "COMPONENTS": {
+            "schemas": {
+                "ProblemDetails": {
+                    "type": "object",
+                    "required": ["type", "title", "status", "detail"],
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "A URI reference identifying the problem type",
+                            "example": "about:blank",
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "A short, human-readable summary of the problem type",
+                            "example": "Bad Request",
+                        },
+                        "status": {
+                            "type": "integer",
+                            "description": "The HTTP status code",
+                            "example": 400,
+                        },
+                        "detail": {
+                            "type": "string",
+                            "description": "A human-readable explanation specific to this occurrence",
+                            "example": "Validation failed",
+                        },
+                    },
+                }
+            }
+        },
     }
 
     AUTH_USER_MODEL = "core.User"

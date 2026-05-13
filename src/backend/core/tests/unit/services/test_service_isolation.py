@@ -39,21 +39,13 @@ class TestIndexServiceIsolation:
         assert indexed_body["service"] == "docs-service"
         assert indexed_body["service"] != "spoofed-drive"
 
-    def test_bulk_index_service_field_from_auth_not_payload(
+    def test_bulk_index_rejected(
         self, mock_opensearch_client: MagicMock
     ) -> None:
-        """Verify service field is correctly set for bulk indexing."""
+        """Verify bulk indexing is rejected with 400 error."""
         service = factories.ServiceFactory(name="my-docs")
         n_documents = 3
         documents = factories.DocumentFactory.build_batch(n_documents, service="attempt-spoof")
-
-        mock_opensearch_client.bulk.return_value = mock_bulk_response(
-            items=[
-                {"index": {"_id": doc["id"], "status": 201}}
-                for doc in documents
-            ],
-            errors=False,
-        )
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -62,15 +54,8 @@ class TestIndexServiceIsolation:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_201_CREATED
-
-        # Verify that all documents sent to OpenSearch have service from auth, not payload
-        mock_opensearch_client.bulk.assert_called_once()
-        call_kwargs = mock_opensearch_client.bulk.call_args.kwargs
-        bulk_body = call_kwargs["body"]
-
-        # bulk body is [action, doc, action, doc, ...] pattern
-        for i in range(n_documents):
-            doc_body = bulk_body[i * 2 + 1]  # Skip the action dict
-            assert doc_body["service"] == "my-docs"
-            assert doc_body["service"] != "attempt-spoof"
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["detail"] == "Bulk indexing not supported. Send a single document."
+        
+        # Verify OpenSearch was not called
+        mock_opensearch_client.bulk.assert_not_called()

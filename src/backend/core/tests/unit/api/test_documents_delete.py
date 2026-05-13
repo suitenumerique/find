@@ -27,7 +27,10 @@ def test_api_documents_delete_anonymous():
 
     assert response.status_code == 401
     assert response.json() == {
-        "detail": "Authentication credentials were not provided."
+        "type": "about:blank",
+        "title": "Unauthorized",
+        "status": 401,
+        "detail": "Authentication credentials were not provided.",
     }
 
 
@@ -154,13 +157,12 @@ def test_api_documents_delete_missing_document_ids_and_tags(
     )
 
     assert response.status_code == 400
-    assert response.json() == [
-        {
-            "type": "value_error",
-            "loc": [],
-            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
-        }
-    ]
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Bad Request",
+        "status": 400,
+        "detail": "Validation failed",
+    }
 
 
 @responses.activate
@@ -179,13 +181,12 @@ def test_api_documents_delete_empty_document_ids(
     )
 
     assert response.status_code == 400
-    assert response.json() == [
-        {
-            "type": "value_error",
-            "loc": [],
-            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
-        }
-    ]
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Bad Request",
+        "status": 400,
+        "detail": "Validation failed",
+    }
 
 
 @responses.activate
@@ -204,13 +205,12 @@ def test_api_documents_delete_both_filters_empty(
     )
 
     assert response.status_code == 400
-    assert response.json() == [
-        {
-            "type": "value_error",
-            "loc": [],
-            "msg": "Value error, At least one of 'document_ids' or 'tags' must be provided",
-        }
-    ]
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Bad Request",
+        "status": 400,
+        "detail": "Validation failed",
+    }
 
 
 @responses.activate
