@@ -1,101 +1,211 @@
-"""Pydantic model to validate documents before indexation."""
+"""msgspec-based schemas for high-performance serialization."""
 
-from typing import Annotated, List, Optional
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, Generic, List, Literal, Optional, TypeVar, Union
+from uuid import UUID
 
+import msgspec
 from django.utils import timezone
 from django.utils.text import slugify
-
-from pydantic import (
-    UUID4,
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from msgspec import Meta, Struct, field
+from msgspec.structs import force_setattr
 
 from . import enums
 
 
-class Document(BaseModel):
+AwareDatetime = Annotated[datetime, Meta(tz=True)]
+
+
+class Document(Struct):
     """Schema for validating the documents submitted to our API for indexing"""
 
-    id: UUID4
-    title: Annotated[str, Field(max_length=300, min_length=0)]
-    depth: Annotated[int, Field(ge=0)]
-    path: Annotated[str, Field(max_length=300)]
-    numchild: Annotated[int, Field(ge=0)]
-    content: Annotated[str, Field(min_length=0)]
+    id: UUID
+    title: Annotated[str, Meta(max_length=300)]
+    depth: Annotated[int, Meta(ge=0)]
+    path: Annotated[str, Meta(max_length=300)]
+    numchild: Annotated[int, Meta(ge=0)]
+    content: str
     created_at: AwareDatetime
     updated_at: AwareDatetime
-    size: Annotated[int, Field(ge=0, le=100 * 1024**3)]  # File size limited to 100GB
-    users: List[Annotated[str, Field(max_length=50)]] = Field(default_factory=list)
-    groups: List[Annotated[str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]] = Field(
-        default_factory=list
-    )
-    reach: Optional[enums.ReachEnum] = Field(default=enums.ReachEnum.RESTRICTED)
-    tags: List[Annotated[str, Field(max_length=100)]] = Field(default_factory=list)
+    size: Annotated[int, Meta(ge=0, le=100 * 1024**3)]
     is_active: bool
+    users: List[Annotated[str, Meta(max_length=50)]] = []
+    groups: List[Annotated[str, Meta(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]] = []
+    reach: Optional[enums.ReachEnum] = enums.ReachEnum.RESTRICTED
+    tags: List[Annotated[str, Meta(max_length=100)]] = []
 
-    model_config = ConfigDict(
-        str_min_length=1, str_strip_whitespace=True, use_enum_values=True
-    )
+    def __post_init__(self):
+        force_setattr(self, "title", self.title.strip().lower())
 
-    @field_validator("title")
-    @staticmethod
-    def normalize_title(value):
-        """Normalize the title field by stripping whitespace and converting to lowercase"""
-        return value.strip().lower()
+        now = timezone.now()
+        if self.created_at >= now:
+            raise ValueError("created_at must be earlier than now")
+        if self.updated_at >= now:
+            raise ValueError("updated_at must be earlier than now")
 
-    @field_validator("created_at", "updated_at")
-    @staticmethod
-    def must_be_past(value, info):
-        """Validate that `created_at` and `updated_at` fields are in the past"""
-        if value >= timezone.now():
-            raise ValueError(f"{info.field_name} must be earlier than now")
-        return value
-
-    @model_validator(mode="after")
-    def check_empty_content(self):
-        """Validate that either `title` or `content` are not empty."""
-        if not self.title and not self.content:
-            raise ValueError("Either title or content should have at least 1 character")
-        return self
-
-    @model_validator(mode="after")
-    def check_update_at_after_created_at(self):
-        """Date and time of last modification should be later than date and time of creation"""
         if self.created_at > self.updated_at:
             raise ValueError("updated_at must be later than created_at")
-        return self
 
-    @field_validator("groups")
-    @staticmethod
-    def validate_groups(groups):
-        """Validate that group slugs are properly formatted as lowercase and hyphen-separated"""
-        validated_groups = []
-        for value in groups:
-            slug = slugify(value)
-            if value != slug:
+        if not self.title and not self.content:
+            raise ValueError("Either title or content should have at least 1 character")
+
+        for group in self.groups:
+            slug = slugify(group)
+            if group != slug:
                 raise ValueError(
-                    f"Groups must be slugs (lowercase, hyphen-separated): {slug:s}"
+                    f"Groups must be slugs (lowercase, hyphen-separated): {slug}"
                 )
-            validated_groups.append(value)
-        return validated_groups
 
 
-class DeleteDocuments(BaseModel):
-    """Schema for validating the delete documents request"""
+UserQueryField = Literal[
+    "id",
+    "title",
+    "content",
+    "depth",
+    "path",
+    "numchild",
+    "created_at",
+    "updated_at",
+    "size",
+    "reach",
+    "tags",
+]
 
-    document_ids: Optional[List[str]] = Field(default=None)
-    tags: Optional[List[str]] = Field(default=None)
+SystemQueryField = Literal["is_active", "users", "groups", "service"]
 
-    @model_validator(mode="after")
-    def check_at_least_one_filter(self):
-        """Ensure at least one of document_ids or tags is provided"""
-        if not self.document_ids and not self.tags:
-            raise ValueError(
-                "At least one of 'document_ids' or 'tags' must be provided"
-            )
-        return self
+QueryField = Union[UserQueryField, SystemQueryField]
+
+# Type variable for generic field types
+FieldT = TypeVar("FieldT")
+
+
+class Operator(str, Enum):
+    """Supported filter operators for field conditions."""
+
+    EQ = "eq"
+    IN = "in"
+    ALL = "all"
+    PREFIX = "prefix"
+    GT = "gt"
+    GTE = "gte"
+    LT = "lt"
+    LTE = "lte"
+    EXISTS = "exists"
+
+
+class FieldCondition(Struct, Generic[FieldT]):
+    """A condition on a single field with an operator and value."""
+
+    field: FieldT
+    op: Operator
+    value: Union[str, int, float, bool, list[Union[str, int]]]
+
+
+class AndClause(Struct, Generic[FieldT]):
+    """Logical AND of multiple where clauses."""
+
+    and_: list["WhereClause[FieldT]"] = field(name="and")
+
+
+class OrClause(Struct, Generic[FieldT]):
+    """Logical OR of multiple where clauses."""
+
+    or_: list["WhereClause[FieldT]"] = field(name="or")
+
+
+class NotClause(Struct, Generic[FieldT]):
+    """Logical NOT of a where clause."""
+
+    not_: "WhereClause[FieldT]" = field(name="not")
+
+
+# Type alias for where clause union (for type hints and encoding)
+WhereClause = Union[
+    AndClause[FieldT], OrClause[FieldT], NotClause[FieldT], FieldCondition[FieldT]
+]
+
+# Raw dict type for decoding (msgspec can't discriminate struct unions by field presence)
+WhereClauseDict = dict
+
+
+class SortClause(Struct):
+    """Sort specification for search results."""
+
+    field: Literal["relevance", "title", "created_at", "updated_at", "size"] = (
+        "relevance"
+    )
+    direction: Literal["asc", "desc"] = "desc"
+
+
+class SearchQuerySchema(Struct, Generic[FieldT]):
+    """Top-level schema for structured search queries (API input).
+
+    Note: `where` is a raw dict from JSON input. Use `parse_where_clause()`
+    to convert to typed `WhereClause` before passing to `SearchParams`.
+    """
+
+    query: str | None = None
+    where: WhereClauseDict | None = None
+    sort: list[SortClause] | None = None
+    limit: Annotated[int, Meta(ge=1, le=100)] | None = 50
+
+
+class SearchParams(Struct):
+    """Internal search parameters with parsed WhereClause.
+
+    Use this for passing to the search service after parsing the raw
+    SearchQuerySchema input.
+    """
+
+    query: str | None = None
+    where: "WhereClause | None" = None
+    sort: list[SortClause] | None = None
+    limit: int | None = 50
+
+
+# All allowed field names for validation
+_ALLOWED_FIELDS: frozenset[str] = frozenset(
+    [
+        # UserQueryField
+        "id", "title", "content", "depth", "path", "numchild",
+        "created_at", "updated_at", "size", "reach", "tags",
+        # SystemQueryField
+        "is_active", "users", "groups", "service",
+    ]
+)
+
+
+def _parse_where_clause_inner(data: dict) -> "AndClause | OrClause | NotClause | FieldCondition":
+    if "and" in data:
+        return AndClause(and_=[_parse_where_clause_inner(c) for c in data["and"]])
+    elif "or" in data:
+        return OrClause(or_=[_parse_where_clause_inner(c) for c in data["or"]])
+    elif "not" in data:
+        return NotClause(not_=_parse_where_clause_inner(data["not"]))
+    elif "field" in data and "op" in data and "value" in data:
+        field_name = data["field"]
+        if not isinstance(field_name, str):
+            raise msgspec.ValidationError(f"Field must be a string, got {type(field_name).__name__}")
+        if field_name not in _ALLOWED_FIELDS:
+            raise msgspec.ValidationError(f"Unknown field: {field_name!r}")
+        try:
+            op = Operator(data["op"])
+        except ValueError as e:
+            raise msgspec.ValidationError(str(e)) from None
+        return FieldCondition(
+            field=field_name,
+            op=op,
+            value=data["value"],
+        )
+    else:
+        raise msgspec.ValidationError(f"Invalid where clause: {data}")
+
+
+def parse_where_clause(
+    data: dict | None,
+) -> "AndClause | OrClause | NotClause | FieldCondition | None":
+    """Parse a where clause dict into the appropriate struct type."""
+    if data is None:
+        return None
+    return _parse_where_clause_inner(data)

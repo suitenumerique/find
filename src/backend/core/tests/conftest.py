@@ -1,17 +1,58 @@
 """Fixtures for tests in the find core application"""
 
-from unittest.mock import MagicMock, patch
+from collections.abc import Generator
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.conf import LazySettings
 
 import pytest
+from django_bolt.testing import TestClient
 from faker import Faker
 from opensearchpy.exceptions import NotFoundError
 
-from core import views
-from core.services import indexing, opensearch, search
+from core import bolt_auth, handlers
+from core.authentication import ResourceUser
+from core.handlers import api
+from core.services import opensearch
 
 fake = Faker()
+
+
+@pytest.fixture
+def bolt_client() -> Generator[TestClient, None, None]:
+    bolt_auth._get_resource_server_backend.cache_clear()
+    with TestClient(api) as client:
+        yield client
+    bolt_auth._get_resource_server_backend.cache_clear()
+
+
+@pytest.fixture
+def mock_oidc_user() -> Generator[ResourceUser, None, None]:
+    """Mock OIDC user for handler tests.
+
+    Patches _require_oidc_user to return a mock user with sub='test-user-123'.
+    Use this instead of @responses.activate + setup_oicd_resource_server since
+    Bolt's Rust/Python bridge doesn't propagate responses mocking correctly.
+    """
+    user = ResourceUser(sub="test-user-123")
+    user.token_audience = "test-audience"
+
+    with patch.object(handlers, "_require_oidc_user", new=AsyncMock(return_value=user)):
+        yield user
+
+
+@pytest.fixture
+def mock_service_context() -> Generator[dict, None, None]:
+    """Mock service context for handler tests.
+
+    Patches _require_service_context to return a mock service context.
+    """
+    context = {"service_id": 1, "service_name": "test-service"}
+
+    with patch.object(
+        handlers, "_require_service_context", new=AsyncMock(return_value=context)
+    ):
+        yield context
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -26,8 +67,7 @@ def mock_opensearch_client():
     """
     Fixture that patches core.services.opensearch.opensearch_client with a MagicMock.
 
-    Handles the @cache decorator by calling cache_clear() after the test.
-    Provides sensible default return values for all common OpenSearch operations.
+    Handles the @cache decorator by calling cache_clear() before and after the test.
 
     Usage:
         def test_something(mock_opensearch_client):
@@ -36,67 +76,31 @@ def mock_opensearch_client():
     """
     mock_client = MagicMock()
 
-    # Configure default return values for self-tests and health checks
-    mock_client.ping.return_value = True
-    mock_client.cluster.health.return_value = {"status": "green"}
-
-    # Configure default return values for index operations
-    mock_client.indices.get.return_value = {}
-    mock_client.indices.create.return_value = {"acknowledged": True}
-    mock_client.indices.delete.return_value = {"acknowledged": True}
-    mock_client.indices.refresh.return_value = {"_shards": {"successful": 1}}
-    mock_client.indices.exists.return_value = False
-
-    # Configure default return values for document operations
-    mock_client.search.return_value = {
-        "hits": {"hits": [], "total": {"value": 0}},
-        "took": 1,
-        "timed_out": False,
-    }
-    mock_client.index.return_value = {"_id": "test_id", "result": "created"}
-    mock_client.bulk.return_value = {"items": [], "errors": False}
-    mock_client.delete_by_query.return_value = {"deleted": 0}
-    mock_client.get.return_value = {"_id": "test_id", "_source": {}}
-    mock_client.count.return_value = {"count": 0}
-
-    with (
-        patch.object(opensearch, "opensearch_client", return_value=mock_client),
-        patch.object(views, "opensearch_client", return_value=mock_client),
-        patch.object(indexing, "opensearch_client", return_value=mock_client),
-        patch.object(search, "opensearch_client", return_value=mock_client),
-    ):
+    opensearch.opensearch_client.cache_clear()
+    with patch.object(opensearch, "opensearch_client", return_value=mock_client):
         yield mock_client
-
-    # Clear cache again after test to ensure clean state for next test
     opensearch.opensearch_client.cache_clear()
 
 
 @pytest.fixture(autouse=True)
 def cleanup_test_index(settings: LazySettings, request: pytest.FixtureRequest) -> None:
-    """
-    Fixture to set a randomized index name for tests and remove it on tear down.
-
-    When mock_opensearch_client fixture is active, this fixture skips real
-    OpenSearch operations and only manages the settings.
-    """
-    # Check if mock_opensearch_client is being used in this test
+    """Randomize index name per test; cleanup real indices for integration tests only."""
     using_mock = "mock_opensearch_client" in request.fixturenames
+    is_integration = "integration" in request.keywords
 
     original_index = settings.OPENSEARCH_INDEX
     test_index = "".join(fake.random_letters(5)).lower()
     settings.OPENSEARCH_INDEX = test_index
 
     client = None
-    if not using_mock:
-        # Create client here to prevent "teardown" issues when the opensearch settings are
-        # removed for error tests.
+    if is_integration and not using_mock:
         client = opensearch.opensearch_client()
 
     yield
 
     settings.OPENSEARCH_INDEX = original_index
 
-    if not using_mock and client is not None:
+    if client is not None:
         try:
             client.indices.delete(index=test_index)
         except NotFoundError:

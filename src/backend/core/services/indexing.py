@@ -7,13 +7,12 @@ from django.conf import settings
 from opensearchpy.exceptions import NotFoundError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
 
+from core.services import opensearch
 from core.services.opensearch_configuration import (
     ANALYZERS,
     FILTERS,
     MAPPINGS,
 )
-
-from .opensearch import opensearch_client
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +25,10 @@ LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
-        opensearch_client().indices.get(index=index_name)
+        opensearch.opensearch_client().indices.get(index=index_name)
     except NotFoundError:
         logger.info("Creating index: %s", index_name)
-        opensearch_client().indices.create(
+        opensearch.opensearch_client().indices.create(
             index=index_name,
             body={
                 "settings": {

@@ -5,7 +5,7 @@ from typing import Optional
 from opensearchpy import Q
 from opensearchpy.helpers.query import Query
 
-from .dsl import (
+from ..schemas import (
     AndClause,
     FieldCondition,
     NotClause,

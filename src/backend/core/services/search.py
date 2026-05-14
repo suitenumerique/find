@@ -8,28 +8,24 @@ from opensearchpy import Q
 
 from core import enums
 from core.query.builder import build_filter
-from core.query.dsl import SearchQuerySchema, WhereClause
-
-from .opensearch import opensearch_client
+from core.schemas import SearchParams, WhereClause
+from core.services import opensearch
 
 logger = logging.getLogger(__name__)
 
 
-def search(params: SearchQuerySchema, search_indices: list[str]) -> dict[str, object]:
+def search(params: SearchParams, search_indices: list[str]) -> dict[str, object]:
     """Perform an OpenSearch search using DSL parameters."""
-    query_text = params.query or "*"
+    query_text = params.query
     where_clause: WhereClause | None = params.where
     filter_query = build_filter(where_clause) if where_clause else None
 
-    if query_text == "*":
-        logger.info("Performing match_all query")
-        if filter_query:
-            opensearch_query = Q("bool", must=Q("match_all"), filter=filter_query)
-        else:
-            opensearch_query = Q("match_all")
-    else:
-        logger.info("Performing full-text search: %s", query_text)
+    if query_text:
         opensearch_query = get_full_text_query(query_text, filter_query)
+    elif filter_query:
+        opensearch_query = Q("bool", must=Q("match_all"), filter=filter_query)
+    else:
+        opensearch_query = Q("match_all")
 
     sort_clauses = []
     if params.sort:
@@ -38,7 +34,7 @@ def search(params: SearchQuerySchema, search_indices: list[str]) -> dict[str, ob
     else:
         sort_clauses.append(get_sort("relevance", "desc"))
 
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+    return opensearch.opensearch_client().search(
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,
@@ -50,7 +46,7 @@ def search(params: SearchQuerySchema, search_indices: list[str]) -> dict[str, ob
             "size": params.limit or 50,
             "query": opensearch_query.to_dict(),
         },
-        ignore_unavailable=True,
+        params={"ignore_unavailable": "true"},
     )
 
 

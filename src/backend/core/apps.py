@@ -1,6 +1,9 @@
 """Find Core application"""
 
+import sys
+
 from django.apps import AppConfig
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
@@ -12,4 +15,9 @@ class CoreConfig(AppConfig):
     verbose_name = _("Find core application")
 
     def ready(self):
-        pass
+        if "pytest" in sys.modules:
+            return
+
+        from .services.indexing import ensure_index_exists
+
+        ensure_index_exists(settings.OPENSEARCH_INDEX)

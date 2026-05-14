@@ -7,7 +7,7 @@ from core.query.builder import (
     build_system_scope,
     combine_with_system_scope,
 )
-from core.query.dsl import (
+from core.schemas import (
     AndClause,
     FieldCondition,
     NotClause,

@@ -13,7 +13,7 @@ from django.db import connection
 import sentry_sdk
 
 from .selftests import SelfTest, SelfTestResult, registry
-from .services.opensearch import opensearch_client
+from .services import opensearch
 
 
 class DatabaseSelfTest(SelfTest):
@@ -126,7 +126,7 @@ class OpenSearchSelfTest(SelfTest):
         """Test OpenSearch connection by checking cluster health."""
         start_time = time.time()
         try:
-            client = opensearch_client()
+            client = opensearch.opensearch_client()
 
             # Ping the cluster
             if not client.ping():

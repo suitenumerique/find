@@ -1,12 +1,7 @@
-"""URL configuration for find's core app."""
+"""URL configuration for find's core app.
 
-from django.urls import include, path
+Note: URLs are now handled by Bolt handlers in core.handlers and
+mounted directly in find/urls.py. This file is no longer used.
+"""
 
-from .views import DeleteDocumentsView, IndexDocumentView, SearchDocumentView
-
-urlpatterns = [
-    path("documents/index/", IndexDocumentView.as_view(), name="document"),
-    path("documents/search/", SearchDocumentView.as_view(), name="document"),
-    path("documents/delete/", DeleteDocumentsView.as_view(), name="document"),
-    path("", include("lasuite.oidc_resource_server.urls")),
-]
+urlpatterns = []
