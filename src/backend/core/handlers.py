@@ -8,7 +8,16 @@ from django_bolt.exceptions import HTTPException
 
 from .bolt_auth import OIDCAuthentication, ServiceTokenAuthentication
 from .query.builder import combine_with_system_scope
-from .schemas import Document, SearchParams, SearchQuerySchema, SortClause, parse_where_clause
+from .schemas import (
+    Document,
+    IndexResponse,
+    SearchParams,
+    SearchQuerySchema,
+    SearchResponse,
+    SearchResultDocument,
+    SortClause,
+    parse_where_clause,
+)
 from .services import opensearch
 from .services.indexing import prepare_document_for_indexing
 from .services.search import search
@@ -38,7 +47,7 @@ async def _require_service_context(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @api.post("/documents/search")
-async def search_documents(request: dict[str, Any], search_query: SearchQuerySchema) -> list[dict[str, Any]]:
+async def search_documents(request: dict[str, Any], search_query: SearchQuerySchema) -> SearchResponse:
     user = await _require_oidc_user(request)
     user_sub = user.sub
     service = getattr(user, "token_audience", None)
@@ -60,9 +69,20 @@ async def search_documents(request: dict[str, Any], search_query: SearchQuerySch
         limit=search_query.limit,
     )
 
-    result = search(search_params, [settings.OPENSEARCH_INDEX])["hits"]["hits"]
+    result = search(search_params, [settings.OPENSEARCH_INDEX])
+    hits = result["hits"]["hits"]
+    total = result["hits"]["total"]["value"]
 
-    return result
+    data = [
+        SearchResultDocument(
+            id=hit["_id"],
+            **hit["_source"],
+            **hit.get("fields", {}),
+        )
+        for hit in hits
+    ]
+
+    return SearchResponse(data=data, total=total, limit=search_query.limit or 50)
 
 
 @api.delete("/documents/{document_id}", status_code=204)
@@ -81,7 +101,7 @@ async def delete_document(request: dict[str, Any], document_id: str) -> None:
 
 
 @api.post("/documents/index", status_code=201)
-async def index_document(request: dict[str, Any], document: Document) -> dict[str, str]:
+async def index_document(request: dict[str, Any], document: Document) -> IndexResponse:
     context = await _require_service_context(request)
     index_name = settings.OPENSEARCH_INDEX
     opensearch_client_ = opensearch.opensearch_client()
@@ -105,12 +125,12 @@ async def index_document(request: dict[str, Any], document: Document) -> dict[st
         },
         service_name=context.get("service_name"),
     )
-    _id = document_dict.pop("id")
+    doc_id = document_dict.pop("id")
 
     opensearch_client_.index(
         index=index_name,
         body=document_dict,
-        id=_id,
+        id=doc_id,
     )
 
-    return {"_id": str(_id)}
+    return IndexResponse(id=str(doc_id))

@@ -7,7 +7,7 @@ from django.utils import timezone
 import pytest
 from django_bolt.testing import TestClient
 
-from core import factories, models
+from core import factories
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -47,7 +47,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     def test_index_missing_auth_returns_401(
         self,
@@ -278,7 +278,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     def test_index_future_created_at_rejected(
         self,
@@ -410,7 +410,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     def test_index_invalid_group_format_rejected(
         self,
@@ -455,7 +455,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     @pytest.mark.vcr
     def test_index_service_name_from_auth(
@@ -471,7 +471,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     @pytest.mark.vcr
     def test_index_with_reach_field(
@@ -489,7 +489,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     @pytest.mark.vcr
     def test_index_with_tags(
@@ -507,7 +507,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     @pytest.mark.vcr
     def test_index_with_users_and_groups(
@@ -526,7 +526,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
 
     def test_index_title_too_long_rejected(
         self,
@@ -621,4 +621,4 @@ class TestServiceIsolation:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": document["id"]}
+        assert response.json() == {"id": document["id"]}

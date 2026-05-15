@@ -18,7 +18,6 @@ class TestDeleteDocumentHandler:
         mock_service_context: dict,
         bolt_client: TestClient,
     ) -> None:
-        # First, index a document so we can delete it
         client = opensearch_client()
         client.index(
             index=settings.OPENSEARCH_INDEX,
@@ -75,7 +74,6 @@ class TestDeleteDocumentHandler:
     ) -> None:
         doc_id = "550e8400-e29b-41d4-a716-446655440000"
 
-        # First, index a document so we can delete it
         client = opensearch_client()
         client.index(
             index=settings.OPENSEARCH_INDEX,

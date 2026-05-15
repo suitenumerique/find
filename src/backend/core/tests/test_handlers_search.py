@@ -22,7 +22,7 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": [], "total": 0, "limit": 10}
 
     @pytest.mark.vcr
     def test_search_with_where_clause_returns_200(
@@ -43,7 +43,7 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": [], "total": 0, "limit": 10}
 
     @pytest.mark.vcr
     def test_search_with_sort_and_limit_returns_200(
@@ -62,7 +62,7 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": [], "total": 0, "limit": 5}
 
     def test_search_missing_auth_returns_401(self, bolt_client: TestClient) -> None:
         response = bolt_client.post(

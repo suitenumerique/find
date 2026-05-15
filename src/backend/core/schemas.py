@@ -164,6 +164,32 @@ class SearchParams(Struct):
     limit: int | None = 50
 
 
+class IndexResponse(Struct):
+    id: str
+
+
+class SearchResultDocument(Struct):
+    id: str
+    title: str
+    content: str
+    size: int
+    depth: int
+    path: str
+    numchild: int
+    created_at: str
+    updated_at: str
+    reach: str | None = None
+    tags: list[str] = []
+    number_of_users: list[int] | None = None
+    number_of_groups: list[int] | None = None
+
+
+class SearchResponse(Struct):
+    data: list[SearchResultDocument]
+    total: int
+    limit: int
+
+
 # All allowed field names for validation
 _ALLOWED_FIELDS: frozenset[str] = frozenset(
     [
