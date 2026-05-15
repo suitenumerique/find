@@ -180,8 +180,8 @@ class SearchResultDocument(Struct):
     updated_at: str
     reach: str | None = None
     tags: list[str] = []
-    number_of_users: list[int] | None = None
-    number_of_groups: list[int] | None = None
+    number_of_users: int = 0
+    number_of_groups: int = 0
 
 
 class SearchResponse(Struct):

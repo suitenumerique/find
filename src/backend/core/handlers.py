@@ -77,7 +77,8 @@ async def search_documents(request: dict[str, Any], search_query: SearchQuerySch
         SearchResultDocument(
             id=hit["_id"],
             **hit["_source"],
-            **hit.get("fields", {}),
+            number_of_users=hit.get("fields", {}).get("number_of_users", [0])[0],
+            number_of_groups=hit.get("fields", {}).get("number_of_groups", [0])[0],
         )
         for hit in hits
     ]

@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.und":"","content.und":"Valid content","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":[],"reach":"restricted","tags":[],"is_active":true}'
+    body: '{"service":"test_service","title.und":"","content.und":"Valid content","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":[],"reach":"restricted","tags":[],"is_active":true}'
     headers:
       authorization:
       - <REDACTED>
@@ -14,10 +14,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"msqqx","_id":"bc0c1a2f-25ab-41c1-9fa5-12c73c3b61d6","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"djcsx","_id":"62dc30f8-0062-4b20-bd26-7cc162a5add7","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
     headers:
       Location:
-      - /msqqx/_doc/bc0c1a2f-25ab-41c1-9fa5-12c73c3b61d6
+      - /djcsx/_doc/62dc30f8-0062-4b20-bd26-7cc162a5add7
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:

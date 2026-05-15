@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.en":"test document","content.en":"Test
+    body: '{"service":"test_service","title.en":"test document","content.en":"Test
       content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":["valid-group","another-group"],"reach":"restricted","tags":[],"is_active":true}'
     headers:
       authorization:
@@ -15,10 +15,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"nyiih","_id":"a04cd90a-edaa-4165-a9ad-daae4da201e5","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"djcsx","_id":"002ef61b-8696-4557-9011-f6715ad8fa43","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":1,"_primary_term":1}'
     headers:
       Location:
-      - /nyiih/_doc/a04cd90a-edaa-4165-a9ad-daae4da201e5
+      - /djcsx/_doc/002ef61b-8696-4557-9011-f6715ad8fa43
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:

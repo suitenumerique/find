@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.en":"test document","content.en":"Test
+    body: '{"service":"test_service","title.en":"test document","content.en":"Test
       content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":["user1","user2"],"groups":["group-a","group-b"],"reach":"restricted","tags":[],"is_active":true}'
     headers:
       authorization:
@@ -15,10 +15,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"alems","_id":"843c82bc-06cb-493e-b90f-55cbc70324f9","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"kjnog","_id":"74947857-0034-477e-80e1-4cee4aa92343","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
     headers:
       Location:
-      - /alems/_doc/843c82bc-06cb-493e-b90f-55cbc70324f9
+      - /kjnog/_doc/74947857-0034-477e-80e1-4cee4aa92343
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:
