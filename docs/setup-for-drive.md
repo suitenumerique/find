@@ -1,28 +1,33 @@
 # Setup the Find search for Drive
 
-This configuration will enable the fulltext search feature for Docs :
+This configuration will enable the fulltext search feature for Drive:
 - Each save on **core.Item** or **core.Item** will trigger the indexer
 - Once indexer service configured, the `api/v1.0/item/search/` will work as a proxy with the Find API for fulltext search.
 
 ## Create an index service for Drive
 
-Configure a **Service** for Docs application with these settings
+Configure a service for the Drive application by setting environment variables:
 
-- **Name**: `drive`<br>_request.auth.name of the Docs application._
-- **Client id**: `drive`<br>_Name of the token audience or client_id of the Docs application._
+```bash
+export SERVICES__DRIVE__TOKEN=your-secure-token
+export SERVICES__DRIVE__CLIENT_ID=drive
+```
+
+- Service name (`drive`) must match the pattern `^[a-z0-9_]+$`
+- `CLIENT_ID` should match the OIDC client ID of the Drive application
 
 See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
 
 ## Configure settings of Drive
 
-Add those Django settings the Docs application to enable the feature.
+Add those Django settings to the Drive application to enable the feature.
 
 ```python
 SEARCH_INDEXER_CLASS="core.services.search_indexers.SearchIndexer"
 SEARCH_INDEXER_COUNTDOWN=10  # Debounce delay in seconds for the indexer calls.
 
 # The token from service "drive" of Find application (development)
-SEARCH_INDEXER_SECRET=find-api-key-for-driv-with-exactly-50-chars-length
+SEARCH_INDEXER_SECRET="your-secure-drive-token"
 SEARCH_INDEXER_URL="http://find:8000/api/v1.0/documents/index/"
 
 # Search endpoint. Uses the OIDC token for authentication
@@ -30,7 +35,7 @@ SEARCH_INDEXER_QUERY_URL="http://find:8000/api/v1.0/documents/search/"
 
 # Limit the mimetypes and size of indexable files
 SEARCH_INDEXER_ALLOWED_MIMETYPES=["text/"]
-SEARCH_INDEXER_UPLOAD_MAX_SIZE=2 * 2**20  # 2Mb
+SEARCH_INDEXER_UPLOAD_MAX_SIZE=2 * 2**20  # 2Mb
 ```
 
 We also need to enable the **OIDC Token** refresh or the authentication will fail quickly.

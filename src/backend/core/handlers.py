@@ -1,10 +1,10 @@
 from typing import Any
 
 from django.conf import settings
-from opensearchpy.exceptions import NotFoundError
 
 from django_bolt.api import BoltAPI
 from django_bolt.exceptions import HTTPException
+from opensearchpy.exceptions import NotFoundError
 
 from .bolt_auth import OIDCAuthentication, ServiceTokenAuthentication
 from .query.builder import combine_with_system_scope
@@ -41,7 +41,7 @@ async def _require_service_context(request: dict[str, Any]) -> dict[str, Any]:
     headers = request["headers"]
     auth_context = {"authorization": headers.get("authorization", "")}
     context = await _service_auth.get_user(None, auth_context)
-    if not context or not context.get("service_id"):
+    if not context or not context.get("service_name"):
         raise HTTPException(status_code=401, detail="Service authentication required")
     return context
 

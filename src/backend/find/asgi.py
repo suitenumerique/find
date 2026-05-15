@@ -10,6 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "find.settings")
 os.environ.setdefault("DJANGO_CONFIGURATION", "Development")
 
 import django
+
 from configurations import importer
 
 importer.install()

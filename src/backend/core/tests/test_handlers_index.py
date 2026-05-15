@@ -7,8 +7,6 @@ from django.utils import timezone
 import pytest
 from django_bolt.testing import TestClient
 
-from core import factories
-
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
@@ -74,26 +72,6 @@ class TestIndexDocumentView:
             "/api/v1.0/documents/index",
             json=valid_document_payload,
             headers={"Authorization": "Bearer invalid-token-that-does-not-exist"},
-        )
-
-        assert response.status_code == 401
-        assert response.json() == {"detail": "Service authentication required"}
-        mock_opensearch_client.index.assert_not_called()
-
-    def test_index_inactive_service_returns_401(
-        self,
-        valid_document_payload: dict,
-        mock_opensearch_client: MagicMock,
-        bolt_client: TestClient,
-    ) -> None:
-        inactive_service = factories.ServiceFactory(
-            name="inactive-service", is_active=False
-        )
-
-        response = bolt_client.post(
-            "/api/v1.0/documents/index",
-            json=valid_document_payload,
-            headers={"Authorization": f"Bearer {inactive_service.token}"},
         )
 
         assert response.status_code == 401

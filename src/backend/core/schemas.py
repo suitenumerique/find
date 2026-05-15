@@ -5,14 +5,14 @@ from enum import Enum
 from typing import Annotated, Generic, List, Literal, Optional, TypeVar, Union
 from uuid import UUID
 
-import msgspec
 from django.utils import timezone
 from django.utils.text import slugify
+
+import msgspec
 from msgspec import Meta, Struct, field
 from msgspec.structs import force_setattr
 
 from . import enums
-
 
 AwareDatetime = Annotated[datetime, Meta(tz=True)]
 
