@@ -25,7 +25,7 @@ class TestDeleteDocumentHandler:
         )
 
         assert response.status_code == 204
-        assert response.text == "null"  # Bolt serializes None return as "null"
+        assert response.text == ""
         mock_opensearch_client.delete.assert_called_once_with(
             index=settings.OPENSEARCH_INDEX,
             id="doc-123",
@@ -76,7 +76,7 @@ class TestDeleteDocumentHandler:
         )
 
         assert response.status_code == 204
-        assert response.text == "null"  # Bolt serializes None return as "null"
+        assert response.text == ""
         mock_opensearch_client.delete.assert_called_once_with(
             index=settings.OPENSEARCH_INDEX,
             id=doc_id,

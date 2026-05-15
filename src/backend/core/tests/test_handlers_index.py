@@ -48,7 +48,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         mock_opensearch_client.index.assert_called_once()
 
     def test_index_missing_auth_returns_401(
@@ -279,7 +279,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         assert mock_opensearch_client.index.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
             "id": UUID(valid_document_payload["id"]),
@@ -431,7 +431,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         mock_opensearch_client.index.assert_called_once()
 
     def test_index_invalid_group_format_rejected(
@@ -477,7 +477,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         mock_opensearch_client.index.assert_called_once()
 
     def test_index_service_name_from_auth(
@@ -495,7 +495,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         assert mock_opensearch_client.index.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
             "id": UUID(valid_document_payload["id"]),
@@ -534,7 +534,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         assert mock_opensearch_client.index.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
             "id": UUID(valid_document_payload["id"]),
@@ -573,7 +573,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         assert mock_opensearch_client.index.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
             "id": UUID(valid_document_payload["id"]),
@@ -613,7 +613,7 @@ class TestIndexDocumentView:
         )
 
         assert response.status_code == 201
-        assert response.json() == {"_id": valid_document_payload["id"]}
+        assert response.json() == {"id": valid_document_payload["id"]}
         assert mock_opensearch_client.index.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
             "id": UUID(valid_document_payload["id"]),

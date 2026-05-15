@@ -21,10 +21,35 @@ class TestSearchDocumentsHandler:
     ) -> None:
         mock_opensearch_client.search.return_value = {
             "hits": {
+                "total": {"value": 2},
                 "hits": [
-                    {"_id": "doc1", "_source": {"title": "Test Document"}},
-                    {"_id": "doc2", "_source": {"title": "Another Document"}},
-                ]
+                    {
+                        "_id": "doc1",
+                        "_source": {
+                            "title": "Test Document",
+                            "content": "content1",
+                            "size": 100,
+                            "depth": 0,
+                            "path": "/test",
+                            "numchild": 0,
+                            "created_at": "2024-01-01T00:00:00Z",
+                            "updated_at": "2024-01-02T00:00:00Z",
+                        },
+                    },
+                    {
+                        "_id": "doc2",
+                        "_source": {
+                            "title": "Another Document",
+                            "content": "content2",
+                            "size": 200,
+                            "depth": 1,
+                            "path": "/test/sub",
+                            "numchild": 0,
+                            "created_at": "2024-01-01T00:00:00Z",
+                            "updated_at": "2024-01-02T00:00:00Z",
+                        },
+                    },
+                ],
             }
         }
 
@@ -35,10 +60,42 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == [
-            {"_id": "doc1", "_source": {"title": "Test Document"}},
-            {"_id": "doc2", "_source": {"title": "Another Document"}},
-        ]
+        assert response.json() == {
+            "data": [
+                {
+                    "id": "doc1",
+                    "title": "Test Document",
+                    "content": "content1",
+                    "size": 100,
+                    "depth": 0,
+                    "path": "/test",
+                    "numchild": 0,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-02T00:00:00Z",
+                    "reach": None,
+                    "tags": [],
+                    "number_of_users": None,
+                    "number_of_groups": None,
+                },
+                {
+                    "id": "doc2",
+                    "title": "Another Document",
+                    "content": "content2",
+                    "size": 200,
+                    "depth": 1,
+                    "path": "/test/sub",
+                    "numchild": 0,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-02T00:00:00Z",
+                    "reach": None,
+                    "tags": [],
+                    "number_of_users": None,
+                    "number_of_groups": None,
+                },
+            ],
+            "total": 2,
+            "limit": 10,
+        }
         mock_opensearch_client.search.assert_called_once()
         assert mock_opensearch_client.search.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
@@ -116,7 +173,7 @@ class TestSearchDocumentsHandler:
         mock_oidc_user: ResourceUser,
         bolt_client: TestClient,
     ) -> None:
-        mock_opensearch_client.search.return_value = {"hits": {"hits": []}}
+        mock_opensearch_client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
 
         response = bolt_client.post(
             "/api/v1.0/documents/search",
@@ -131,7 +188,7 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": [], "total": 0, "limit": 10}
         mock_opensearch_client.search.assert_called_once()
         assert mock_opensearch_client.search.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
@@ -222,7 +279,7 @@ class TestSearchDocumentsHandler:
         mock_oidc_user: ResourceUser,
         bolt_client: TestClient,
     ) -> None:
-        mock_opensearch_client.search.return_value = {"hits": {"hits": []}}
+        mock_opensearch_client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
 
         response = bolt_client.post(
             "/api/v1.0/documents/search",
@@ -235,7 +292,7 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": [], "total": 0, "limit": 5}
         mock_opensearch_client.search.assert_called_once()
         assert mock_opensearch_client.search.call_args.kwargs == {
             "index": settings.OPENSEARCH_INDEX,
