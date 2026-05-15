@@ -4,9 +4,9 @@ import logging
 from functools import cache
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 from opensearchpy import OpenSearch
-from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def opensearch_client():
         if getattr(settings, variable, None) is None
     ]
     if missing_env_variables:
-        raise ValidationError(
+        raise ImproperlyConfigured(
             f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"
         )
 
@@ -38,5 +38,10 @@ def opensearch_client():
         http_auth=(settings.OPENSEARCH_USER, settings.OPENSEARCH_PASSWORD),
         timeout=50,
         use_ssl=settings.OPENSEARCH_USE_SSL,
-        verify_certs=False,
+        verify_certs=settings.OPENSEARCH_VERIFY_CERTS,
+        **(
+            {"ca_certs": settings.OPENSEARCH_CA_CERTS}
+            if settings.OPENSEARCH_CA_CERTS
+            else {}
+        ),
     )

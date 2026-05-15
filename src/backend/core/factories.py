@@ -43,17 +43,3 @@ class DocumentFactory(factory.DictFactory):
             end_date=timezone.now(),
             tzinfo=timezone.get_current_timezone(),
         )
-
-
-class ServiceFactory(factory.django.DjangoModelFactory):
-    """
-    A factory for generating service instances for testing and development purposes.
-    """
-
-    name = factory.Sequence(lambda n: f"test-index-{n!s}")
-    created_at = factory.Faker("date_time_this_year", tzinfo=None)
-    is_active = True
-    client_id = "some_client_id"
-
-    class Meta:
-        model = models.Service

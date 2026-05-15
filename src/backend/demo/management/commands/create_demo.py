@@ -15,7 +15,7 @@ from faker import Faker
 from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import bulk
 
-from core import enums, factories
+from core import enums
 from core.services.indexing import ensure_index_exists
 from core.services.opensearch import opensearch_client
 
@@ -150,25 +150,14 @@ def create_demo(stdout):
     except NotFoundError:
         pass
 
-    with Timeit(stdout, "Creating services"):
-        services = factories.ServiceFactory.create_batch(
-            defaults.NB_OBJECTS["services"]
-        )
-
-        ensure_index_exists(settings.OPENSEARCH_INDEX)
+    ensure_index_exists(settings.OPENSEARCH_INDEX)
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
         for _ in range(defaults.NB_OBJECTS["documents"]):
-            service = random.choice(services)
             document = generate_document()
-            document["service"] = service.name
             actions.push(settings.OPENSEARCH_INDEX, uuid4(), document)
         actions.flush()
-
-    with Timeit(stdout, "Creating dev services"):
-        for conf in defaults.DEV_SERVICES:
-            service = factories.ServiceFactory(**conf)
 
     # Check and report on indexed documents
     opensearch_client_.indices.refresh(index=settings.OPENSEARCH_INDEX)

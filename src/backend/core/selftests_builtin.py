@@ -8,56 +8,11 @@ import time
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection
 
 import sentry_sdk
 
 from .selftests import SelfTest, SelfTestResult, registry
-from .services.opensearch import opensearch_client
-
-
-class DatabaseSelfTest(SelfTest):
-    """Test database connectivity."""
-
-    name = "Database Connection"
-    description = "Verify that the database is accessible and responsive"
-
-    def run(self) -> SelfTestResult:
-        """Test database connection by executing a simple query."""
-        start_time = time.time()
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                result = cursor.fetchone()
-
-            duration_ms = (time.time() - start_time) * 1000
-
-            if result and result[0] == 1:
-                return SelfTestResult(
-                    name=self.name,
-                    success=True,
-                    message="Database connection successful",
-                    details={
-                        "database": settings.DATABASES["default"]["NAME"],
-                        "engine": settings.DATABASES["default"]["ENGINE"],
-                    },
-                    duration_ms=duration_ms,
-                )
-            return SelfTestResult(
-                name=self.name,
-                success=False,
-                message="Database query returned unexpected result",
-                duration_ms=duration_ms,
-            )
-        except (OSError, ValueError) as e:
-            duration_ms = (time.time() - start_time) * 1000
-            return SelfTestResult(
-                name=self.name,
-                success=False,
-                message=f"Database connection failed: {str(e)}",
-                details={"exception": str(e)},
-                duration_ms=duration_ms,
-            )
+from .services import opensearch
 
 
 class CacheSelfTest(SelfTest):
@@ -126,7 +81,7 @@ class OpenSearchSelfTest(SelfTest):
         """Test OpenSearch connection by checking cluster health."""
         start_time = time.time()
         try:
-            client = opensearch_client()
+            client = opensearch.opensearch_client()
 
             # Ping the cluster
             if not client.ping():
@@ -228,7 +183,6 @@ class SentrySelfTest(SelfTest):
 
 
 # Register all built-in tests
-registry.register(DatabaseSelfTest)
 registry.register(CacheSelfTest)
 registry.register(OpenSearchSelfTest)
 

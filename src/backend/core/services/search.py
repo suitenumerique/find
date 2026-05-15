@@ -4,171 +4,98 @@ import logging
 
 from django.conf import settings
 
-from core import enums
+from opensearchpy import Q
 
-from .opensearch import opensearch_client
+from core import enums
+from core.query.builder import build_filter
+from core.schemas import SearchParams, WhereClause
+from core.services import opensearch
 
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=too-many-arguments, too-many-positional-arguments
-def search(  # noqa : PLR0913
-    q,
-    nb_results,
-    order_by,
-    order_direction,
-    search_indices,
-    reach,
-    visited,
-    user_sub,
-    groups,
-    tags,
-    path=None,
-):
-    """Perform an OpenSearch search"""
-    query = get_query(
-        q=q,
-        reach=reach,
-        visited=visited,
-        user_sub=user_sub,
-        groups=groups,
-        tags=tags,
-        path=path,
-    )
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+def search(params: SearchParams, search_indices: list[str]) -> dict[str, object]:
+    """Perform an OpenSearch search using DSL parameters."""
+    query_text = params.query
+    where_clause: WhereClause | None = params.where
+    filter_query = build_filter(where_clause) if where_clause else None
+
+    if query_text:
+        opensearch_query = get_full_text_query(query_text, filter_query)
+    elif filter_query:
+        opensearch_query = Q("bool", must=Q("match_all"), filter=filter_query)
+    else:
+        opensearch_query = Q("match_all")
+
+    sort_clauses = []
+    if params.sort:
+        for s in params.sort:
+            sort_clauses.append(get_sort(s.field, s.direction))
+    else:
+        sort_clauses.append(get_sort("relevance", "desc"))
+
+    return opensearch.opensearch_client().search(
         index=",".join(search_indices),
         body={
-            "_source": enums.SOURCE_FIELDS,  # limit the fields to return
+            "_source": enums.SOURCE_FIELDS,
             "script_fields": {
                 "number_of_users": {"script": {"source": "doc['users'].size()"}},
                 "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
             },
-            "sort": get_sort(
-                order_by=order_by,
-                order_direction=order_direction,
-            ),
-            "size": nb_results,
-            "query": query,
+            "sort": [s.to_dict() for s in sort_clauses],
+            "size": params.limit or 50,
+            "query": opensearch_query.to_dict(),
         },
-        # disable=unexpected-keyword-arg because
-        # ignore_unavailable is not in the method declaration
-        ignore_unavailable=True,
+        params={"ignore_unavailable": "true"},
     )
 
 
-# pylint: disable=too-many-arguments, too-many-positional-arguments
-def get_query(  # noqa : PLR0913
-    q,
-    reach,
-    visited,
-    user_sub,
-    groups,
-    tags,
-    path=None,
-):
-    """Build OpenSearch query body based on parameters"""
-    filter_ = get_filter(reach, visited, user_sub, groups, tags, path)
+def get_full_text_query(query: str, filter_query) -> Q:  # type: ignore[valid-type]
+    """Build OpenSearch full-text query."""
+    multi_match_standard = Q(
+        "multi_match",
+        query=query,
+        fields=[
+            "title.*.text^3",
+            "content.*",
+        ],
+    )
+    multi_match_trigram = Q(
+        "multi_match",
+        query=query,
+        fields=[
+            "title.*.text.trigrams^3",
+            "content.*.trigrams",
+        ],
+        boost=settings.TRIGRAMS_BOOST,
+        minimum_should_match=settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
+    )
 
-    if q == "*":
-        logger.info("Performing match_all query")
-        return {
-            "bool": {
-                "must": {"match_all": {}},
-                "filter": {"bool": {"filter": filter_}},
-            },
-        }
+    inner_bool = Q(
+        "bool",
+        should=[multi_match_standard, multi_match_trigram],
+        minimum_should_match=1,
+    )
 
-    logger.info("Performing full-text search: %s", q)
-    return get_full_text_query(q, filter_)
-
-
-def get_full_text_query(q, filter_):
-    """Build OpenSearch full-text query"""
-    return {
-        "bool": {
-            "must": {
-                "bool": {
-                    "should": [
-                        {
-                            "multi_match": {
-                                "query": q,
-                                "fields": [
-                                    "title.*.text^3",
-                                    "content.*",
-                                ],
-                            }
-                        },
-                        {
-                            "multi_match": {
-                                "query": q,
-                                "fields": [
-                                    "title.*.text.trigrams^3",
-                                    "content.*.trigrams",
-                                ],
-                                "boost": settings.TRIGRAMS_BOOST,
-                                "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
-                            }
-                        },
-                    ],
-                    "minimum_should_match": 1,
-                },
-            },
-            "filter": filter_,
-        }
-    }
+    if filter_query:
+        return Q("bool", must=inner_bool, filter=filter_query)
+    return Q("bool", must=inner_bool)
 
 
-# pylint: disable=too-many-arguments, too-many-positional-arguments
-def get_filter(  # noqa : PLR0913
-    reach, visited, user_sub, groups, tags, path=None
-):
-    """Build OpenSearch filter"""
-    filters = [
-        {"term": {"is_active": True}},  # filter out inactive documents
-        # Access control filters
-        {
-            "bool": {
-                "should": [
-                    # Public or authenticated (not restricted)
-                    {
-                        "bool": {
-                            "must_not": {
-                                "term": {enums.REACH: enums.ReachEnum.RESTRICTED},
-                            },
-                            "must": {
-                                "terms": {"_id": sorted(visited)},
-                            },
-                        }
-                    },
-                    # Restricted: either user or group must match
-                    {"term": {enums.USERS: user_sub}},
-                    {"terms": {enums.GROUPS: groups}},
-                ],
-                "minimum_should_match": 1,
-            }
-        },
-    ]
+class SortSpec:
+    """Sort specification wrapper for OpenSearch sort clauses."""
 
-    # Optional reach filter
-    if reach is not None:
-        filters.append({"term": {enums.REACH: reach}})
+    def __init__(self, field: str, order: str = "desc"):
+        self.field = field
+        self.order = order
 
-    # Optional tags filter
-    if tags:
-        # logical or: if tags are provided the matching documents should have at least one of them
-        filters.append({"terms": {"tags": tags}})
-
-    # Optional path filter
-    if path:
-        # filter documents that start with the provided path
-        filters.append({"prefix": {"path": path}})
-
-    return filters
+    def to_dict(self) -> dict[str, dict[str, str]]:
+        """Convert to OpenSearch sort dict format."""
+        return {self.field: {"order": self.order}}
 
 
-def get_sort(order_by, order_direction):
-    """Build OpenSearch sort clause"""
-    if order_by == enums.RELEVANCE:
-        return {"_score": {"order": order_direction}}
-
-    return {order_by: {"order": order_direction}}
+def get_sort(field: str, direction: str) -> SortSpec:
+    """Build OpenSearch sort clause from field and direction."""
+    if field == "relevance":
+        return SortSpec("_score", direction)
+    return SortSpec(field, direction)

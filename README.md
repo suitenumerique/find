@@ -51,10 +51,9 @@ The easiest way to start working on the project is to use GNU Make:
 $ make bootstrap
 ```
 
-This command builds the `app` container, installs dependencies, performs
-database migrations and compile translations. It's a good idea to use this
+This command builds the `app` container and installs dependencies. It's a good idea to use this
 command each time you are pulling code from the project repository to avoid
-dependency-related or migration-related issues.
+dependency-related issues.
 
 Your Docker services should now be up and running 🎉
 
@@ -68,17 +67,6 @@ Finally, you can check all available Make rules using:
 
 ```bash
 $ make help
-```
-
-### Django admin
-
-You can access the Django admin site at
-[http://localhost:8071/admin](http://localhost:8071/admin).
-
-You first need to create a superuser account:
-
-```bash
-$ make superuser
 ```
 
 ## Contributing

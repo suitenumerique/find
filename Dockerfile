@@ -1,7 +1,7 @@
 # Django find
 
 # ---- base image to inherit from ----
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.13-slim-bookworm AS base
 
 # Upgrade system packages to install security updates
 RUN apt-get update && \
@@ -20,7 +20,7 @@ ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 
 # install uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.11 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -33,34 +33,6 @@ COPY ./src/backend /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
-
-# ---- static link collector ----
-FROM base AS link-collector
-ARG FIND_STATIC_ROOT=/data/static
-
-# Install libpangocairo & rdfind
-RUN apt-get update && \
-    apt-get install -y \
-      libpangocairo-1.0-0 \
-      rdfind && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy the application from the builder
-COPY --from=back-builder /app /app
-
-ENV PATH="/app/.venv/bin:$PATH"
-
-WORKDIR /app
-
-# collectstatic
-RUN DJANGO_CONFIGURATION=Build \
-    DJANGO_JWT_PRIVATE_SIGNING_KEY=Dummy \
-    OPENSEARCH_PASSWORD=Dummy \
-    python manage.py collectstatic --noinput
-
-# Replace duplicated file by a symlink to decrease the overall size of the
-# final image
-RUN rdfind -makesymlinks true -followsymlinks true -makeresultsfile false ${FIND_STATIC_ROOT}
 
 # ---- Core application image ----
 FROM base AS core
@@ -111,7 +83,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install development dependencies
-RUN --mount=from=ghcr.io/astral-sh/uv:0.9.10,source=/uv,target=/bin/uv \
+RUN --mount=from=ghcr.io/astral-sh/uv:0.11.11,source=/uv,target=/bin/uv \
     uv sync --locked --all-extras
 
 # Restore the un-privileged user running the application
@@ -129,8 +101,6 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ---- Production image ----
 FROM core AS backend-production
 
-ARG FIND_STATIC_ROOT=/data/static
-
 # Gunicorn
 RUN mkdir -p /usr/local/etc/gunicorn
 COPY docker/files/usr/local/etc/gunicorn/find.py /usr/local/etc/gunicorn/find.py
@@ -138,9 +108,6 @@ COPY docker/files/usr/local/etc/gunicorn/find.py /usr/local/etc/gunicorn/find.py
 # Un-privileged user running the application
 ARG DOCKER_USER
 USER ${DOCKER_USER}
-
-# Copy statics
-COPY --from=link-collector ${FIND_STATIC_ROOT} ${FIND_STATIC_ROOT}
 
 # The default command runs gunicorn WSGI server in find's main module
 CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/find.py", "find.wsgi:application"]

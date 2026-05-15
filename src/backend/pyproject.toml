@@ -23,23 +23,24 @@ description = "An application to print markdown to pdf from a set of managed tem
 keywords = ["Django", "Contacts", "Templates", "RBAC"]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = "~=3.12.0"
+requires-python = "~=3.13.0"
 dependencies = [
   "celery[redis]==5.6.3",
+  "django-bolt==0.8.0",
   "django-configurations==2.5.1",
   "django-cors-headers==4.9.0",
   "django-lasuite[all]==0.0.26",
   "django-redis==6.0.0",
   "django==6.0.5",
-  "djangorestframework==3.17.1",
   "dockerflow==2026.3.4",
-  "drf_spectacular==0.29.0",
   "gunicorn==25.3.0",
   "mozilla-django-oidc==5.0.2",
+  "msgspec==0.21.1",
   "opensearch-py==3.2.0",
   "psycopg[binary]==3.3.4",
-  "py3langid==0.3.0",
   "pydantic==2.13.4",
+  "pydantic-settings==2.14.1",
+  "py3langid==0.3.0",
   "pyjwt==2.12.1",
   "redis==6.4.0",
   "requests==2.33.1",
@@ -56,7 +57,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "django-extensions==4.1",
-  "drf-spectacular-sidecar==2026.5.1",
   "factory_boy==3.3.3",
   "faker==40.15.0",
   "ipdb==0.13.13",
@@ -67,12 +67,14 @@ dev = [
   "pytest-cov==7.1.0",
   "pytest-django==4.12.0",
   "pytest-icdiff==0.9",
+  "pytest-recording==0.13.4",
   "pytest-rerunfailures==15.0.0",
   "pytest-xdist==3.8.0",
   "pytest==9.0.3",
   "responses==0.26.0",
   "ruff==0.15.12",
   "types-requests==2.33.0.20260503",
+  "vcrpy==8.1.1",
 ]
 
 [tool.setuptools]

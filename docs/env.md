@@ -13,12 +13,6 @@ These are the environment variables you can set for the `find-backend` container
 | API_USERS_LIST_THROTTLE_RATE_SUSTAINED          | Throttle rate for api                                                                                                       | 180/hour                                                                |
 | CACHES_DEFAULT_TIMEOUT                          | Cache default timeout                                                                                                       | 30                                                                      |
 | CACHES_KEY_PREFIX                               | The prefix used to every cache keys.                                                                                        | docs                                                                    |
-| DB_ENGINE                                       | Engine to use for database connections                                                                                      | django.db.backends.postgresql_psycopg2                                  |
-| DB_HOST                                         | Host of the database                                                                                                        | localhost                                                               |
-| DB_NAME                                         | Name of the database                                                                                                        | impress                                                                 |
-| DB_PASSWORD                                     | Password to authenticate with                                                                                               | pass                                                                    |
-| DB_PORT                                         | Port of the database                                                                                                        | 5432                                                                    |
-| DB_USER                                         | User to authenticate with                                                                                                   | dinum                                                                   |
 | DJANGO_ALLOWED_HOSTS                            | Allowed hosts                                                                                                               | []                                                                      |
 | DJANGO_CELERY_BROKER_TRANSPORT_OPTIONS          | Celery broker transport options                                                                                             | {}                                                                      |
 | DJANGO_CELERY_BROKER_URL                        | Celery broker url                                                                                                           | redis://redis:6379/0                                                    |
@@ -91,12 +85,13 @@ These are the environment variables you can set for the `find-backend` container
 | OPENSEARCH_USER                                 | Opensearch database user                                                                                                    | admin                                                                   |
 | OPENSEARCH_PASSWORD                             | Opensearch database user password                                                                                           |                                                                         |
 | OPENSEARCH_USE_SSL                              | Enable SSL connection for Opensearch database                                                                               | true                                                                    |
+| OPENSEARCH_VERIFY_CERTS                         | Enable SSL certificate verification for Opensearch connection                                                               | false                                                                   |
+| OPENSEARCH_CA_CERTS                             | Path to CA certificate bundle for Opensearch SSL verification                                                               |                                                                         |
 | POSTHOG_KEY                                     | Posthog key for analytics                                                                                                   |                                                                         |
 | REDIS_URL                                       | Cache url                                                                                                                   | redis://redis:6379/1                                                    |
 | SENTRY_DSN                                      | Sentry host                                                                                                                 |                                                                         |
 | SESSION_COOKIE_AGE                              | duration of the cookie session                                                                                              | 60*60*12                                                                |
 | SPECTACULAR_SETTINGS_ENABLE_DJANGO_DEPLOY_CHECK |                                                                                                                             | false                                                                   |
-| STORAGES_STATICFILES_BACKEND                    |                                                                                                                             | whitenoise.storage.CompressedManifestStaticFilesStorage                 |
 | THEME_CUSTOMIZATION_CACHE_TIMEOUT               | Cache duration for the customization settings                                                                               | 86400                                                                   |
 | THEME_CUSTOMIZATION_FILE_PATH                   | Full path to the file customizing the theme. An example is provided in src/backend/impress/configuration/theme/default.json | BASE_DIR/impress/configuration/theme/default.json                       |
 | TRASHBIN_CUTOFF_DAYS                            | Trashbin cutoff                                                                                                             | 30                                                                      |
@@ -105,3 +100,37 @@ These are the environment variables you can set for the `find-backend` container
 | USER_OIDC_ESSENTIAL_CLAIMS                      | Essential claims in OIDC token                                                                                              | []                                                                      |
 | Y_PROVIDER_API_BASE_URL                         | Y Provider url                                                                                                              |                                                                         |
 | Y_PROVIDER_API_KEY                              | Y provider API key                                                                                                          |                                                                         |
+
+## Service Configuration
+
+Services are configured via environment variables using the `SERVICES__*` pattern. Each service requires both a `TOKEN` and `CLIENT_ID`.
+
+### Environment Variable Pattern
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SERVICES__<NAME>__TOKEN` | Yes | Authentication token for the service (any non-empty string) |
+| `SERVICES__<NAME>__CLIENT_ID` | Yes | Client ID of the calling application (e.g., `impress`, `drive`) |
+
+### Constraints
+
+- Service names are normalized to lowercase
+- Service names must match the pattern `^[a-z0-9_]+$` (alphanumeric + underscore only)
+- Both `TOKEN` and `CLIENT_ID` are required for each service
+- Duplicate tokens across services cause a validation error on first request
+- Empty token or client_id causes a validation error on first request
+- No hot-reload - restart required to add or change services
+
+### Examples
+
+```bash
+# Single service
+export SERVICES__DOCS__TOKEN=your-secure-token
+export SERVICES__DOCS__CLIENT_ID=impress
+
+# Multiple services
+export SERVICES__DOCS__TOKEN=docs-secure-token
+export SERVICES__DOCS__CLIENT_ID=impress
+export SERVICES__DRIVE__TOKEN=drive-secure-token
+export SERVICES__DRIVE__CLIENT_ID=drive
+```

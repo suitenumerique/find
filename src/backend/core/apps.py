@@ -1,7 +1,10 @@
 """Find Core application"""
 
+import os
+import sys
+
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 
 class CoreConfig(AppConfig):
@@ -9,7 +12,16 @@ class CoreConfig(AppConfig):
 
     name = "core"
     app_label = "core"
-    verbose_name = _("Find core application")
+    verbose_name = "Find core application"
 
     def ready(self):
-        pass
+        if "pytest" in sys.modules:
+            return
+
+        # Skip OpenSearch initialization during Docker build
+        if os.environ.get("DJANGO_CONFIGURATION") == "Build":
+            return
+
+        from .services.indexing import ensure_index_exists
+
+        ensure_index_exists(settings.OPENSEARCH_INDEX)
