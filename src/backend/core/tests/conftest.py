@@ -1,6 +1,9 @@
 """Fixtures for tests in the find core application"""
 
+import json
+import re
 from collections.abc import Generator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.conf import LazySettings
@@ -9,6 +12,7 @@ import pytest
 from django_bolt.testing import TestClient
 from faker import Faker
 from opensearchpy.exceptions import NotFoundError
+from vcr.request import Request
 
 from core import bolt_auth, handlers
 from core.authentication import ResourceUser
@@ -16,6 +20,7 @@ from core.handlers import api
 from core.services import opensearch
 
 fake = Faker()
+Faker.seed(12345)
 
 
 @pytest.fixture
@@ -105,3 +110,64 @@ def cleanup_test_index(settings: LazySettings, request: pytest.FixtureRequest) -
             client.indices.delete(index=test_index)
         except NotFoundError:
             pass
+
+
+def redact_opensearch_request(request: Request) -> Request:
+    """Normalize OpenSearch requests for deterministic VCR matching."""
+    if request.host not in ("localhost", "opensearch") or request.port != 9200:
+        return request
+
+    if "authorization" in request.headers:
+        request.headers["authorization"] = "<REDACTED>"
+    if "user-agent" in request.headers:
+        request.headers["user-agent"] = "opensearch-py/x.y.z (Python x.y.z)"
+
+    # Normalize index name in path
+    request.uri = re.sub(r"(https?://[^/]+)/[^/]+/", r"\1/test-index/", request.uri)
+
+    # Normalize document ID (UUID pattern in _doc/{id} paths)
+    request.uri = re.sub(
+        r"/_doc/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "/_doc/test-doc-id",
+        request.uri,
+    )
+
+    # Normalize timestamps in request body for deterministic matching
+    if request.body:
+        try:
+            body = request.body
+            if isinstance(body, bytes):
+                body = body.decode("utf-8")
+
+            # Normalize ISO timestamps (e.g., 2026-05-13T15:44:30.258378+00:00)
+            body = re.sub(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(\+\d{2}:\d{2}|Z)?",
+                "2020-01-01T00:00:00+00:00",
+                body,
+            )
+
+            request.body = body
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            pass  # Leave body as-is if we can't parse it
+
+    return request
+
+
+def redact_opensearch_response(response: dict[str, Any]) -> dict[str, Any]:
+    """Redact environment-specific headers from OpenSearch responses."""
+    if "X-OpenSearch-Version" in response["headers"]:
+        response["headers"]["X-OpenSearch-Version"] = ["OpenSearch/x.y.z (opensearch)"]
+    return response
+
+
+@pytest.fixture(scope="module")
+def vcr_config():
+    """VCR configuration for recording HTTP interactions with OpenSearch."""
+    return {
+        "cassette_library_dir": "core/tests/cassettes",
+        "record_mode": "once",
+        "match_on": ["method", "scheme", "host", "port", "path", "query", "body"],
+        "decode_compressed_response": True,
+        "before_record_request": redact_opensearch_request,
+        "before_record_response": redact_opensearch_response,
+    }

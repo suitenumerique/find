@@ -12,7 +12,7 @@ from core.services.opensearch import opensearch_client
 
 from demo import defaults
 
-pytestmark = [pytest.mark.django_db, pytest.mark.integration]
+pytestmark = pytest.mark.django_db
 
 TEST_NB_OBJECTS = {
     "documents": 4,
@@ -20,6 +20,7 @@ TEST_NB_OBJECTS = {
 }
 
 
+@pytest.mark.vcr
 @override_settings(DEBUG=True)
 @mock.patch.dict(defaults.NB_OBJECTS, TEST_NB_OBJECTS)
 def test_commands_create_demo(settings):

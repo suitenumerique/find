@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: '{"title.en":"UUID Document","content.en":"Test content","is_active":true,"service":"test-service"}'
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: PUT
+    uri: http://opensearch:9200/test-index/_doc/test-doc-id?refresh=true
+  response:
+    body:
+      string: '{"_index":"eyvah","_id":"550e8400-e29b-41d4-a716-446655440000","_version":1,"result":"created","forced_refresh":true,"_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+    headers:
+      Location:
+      - /eyvah/_doc/550e8400-e29b-41d4-a716-446655440000
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '195'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 201
+      message: Created
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: DELETE
+    uri: http://opensearch:9200/test-index/_doc/test-doc-id
+  response:
+    body:
+      string: '{"_index":"eyvah","_id":"550e8400-e29b-41d4-a716-446655440000","_version":2,"result":"deleted","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":1,"_primary_term":1}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '173'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+version: 1

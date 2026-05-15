@@ -65,12 +65,14 @@ dev = [
   "pytest-cov==7.1.0",
   "pytest-django==4.12.0",
   "pytest-icdiff==0.9",
+  "pytest-recording==0.13.4",
   "pytest-rerunfailures==15.0.0",
   "pytest-xdist==3.8.0",
   "pytest==9.0.3",
   "responses==0.26.0",
   "ruff==0.15.12",
   "types-requests==2.33.0.20260503",
+  "vcrpy==8.1.1",
 ]
 
 [tool.setuptools]

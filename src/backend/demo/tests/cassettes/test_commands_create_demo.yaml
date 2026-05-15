@@ -1,0 +1,229 @@
+interactions:
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: DELETE
+    uri: http://opensearch:9200/*
+  response:
+    body:
+      string: '{"acknowledged":true}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '21'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: GET
+    uri: http://opensearch:9200/find
+  response:
+    body:
+      string: '{"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no
+        such index [find]","index":"find","resource.id":"find","resource.type":"index_or_alias","index_uuid":"_na_"}],"type":"index_not_found_exception","reason":"no
+        such index [find]","index":"find","resource.id":"find","resource.type":"index_or_alias","index_uuid":"_na_"},"status":404}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '353'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: '{"settings":{"analysis":{"analyzer":{"french_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","french_elision","french_stop","french_stemmer"]},"english_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","english_stop","english_stemmer"]},"german_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","german_stop","german_stemmer"]},"dutch_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","dutch_stop","dutch_stemmer"]},"undetermined_language_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding"]},"trigram_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","trigram_filter"]}},"filter":{"french_elision":{"type":"elision","articles_case":true,"articles":["l","m","t","qu","n","s","j","d","c","jusqu","quoiqu","lorsqu","puisqu"]},"french_stop":{"type":"stop","stopwords":"_french_"},"french_stemmer":{"type":"stemmer","language":"light_french"},"english_stop":{"type":"stop","stopwords":"_english_"},"english_stemmer":{"type":"stemmer","language":"english"},"german_stop":{"type":"stop","stopwords":"_german_"},"german_stemmer":{"type":"stemmer","language":"light_german"},"dutch_stop":{"type":"stop","stopwords":"_dutch_"},"dutch_stemmer":{"type":"stemmer","language":"dutch"},"trigram_filter":{"type":"ngram","min_gram":3,"max_gram":3}}}},"mappings":{"dynamic":"strict","properties":{"id":{"type":"keyword"},"title.fr":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.fr":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.en":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.en":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.de":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.de":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.nl":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.nl":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.und":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.und":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"depth":{"type":"integer"},"path":{"type":"keyword","fields":{"text":{"type":"text"}}},"numchild":{"type":"integer"},"created_at":{"type":"date"},"updated_at":{"type":"date"},"size":{"type":"long"},"users":{"type":"keyword"},"groups":{"type":"keyword"},"reach":{"type":"keyword"},"service":{"type":"keyword"},"tags":{"type":"keyword"},"is_active":{"type":"boolean"}}}}'
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: PUT
+    uri: http://opensearch:9200/find
+  response:
+    body:
+      string: '{"acknowledged":true,"shards_acknowledged":true,"index":"find"}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '63'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"index":{"_id":"39a90895-11bc-472b-84c3-38083daef9f6","_index":"find"}}
+
+      {"title.en":"Particular find manage anyone knowledge detail carry ability wide
+      source bar.","content.en":"The television make evening decade feel firm home.
+      Feeling six American couple bank stage discussion interest.\nBox method social
+      game.\nDrop machine official. Now grow within exist task. Behind debate mean
+      which.\nSing charge mother. Several tonight leader keep he agree home purpose.
+      Price admit like animal finish song by.\nArm body weight benefit company vote
+      final describe. Leave light interest total. Seat class open drop yes wrong.","created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":60925965,"users":["dc87ec9e-733a-4852-99ac-edf77a21cee4","addc60bb-75e9-4f39-ba1a-c9086d9361e1","e28caa7f-d39c-44e7-bf8c-0aa9e30367b1"],"groups":["window","couple","we"],"reach":"public","service":"test-index-6"}
+
+      {"index":{"_id":"07df608f-90a7-435c-88e3-3c7ead59aab9","_index":"find"}}
+
+      {"title.en":"Policy city run support address crime six should night business
+      enter dog wonder.","content.en":"Have ready production no practice ten trial.
+      Million message music race.\nManage bar letter foreign know interesting. Commercial
+      rock wide his.\nPick might result agency. Together really cut personal agreement
+      huge democratic. Worry discover turn daughter truth accept character.\nForeign
+      campaign participant fill. Ahead investment TV ok social. Number wrong maybe
+      Mr probably will. True city instead region run stop entire.\nRule live wonder
+      read building issue. Account learn phone green success establish certain civil.
+      Physical first always early over leader.","created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":17434505,"users":["158f2c15-5996-46fc-bf9c-f572ee565267","f8abfa36-89cf-4f1d-90f8-352aa9febf7e","f437cfd0-7d5a-4c05-94b0-d7398a6b917c"],"groups":["hand","remain","including"],"reach":"authenticated","service":"test-index-6"}
+
+      {"index":{"_id":"3e1204d2-1c6c-42c0-ac46-09c236873445","_index":"find"}}
+
+      {"title.en":"Tell street step federal natural material reality letter happen
+      important.","content.en":"Pattern future far wife direction. Floor best control
+      animal religious rather. Sit by ask probably.\nFront onto present past.\nFinancial
+      fire again building just politics dog. Commercial face article campaign. Culture
+      environmental table unit another view tree. Republican and statement after century.\nInside
+      community child member certain star ground avoid. Against southern great value.
+      Whether family must image former edge.\nNewspaper car agency chair. Carry raise
+      new outside view. Face able north represent network.","created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":10889202,"users":["5c27c73d-f575-41da-a40d-e05846c64197","0f7b195f-cd73-465d-917f-dadfc313ccef","51fc4397-4f40-4c11-a5e8-831eaa117ccf"],"groups":["however","blood","we"],"reach":"authenticated","service":"test-index-6"}
+
+      {"index":{"_id":"f9d5f518-d14c-42b6-8ca4-3e38612ec960","_index":"find"}}
+
+      {"title.en":"Less maybe avoid structure board blue charge serve.","content.en":"Player
+      identify experience model different turn computer.\nChallenge during build finish
+      how which. Skill degree hospital accept wife throughout remember item.\nYard
+      listen detail animal company couple despite. Tough worry old television. Decade
+      car politics still bill add water.\nBusiness mouth whatever sport loss. Different
+      player agent positive between kitchen attorney himself.\nForeign light probably
+      plant model table improve. Item study region different.","created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":79610523,"users":["96b95856-f784-4773-9fd6-b922e4f4cb8a","d0824742-af8f-43c7-9d78-e89082dd1269","aafdcc51-bf8a-4908-b42e-d16ecb937359"],"groups":["yourself","address","main"],"reach":"public","service":"test-index-6"}
+
+      '
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: POST
+    uri: http://opensearch:9200/_bulk
+  response:
+    body:
+      string: '{"took":15,"errors":false,"items":[{"index":{"_index":"find","_id":"39a90895-11bc-472b-84c3-38083daef9f6","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"status":201}},{"index":{"_index":"find","_id":"07df608f-90a7-435c-88e3-3c7ead59aab9","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":1,"_primary_term":1,"status":201}},{"index":{"_index":"find","_id":"3e1204d2-1c6c-42c0-ac46-09c236873445","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":2,"_primary_term":1,"status":201}},{"index":{"_index":"find","_id":"f9d5f518-d14c-42b6-8ca4-3e38612ec960","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":3,"_primary_term":1,"status":201}}]}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '820'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: POST
+    uri: http://opensearch:9200/test-index/_refresh
+  response:
+    body:
+      string: '{"_shards":{"total":2,"successful":1,"failed":0}}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '49'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: POST
+    uri: http://opensearch:9200/test-index/_count
+  response:
+    body:
+      string: '{"count":4,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '71'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: POST
+    uri: http://opensearch:9200/test-index/_count
+  response:
+    body:
+      string: '{"count":4,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '71'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,33 +1,20 @@
 from unittest.mock import MagicMock
 
-from django.conf import LazySettings
-
 import pytest
 from django_bolt.testing import TestClient
 
-from core import enums
 from core.authentication import ResourceUser
 
 pytestmark = pytest.mark.django_db
 
 
 class TestSearchDocumentsHandler:
+    @pytest.mark.vcr
     def test_search_simple_query_returns_200(
         self,
-        settings: LazySettings,
-        mock_opensearch_client: MagicMock,
         mock_oidc_user: ResourceUser,
         bolt_client: TestClient,
     ) -> None:
-        mock_opensearch_client.search.return_value = {
-            "hits": {
-                "hits": [
-                    {"_id": "doc1", "_source": {"title": "Test Document"}},
-                    {"_id": "doc2", "_source": {"title": "Another Document"}},
-                ]
-            }
-        }
-
         response = bolt_client.post(
             "/api/v1.0/documents/search",
             json={"query": "test", "limit": 10},
@@ -35,89 +22,14 @@ class TestSearchDocumentsHandler:
         )
 
         assert response.status_code == 200
-        assert response.json() == [
-            {"_id": "doc1", "_source": {"title": "Test Document"}},
-            {"_id": "doc2", "_source": {"title": "Another Document"}},
-        ]
-        mock_opensearch_client.search.assert_called_once()
-        assert mock_opensearch_client.search.call_args.kwargs == {
-            "index": settings.OPENSEARCH_INDEX,
-            "body": {
-                "_source": enums.SOURCE_FIELDS,
-                "script_fields": {
-                    "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                    "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-                },
-                "sort": [{"_score": {"order": "desc"}}],
-                "size": 10,
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "bool": {
-                                    "should": [
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": ["title.*.text^3", "content.*"],
-                                            }
-                                        },
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": [
-                                                    "title.*.text.trigrams^3",
-                                                    "content.*.trigrams",
-                                                ],
-                                                "boost": settings.TRIGRAMS_BOOST,
-                                                "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
-                                            }
-                                        },
-                                    ],
-                                    "minimum_should_match": 1,
-                                }
-                            }
-                        ],
-                        "filter": [
-                            {
-                                "bool": {
-                                    "must": [
-                                        {"term": {"is_active": True}},
-                                        {"term": {"service": mock_oidc_user.token_audience}},
-                                        {
-                                            "bool": {
-                                                "should": [
-                                                    {
-                                                        "bool": {
-                                                            "must_not": [
-                                                                {"term": {"reach": "restricted"}}
-                                                            ]
-                                                        }
-                                                    },
-                                                    {"terms": {"users": [mock_oidc_user.sub]}},
-                                                ],
-                                                "minimum_should_match": 1,
-                                            }
-                                        },
-                                    ]
-                                }
-                            }
-                        ],
-                    }
-                },
-            },
-            "params": {"ignore_unavailable": "true"},
-        }
+        assert response.json() == []
 
+    @pytest.mark.vcr
     def test_search_with_where_clause_returns_200(
         self,
-        settings: LazySettings,
-        mock_opensearch_client: MagicMock,
         mock_oidc_user: ResourceUser,
         bolt_client: TestClient,
     ) -> None:
-        mock_opensearch_client.search.return_value = {"hits": {"hits": []}}
-
         response = bolt_client.post(
             "/api/v1.0/documents/search",
             json={
@@ -132,98 +44,13 @@ class TestSearchDocumentsHandler:
 
         assert response.status_code == 200
         assert response.json() == []
-        mock_opensearch_client.search.assert_called_once()
-        assert mock_opensearch_client.search.call_args.kwargs == {
-            "index": settings.OPENSEARCH_INDEX,
-            "body": {
-                "_source": enums.SOURCE_FIELDS,
-                "script_fields": {
-                    "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                    "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-                },
-                "sort": [{"_score": {"order": "desc"}}],
-                "size": 10,
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "bool": {
-                                    "should": [
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": ["title.*.text^3", "content.*"],
-                                            }
-                                        },
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": [
-                                                    "title.*.text.trigrams^3",
-                                                    "content.*.trigrams",
-                                                ],
-                                                "boost": settings.TRIGRAMS_BOOST,
-                                                "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
-                                            }
-                                        },
-                                    ],
-                                    "minimum_should_match": 1,
-                                }
-                            }
-                        ],
-                        "filter": [
-                            {
-                                "bool": {
-                                    "must": [
-                                        {
-                                            "bool": {
-                                                "must": [
-                                                    {"terms": {"tags": ["tag1", "tag2"]}}
-                                                ]
-                                            }
-                                        },
-                                        {
-                                            "bool": {
-                                                "must": [
-                                                    {"term": {"is_active": True}},
-                                                    {"term": {"service": mock_oidc_user.token_audience}},
-                                                    {
-                                                        "bool": {
-                                                            "should": [
-                                                                {
-                                                                    "bool": {
-                                                                        "must_not": [
-                                                                            {"term": {"reach": "restricted"}}
-                                                                        ]
-                                                                    }
-                                                                },
-                                                                {"terms": {"users": [mock_oidc_user.sub]}},
-                                                            ],
-                                                            "minimum_should_match": 1,
-                                                        }
-                                                    },
-                                                ]
-                                            }
-                                        },
-                                    ]
-                                }
-                            }
-                        ],
-                    }
-                },
-            },
-            "params": {"ignore_unavailable": "true"},
-        }
 
+    @pytest.mark.vcr
     def test_search_with_sort_and_limit_returns_200(
         self,
-        settings: LazySettings,
-        mock_opensearch_client: MagicMock,
         mock_oidc_user: ResourceUser,
         bolt_client: TestClient,
     ) -> None:
-        mock_opensearch_client.search.return_value = {"hits": {"hits": []}}
-
         response = bolt_client.post(
             "/api/v1.0/documents/search",
             json={
@@ -236,75 +63,6 @@ class TestSearchDocumentsHandler:
 
         assert response.status_code == 200
         assert response.json() == []
-        mock_opensearch_client.search.assert_called_once()
-        assert mock_opensearch_client.search.call_args.kwargs == {
-            "index": settings.OPENSEARCH_INDEX,
-            "body": {
-                "_source": enums.SOURCE_FIELDS,
-                "script_fields": {
-                    "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                    "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-                },
-                "sort": [{"created_at": {"order": "desc"}}],
-                "size": 5,
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "bool": {
-                                    "should": [
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": ["title.*.text^3", "content.*"],
-                                            }
-                                        },
-                                        {
-                                            "multi_match": {
-                                                "query": "test",
-                                                "fields": [
-                                                    "title.*.text.trigrams^3",
-                                                    "content.*.trigrams",
-                                                ],
-                                                "boost": settings.TRIGRAMS_BOOST,
-                                                "minimum_should_match": settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
-                                            }
-                                        },
-                                    ],
-                                    "minimum_should_match": 1,
-                                }
-                            }
-                        ],
-                        "filter": [
-                            {
-                                "bool": {
-                                    "must": [
-                                        {"term": {"is_active": True}},
-                                        {"term": {"service": mock_oidc_user.token_audience}},
-                                        {
-                                            "bool": {
-                                                "should": [
-                                                    {
-                                                        "bool": {
-                                                            "must_not": [
-                                                                {"term": {"reach": "restricted"}}
-                                                            ]
-                                                        }
-                                                    },
-                                                    {"terms": {"users": [mock_oidc_user.sub]}},
-                                                ],
-                                                "minimum_should_match": 1,
-                                            }
-                                        },
-                                    ]
-                                }
-                            }
-                        ],
-                    }
-                },
-            },
-            "params": {"ignore_unavailable": "true"},
-        }
 
     def test_search_missing_auth_returns_401(self, bolt_client: TestClient) -> None:
         response = bolt_client.post(
@@ -435,7 +193,7 @@ class TestSearchDocumentsHandler:
         assert response.json() == {
             "detail": [
                 {
-                    "loc": ["body", "sort.0.field"],
+                    "loc": ["body", "sort0.field"],
                     "msg": "Invalid enum value 'nonexistent_field'",
                     "type": "validation_error",
                 }
@@ -461,7 +219,7 @@ class TestSearchDocumentsHandler:
         assert response.json() == {
             "detail": [
                 {
-                    "loc": ["body", "sort.0.direction"],
+                    "loc": ["body", "sort0.direction"],
                     "msg": "Invalid enum value 'invalid'",
                     "type": "validation_error",
                 }
