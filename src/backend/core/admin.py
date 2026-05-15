@@ -5,19 +5,7 @@ from django.shortcuts import render
 from django.urls import path
 
 from . import selftests_builtin  # pylint: disable=unused-import
-from .models import Service
 from .selftests import registry
-
-
-@admin.register(Service)
-class ServiceAdmin(admin.ModelAdmin):
-    """Register the serivce model for the admin site"""
-
-    list_display = ("name", "created_at", "is_active")
-    search_fields = ("name",)
-    list_filter = ("is_active", "created_at")
-    ordering = ("-created_at",)
-    readonly_fields = ("created_at", "token")
 
 
 def selftest_view(request):

@@ -5,13 +5,14 @@ from __future__ import annotations
 from functools import cache
 from typing import Any
 
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.utils.module_loading import import_string
+
+from asgiref.sync import sync_to_async
 from django_bolt.auth.backends import BaseAuthentication
 
 from .authentication import ResourceUser
-from .models import Service
+from .services.registry import get_service_by_token
 
 
 class ServiceTokenAuthentication(BaseAuthentication):
@@ -53,7 +54,7 @@ class ServiceTokenAuthentication(BaseAuthentication):
             auth_context: Contains the raw authorization header value
 
         Returns:
-            Context dict with service_id and service_name on success, None otherwise
+            Context dict with service_name and client_id on success, None otherwise
         """
         auth_header = auth_context.get("authorization") or auth_context.get(
             "auth_header"
@@ -65,16 +66,15 @@ class ServiceTokenAuthentication(BaseAuthentication):
         if not token:
             return None
 
-        try:
-            service = await Service.objects.only("id", "name").aget(
-                token=token, is_active=True
-            )
-            return {
-                "service_id": service.id,
-                "service_name": service.name,
-            }
-        except Service.DoesNotExist:
+        result = get_service_by_token(token)
+        if result is None:
             return None
+        
+        service_name, service = result
+        return {
+            "service_name": service_name,
+            "client_id": service.client_id,
+        }
 
 
 class IsAuthenticated:
@@ -90,11 +90,11 @@ class IsAuthenticated:
 class IsServiceAuthenticated:
     """
     Guard that checks if the context has service authentication.
-    Returns True if context has a service_id key.
+    Returns True if context has a service_name key.
     """
 
     def __call__(self, context: dict | None) -> bool:
-        return bool(context and context.get("service_id"))
+        return bool(context and context.get("service_name"))
 
 
 class IsOIDCAuthenticated:

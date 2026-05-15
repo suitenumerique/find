@@ -52,7 +52,7 @@ def mock_service_context() -> Generator[dict, None, None]:
 
     Patches _require_service_context to return a mock service context.
     """
-    context = {"service_id": 1, "service_name": "test-service"}
+    context = {"service_name": "test_service", "client_id": "test_client"}
 
     with patch.object(
         handlers, "_require_service_context", new=AsyncMock(return_value=context)

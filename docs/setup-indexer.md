@@ -1,6 +1,6 @@
 # Using the Find indexer
 
-This guide explains how to setup the Find service which provide an API for indexation and fulltext search of
+This guide explains how to setup the Find service which provides an API for indexation and fulltext search of
 documents from various sources in a secure way: only the documents within the scope of the user's OIDC token
 are visible.
 
@@ -12,7 +12,7 @@ Add the following variables to your Django settings to configure Find
 and enable full-text search.
 
 ```python
-# Login for opensearch
+# Login for opensearch
 OPENSEARCH_USER=opensearch-user
 OPENSEARCH_PASSWORD=your-opensearch-password
 
@@ -61,31 +61,39 @@ either an absolute number or proportion.
 
 Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
 
-For each application a new **Service** must be created through the admin interface
-(see http://localhost:9071/admin/core/service/add/)
+For each application, configure a service using environment variables:
 
-| Field                       | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| Name                        | Name of the service (used as `service` field) |
-| Is active                   | Toggle service availability                        |
-| Client id                   | Calling service client_id (e.g `impress` for docs) |
-| Allowed services for search | List of sub-services. Will add the results from all these services<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication    |
+```bash
+export SERVICES__<NAME>__TOKEN=your-secure-token
+export SERVICES__<NAME>__CLIENT_ID=calling-app-client-id
+```
 
-And add the key in the calling application Django settings.
+Service names must match the pattern `^[a-z0-9_]+$` (alphanumeric + underscore only) and are normalized to lowercase. Both `TOKEN` and `CLIENT_ID` are required for each service.
 
-**Development Mode (Docs + Find)**
+### Development Mode (Docs + Find)
 
-The command `make demo` will create a working service configuration for `docs` and `drive` with predefined secret keys
+Configure services via environment variables. Tokens can be any non-empty string.
+
+```bash
+# Docs
+SERVICES__DOCS__TOKEN="your-secure-docs-token"
+SERVICES__DOCS__CLIENT_ID="impress"
+
+# Drive
+SERVICES__DRIVE__TOKEN="your-secure-drive-token"
+SERVICES__DRIVE__CLIENT_ID="drive"
+```
+
+Then add the token in the calling application Django settings:
 
 ```python
 # Docs
-SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
+SEARCH_INDEXER_SECRET="your-secure-docs-token"
 ```
 
 ```python
 # Drive
-SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
+SEARCH_INDEXER_SECRET="your-secure-drive-token"
 ```
 
 ## Setup search API

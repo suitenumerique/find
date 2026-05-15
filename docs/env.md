@@ -107,3 +107,37 @@ These are the environment variables you can set for the `find-backend` container
 | USER_OIDC_ESSENTIAL_CLAIMS                      | Essential claims in OIDC token                                                                                              | []                                                                      |
 | Y_PROVIDER_API_BASE_URL                         | Y Provider url                                                                                                              |                                                                         |
 | Y_PROVIDER_API_KEY                              | Y provider API key                                                                                                          |                                                                         |
+
+## Service Configuration
+
+Services are configured via environment variables using the `SERVICES__*` pattern. Each service requires both a `TOKEN` and `CLIENT_ID`.
+
+### Environment Variable Pattern
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SERVICES__<NAME>__TOKEN` | Yes | Authentication token for the service (any non-empty string) |
+| `SERVICES__<NAME>__CLIENT_ID` | Yes | Client ID of the calling application (e.g., `impress`, `drive`) |
+
+### Constraints
+
+- Service names are normalized to lowercase
+- Service names must match the pattern `^[a-z0-9_]+$` (alphanumeric + underscore only)
+- Both `TOKEN` and `CLIENT_ID` are required for each service
+- Duplicate tokens across services cause a validation error on first request
+- Empty token or client_id causes a validation error on first request
+- No hot-reload - restart required to add or change services
+
+### Examples
+
+```bash
+# Single service
+export SERVICES__DOCS__TOKEN=your-secure-token
+export SERVICES__DOCS__CLIENT_ID=impress
+
+# Multiple services
+export SERVICES__DOCS__TOKEN=docs-secure-token
+export SERVICES__DOCS__CLIENT_ID=impress
+export SERVICES__DRIVE__TOKEN=drive-secure-token
+export SERVICES__DRIVE__CLIENT_ID=drive
+```

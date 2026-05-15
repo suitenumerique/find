@@ -57,8 +57,4 @@ class Migration(migrations.Migration):
                 ('objects', django.contrib.auth.models.UserManager()),
             ],
         ),
-        migrations.AddConstraint(
-            model_name='service',
-            constraint=models.CheckConstraint(condition=models.Q(('token__length', 50)), name='token_length_exact_50'),
-        ),
     ]

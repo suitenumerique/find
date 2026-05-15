@@ -52,3 +52,9 @@ OIDC_RS_SIGN_ALGO=RS256
 
 OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
 OIDC_RS_ENCRYPTION_KEY_TYPE="RSA"
+
+# Services (tokens can be any non-empty string)
+SERVICES__DOCS__TOKEN=dev-docs-token
+SERVICES__DOCS__CLIENT_ID=impress
+SERVICES__DRIVE__TOKEN=dev-drive-token
+SERVICES__DRIVE__CLIENT_ID=drive
