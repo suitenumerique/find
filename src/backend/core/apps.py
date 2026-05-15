@@ -1,5 +1,6 @@
 """Find Core application"""
 
+import os
 import sys
 
 from django.apps import AppConfig
@@ -16,6 +17,10 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         if "pytest" in sys.modules:
+            return
+
+        # Skip OpenSearch initialization during Docker build (collectstatic, etc.)
+        if os.environ.get("DJANGO_CONFIGURATION") == "Build":
             return
 
         from .services.indexing import ensure_index_exists
