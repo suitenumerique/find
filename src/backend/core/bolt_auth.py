@@ -69,7 +69,7 @@ class ServiceTokenAuthentication(BaseAuthentication):
         result = get_service_by_token(token)
         if result is None:
             return None
-        
+
         service_name, service = result
         return {
             "service_name": service_name,
@@ -165,8 +165,12 @@ class OIDCAuthentication(BaseAuthentication):
 
         backend = _get_resource_server_backend()
         try:
-            user_info = await sync_to_async(backend.get_user_info_with_introspection)(access_token)
-            user = await sync_to_async(backend.get_or_create_user)(access_token, None, user_info)
+            user_info = await sync_to_async(backend.get_user_info_with_introspection)(
+                access_token
+            )
+            user = await sync_to_async(backend.get_or_create_user)(
+                access_token, None, user_info
+            )
         except Exception:
             return None
 

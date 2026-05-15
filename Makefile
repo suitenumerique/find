@@ -28,11 +28,6 @@ RESET := \033[0m
 GREEN := \033[1;32m
 
 
-# -- Database
-
-DB_HOST            = postgresql
-DB_PORT            = 5432
-
 # -- Docker
 # Get the current user ID to use for docker run and docker exec commands
 DOCKER_UID          = $(shell id -u)
@@ -43,8 +38,6 @@ COMPOSE_EXEC        = $(COMPOSE) exec
 COMPOSE_EXEC_APP    = $(COMPOSE_EXEC) app
 COMPOSE_RUN         = $(COMPOSE) run --rm
 COMPOSE_RUN_APP     = $(COMPOSE_RUN) app
-COMPOSE_RUN_CROWDIN = $(COMPOSE_RUN) crowdin crowdin
-WAIT_DB             = @$(COMPOSE_RUN) dockerize -wait tcp://$(DB_HOST):$(DB_PORT) -timeout 60s
 
 # -- Backend
 MANAGE              = $(COMPOSE_RUN_APP) python manage.py
@@ -64,9 +57,7 @@ data/static:
 
 create-env-files: ## Copy the dist env files to env files
 create-env-files: \
-	env.d/development/common \
-	env.d/development/crowdin \
-	env.d/development/postgresql
+	env.d/development/common
 .PHONY: create-env-files
 
 bootstrap: ## Prepare Docker images for the project
@@ -75,10 +66,7 @@ bootstrap: \
 	data/static \
 	create-env-files \
 	build \
-	migrate \
-	demo \
-	back-i18n-generate \
-	back-i18n-compile
+	demo
 .PHONY: bootstrap
 
 # -- Docker/compose
@@ -96,8 +84,6 @@ logs: ## display app logs (follow mode)
 
 run: ## start the wsgi (production) and development server
 	@$(COMPOSE) up --force-recreate -d celery
-	@echo "Wait for postgresql to be up..."
-	@$(WAIT_DB)
 .PHONY: run
 
 status: ## an alias for "docker compose ps"
@@ -110,8 +96,7 @@ stop: ## stop the development server using Docker
 
 # -- Backend
 
-demo: ## flush db then create a demo for load testing purpose
-	@$(MAKE) resetdb
+demo: ## create a demo for load testing purpose
 	@$(MANAGE) create_demo
 .PHONY: demo
 
@@ -156,95 +141,14 @@ test-back-parallel: ## run all back-end tests in parallel
 	bin/pytest -n auto $${args:-${1}}
 .PHONY: test-back-parallel
 
-makemigrations:  ## run django makemigrations for the find project.
-	@echo "$(BOLD)Running makemigrations$(RESET)"
-	@$(COMPOSE) up -d postgresql
-	@$(WAIT_DB)
-	@$(MANAGE) makemigrations
-.PHONY: makemigrations
 
-migrate:  ## run django migrations for the find project.
-	@echo "$(BOLD)Running migrations$(RESET)"
-	@$(COMPOSE) up -d postgresql
-	@$(WAIT_DB)
-	@$(MANAGE) migrate
-.PHONY: migrate
 
-superuser: ## Create an admin superuser with password "admin"
-	@echo "$(BOLD)Creating a Django superuser$(RESET)"
-	@$(WAIT_DB)
-	@$(MANAGE) shell -c "from core.models import User; not User.objects.filter(username='admin').exists() and User.objects.create_superuser('admin', 'admin@example.com', 'admin')"
-.PHONY: superuser
-
-back-i18n-compile: ## compile the gettext files
-	@$(MANAGE) compilemessages --ignore=".venv/**/*"
-.PHONY: back-i18n-compile
-
-back-i18n-generate: ## create the .pot files used for i18n
-	@$(MANAGE) makemessages -a --keep-pot
-.PHONY: back-i18n-generate
-
-shell: ## connect to database shell
+shell: ## open Django interactive shell
 	@$(MANAGE) shell #_plus
-.PHONY: dbshell
-
-# -- Database
-
-dbshell: ## connect to database shell
-	docker compose exec app python manage.py dbshell
-.PHONY: dbshell
-
-resetdb: FLUSH_ARGS ?=
-resetdb: ## flush database and create a superuser "admin"
-	@echo "$(BOLD)Flush database$(RESET)"
-	@$(MANAGE) flush $(FLUSH_ARGS)
-	@${MAKE} superuser
-.PHONY: resetdb
+.PHONY: shell
 
 env.d/development/common:
 	cp --update=none env.d/development/common.dist env.d/development/common
-
-env.d/development/postgresql:
-	cp --update=none env.d/development/postgresql.dist env.d/development/postgresql
-
-# -- Internationalization
-
-env.d/development/crowdin:
-	cp --update=none env.d/development/crowdin.dist env.d/development/crowdin
-
-crowdin-download: ## Download translated message from crowdin
-	@$(COMPOSE_RUN_CROWDIN) download -c crowdin/config.yml
-.PHONY: crowdin-download
-
-crowdin-download-sources: ## Download sources from Crowdin
-	@$(COMPOSE_RUN_CROWDIN) download sources -c crowdin/config.yml
-.PHONY: crowdin-download-sources
-
-crowdin-upload: ## Upload source translations to crowdin
-	@$(COMPOSE_RUN_CROWDIN) upload sources -c crowdin/config.yml
-.PHONY: crowdin-upload
-
-i18n-compile: ## compile all translations
-i18n-compile: \
-	back-i18n-compile
-.PHONY: i18n-compile
-
-i18n-generate: ## create the .pot files used for i18n
-i18n-generate: \
-	back-i18n-generate
-.PHONY: i18n-generate
-
-i18n-download-and-compile: ## download all translated messages and compile them to be used by all applications
-i18n-download-and-compile: \
-  crowdin-download \
-  i18n-compile
-.PHONY: i18n-download-and-compile
-
-i18n-generate-and-upload: ## generate source translations for all applications and upload them to Crowdin
-i18n-generate-and-upload: \
-  i18n-generate \
-  crowdin-upload
-.PHONY: i18n-generate-and-upload
 
 # -- Misc
 clean: ## restore repository state as it was freshly cloned

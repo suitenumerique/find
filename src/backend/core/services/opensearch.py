@@ -39,5 +39,9 @@ def opensearch_client():
         timeout=50,
         use_ssl=settings.OPENSEARCH_USE_SSL,
         verify_certs=settings.OPENSEARCH_VERIFY_CERTS,
-        **({"ca_certs": settings.OPENSEARCH_CA_CERTS} if settings.OPENSEARCH_CA_CERTS else {}),
+        **(
+            {"ca_certs": settings.OPENSEARCH_CA_CERTS}
+            if settings.OPENSEARCH_CA_CERTS
+            else {}
+        ),
     )

@@ -1,13 +1,6 @@
 name: find
 
 services:
-  postgresql:
-    image: postgres:15
-    env_file:
-      - env.d/development/postgresql
-    ports:
-      - "25432:5432"
-
   opensearch:
     image: opensearchproject/opensearch:latest
     environment:
@@ -59,7 +52,6 @@ services:
       - DJANGO_CONFIGURATION=Development
     env_file:
       - env.d/development/common
-      - env.d/development/postgresql
     ports:
       - "8081:8000"
     networks:
@@ -72,8 +64,6 @@ services:
       - ./data/static:/data/static
       - /app/.venv
     depends_on:
-      postgresql:
-        condition: service_started
       redis:
         condition: service_started
       opensearch:
@@ -87,22 +77,12 @@ services:
       - DJANGO_CONFIGURATION=Development
     env_file:
       - env.d/development/common
-      - env.d/development/postgresql
     volumes:
       - ./src/backend:/app
       - ./data/static:/data/static
       - /app/.venv
     depends_on:
       - app
-
-  crowdin:
-    image: crowdin/cli:3.16.0
-    volumes:
-      - ".:/app"
-    env_file:
-      - env.d/development/crowdin
-    user: "${DOCKER_USER:-1000}"
-    working_dir: /app
 
 networks:
   lasuite:

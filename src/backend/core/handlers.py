@@ -47,7 +47,9 @@ async def _require_service_context(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @api.post("/documents/search")
-async def search_documents(request: dict[str, Any], search_query: SearchQuerySchema) -> SearchResponse:
+async def search_documents(
+    request: dict[str, Any], search_query: SearchQuerySchema
+) -> SearchResponse:
     user = await _require_oidc_user(request)
     user_sub = user.sub
     service = getattr(user, "token_audience", None)
@@ -58,8 +60,7 @@ async def search_documents(request: dict[str, Any], search_query: SearchQuerySch
     sort_clauses = None
     if search_query.sort:
         sort_clauses = [
-            SortClause(field=s.field, direction=s.direction)
-            for s in search_query.sort
+            SortClause(field=s.field, direction=s.direction) for s in search_query.sort
         ]
 
     search_params = SearchParams(

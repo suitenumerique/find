@@ -43,4 +43,3 @@ class DocumentFactory(factory.DictFactory):
             end_date=timezone.now(),
             tzinfo=timezone.get_current_timezone(),
         )
-

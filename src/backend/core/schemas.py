@@ -194,15 +194,29 @@ class SearchResponse(Struct):
 _ALLOWED_FIELDS: frozenset[str] = frozenset(
     [
         # UserQueryField
-        "id", "title", "content", "depth", "path", "numchild",
-        "created_at", "updated_at", "size", "reach", "tags",
+        "id",
+        "title",
+        "content",
+        "depth",
+        "path",
+        "numchild",
+        "created_at",
+        "updated_at",
+        "size",
+        "reach",
+        "tags",
         # SystemQueryField
-        "is_active", "users", "groups", "service",
+        "is_active",
+        "users",
+        "groups",
+        "service",
     ]
 )
 
 
-def _parse_where_clause_inner(data: dict) -> "AndClause | OrClause | NotClause | FieldCondition":
+def _parse_where_clause_inner(
+    data: dict,
+) -> "AndClause | OrClause | NotClause | FieldCondition":
     if "and" in data:
         return AndClause(and_=[_parse_where_clause_inner(c) for c in data["and"]])
     elif "or" in data:
@@ -212,7 +226,9 @@ def _parse_where_clause_inner(data: dict) -> "AndClause | OrClause | NotClause |
     elif "field" in data and "op" in data and "value" in data:
         field_name = data["field"]
         if not isinstance(field_name, str):
-            raise msgspec.ValidationError(f"Field must be a string, got {type(field_name).__name__}")
+            raise msgspec.ValidationError(
+                f"Field must be a string, got {type(field_name).__name__}"
+            )
         if field_name not in _ALLOWED_FIELDS:
             raise msgspec.ValidationError(f"Unknown field: {field_name!r}")
         try:

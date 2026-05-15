@@ -14,8 +14,6 @@ import json
 import os
 from socket import gethostbyname, gethostname
 
-from django.utils.translation import gettext_lazy as _
-
 import sentry_sdk
 from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -73,50 +71,20 @@ class Base(Configuration):
     # Security
     ALLOWED_HOSTS = values.ListValue([])
     SECRET_KEY = values.Value(None)
-    SILENCED_SYSTEM_CHECKS = values.ListValue([])
+    SILENCED_SYSTEM_CHECKS = values.ListValue(
+        [
+            "dockerflow.health.E003",  # Database misconfigured
+            "dockerflow.health.I001",  # Can't connect to database to check migrations
+        ]
+    )
 
     # Application definition
     ROOT_URLCONF = "find.urls"
     WSGI_APPLICATION = "find.wsgi.application"
 
-    # Database
-    DATABASES = {
-        "default": {
-            "ENGINE": values.Value(
-                "django.db.backends.postgresql",
-                environ_name="DB_ENGINE",
-                environ_prefix=None,
-            ),
-            "NAME": values.Value("find", environ_name="DB_NAME", environ_prefix=None),
-            "USER": values.Value("dinum", environ_name="DB_USER", environ_prefix=None),
-            "PASSWORD": values.Value(
-                "pass", environ_name="DB_PASSWORD", environ_prefix=None
-            ),
-            "HOST": values.Value(
-                "localhost", environ_name="DB_HOST", environ_prefix=None
-            ),
-            "PORT": values.Value(5432, environ_name="DB_PORT", environ_prefix=None),
-        }
-    }
-    DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
-
-    # Static files (CSS, JavaScript, Images)
-    STATIC_URL = "/static/"
-    STATIC_ROOT = os.path.join(DATA_DIR, "static")
-    MEDIA_URL = "/media/"
-    MEDIA_ROOT = os.path.join(DATA_DIR, "media")
-
-    SITE_ID = 1
-
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3.S3Storage",
-        },
-        "staticfiles": {
-            "BACKEND": values.Value(
-                "whitenoise.storage.CompressedManifestStaticFilesStorage",
-                environ_name="STORAGES_STATICFILES_BACKEND",
-            ),
         },
     }
 
@@ -126,10 +94,10 @@ class Base(Configuration):
     # Languages
     LANGUAGES = values.SingleNestedTupleValue(
         (
-            ("fr", _("French")),
-            ("en", _("English")),
-            ("de", _("German")),
-            ("nl", _("Dutch")),
+            ("fr", "French"),
+            ("en", "English"),
+            ("de", "German"),
+            ("nl", "Dutch"),
             ("und", None),
         )
     )
@@ -143,10 +111,8 @@ class Base(Configuration):
     )
     UNDETERMINED_LANGUAGE_CODE = "und"
 
-    LOCALE_PATHS = (os.path.join(BASE_DIR, "locale"),)
-
     TIME_ZONE = "UTC"
-    USE_I18N = True
+    USE_I18N = False
     USE_TZ = True
 
     # Templates
@@ -156,11 +122,8 @@ class Base(Configuration):
             "DIRS": [os.path.join(BASE_DIR, "templates")],
             "OPTIONS": {
                 "context_processors": [
-                    "django.contrib.auth.context_processors.auth",
-                    "django.contrib.messages.context_processors.messages",
                     "django.template.context_processors.csrf",
                     "django.template.context_processors.debug",
-                    "django.template.context_processors.i18n",
                     "django.template.context_processors.media",
                     "django.template.context_processors.request",
                     "django.template.context_processors.tz",
@@ -175,20 +138,12 @@ class Base(Configuration):
 
     MIDDLEWARE = [
         "django.middleware.security.SecurityMiddleware",
-        "whitenoise.middleware.WhiteNoiseMiddleware",
-        "django.contrib.sessions.middleware.SessionMiddleware",
-        "django.middleware.locale.LocaleMiddleware",
+
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "corsheaders.middleware.CorsMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
-        "django.contrib.auth.middleware.AuthenticationMiddleware",
-        "django.contrib.messages.middleware.MessageMiddleware",
         "dockerflow.django.middleware.DockerflowMiddleware",
-    ]
-
-    AUTHENTICATION_BACKENDS = [
-        "django.contrib.auth.backends.ModelBackend",
     ]
 
     # Django applications from the highest priority to the lowest
@@ -199,15 +154,6 @@ class Base(Configuration):
         # Third party apps
         "corsheaders",
         "dockerflow.django",
-        # Django
-        "django.contrib.admin",
-        "django.contrib.auth",
-        "django.contrib.contenttypes",
-        "django.contrib.postgres",
-        "django.contrib.sessions",
-        "django.contrib.sites",
-        "django.contrib.messages",
-        "django.contrib.staticfiles",
         # OIDC third party
         "mozilla_django_oidc",
     ]
@@ -243,8 +189,6 @@ class Base(Configuration):
         default="find", environ_name="OPENSEARCH_INDEX", environ_prefix=None
     )
 
-    AUTH_USER_MODEL = "core.User"
-
     # Trigrams search settings
     TRIGRAMS_BOOST = values.Value(
         default=0.25, environ_name="TRIGRAMS_BOOST", environ_prefix=None
@@ -265,11 +209,6 @@ class Base(Configuration):
     # Celery
     CELERY_BROKER_URL = values.Value("redis://redis:6379/0")
     CELERY_BROKER_TRANSPORT_OPTIONS = values.DictValue({})
-
-    # Session
-    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-    SESSION_CACHE_ALIAS = "default"
-    SESSION_COOKIE_AGE = 60 * 60 * 12
 
     # OIDC - Authorization Code Flow
     OIDC_CREATE_USER = values.BooleanValue(
@@ -483,12 +422,6 @@ class Build(Base):
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
-        "staticfiles": {
-            "BACKEND": values.Value(
-                "whitenoise.storage.CompressedManifestStaticFilesStorage",
-                environ_name="STORAGES_STATICFILES_BACKEND",
-            ),
-        },
     }
 
 
@@ -515,9 +448,6 @@ class Development(Base):
 class Test(Base):
     """Test environment settings"""
 
-    PASSWORD_HASHERS = [
-        "django.contrib.auth.hashers.MD5PasswordHasher",
-    ]
     USE_SWAGGER = True
 
     CELERY_TASK_ALWAYS_EAGER = values.BooleanValue(True)
@@ -633,8 +563,5 @@ class Demo(Production):
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }

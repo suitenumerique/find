@@ -25,11 +25,11 @@ class Service(BaseModel):
 
 class ServiceRegistry(BaseSettings):
     """Service registry parsed from environment variables.
-    
+
     Environment variable format:
         SERVICES__<NAME>__TOKEN=xxx
         SERVICES__<NAME>__CLIENT_ID=yyy
-    
+
     Example:
         SERVICES__DOCS__TOKEN=secret123
         SERVICES__DOCS__CLIENT_ID=impress
@@ -75,7 +75,7 @@ class ServiceRegistry(BaseSettings):
 
     def get_by_token(self, token: str) -> tuple[str, Service] | None:
         """Look up a service by its token.
-        
+
         Returns:
             Tuple of (service_name, Service) if found, None otherwise.
         """
@@ -86,7 +86,7 @@ class ServiceRegistry(BaseSettings):
 
     def get_by_name(self, name: str) -> Service | None:
         """Look up a service by its name.
-        
+
         Returns:
             Service instance if found, None otherwise.
         """
@@ -101,9 +101,9 @@ def get_registry() -> ServiceRegistry:
 
 def get_service_by_token(token: str) -> tuple[str, Service] | None:
     """Look up a service by its token.
-    
+
     Convenience function that delegates to the registry singleton.
-    
+
     Returns:
         Tuple of (service_name, Service) if found, None otherwise.
     """
@@ -112,9 +112,9 @@ def get_service_by_token(token: str) -> tuple[str, Service] | None:
 
 def get_service_by_name(name: str) -> Service | None:
     """Look up a service by its name.
-    
+
     Convenience function that delegates to the registry singleton.
-    
+
     Returns:
         Service instance if found, None otherwise.
     """

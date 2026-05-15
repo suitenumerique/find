@@ -5,7 +5,6 @@ import sys
 
 from django.apps import AppConfig
 from django.conf import settings
-from django.utils.translation import gettext_lazy as _
 
 
 class CoreConfig(AppConfig):
@@ -13,13 +12,13 @@ class CoreConfig(AppConfig):
 
     name = "core"
     app_label = "core"
-    verbose_name = _("Find core application")
+    verbose_name = "Find core application"
 
     def ready(self):
         if "pytest" in sys.modules:
             return
 
-        # Skip OpenSearch initialization during Docker build (collectstatic, etc.)
+        # Skip OpenSearch initialization during Docker build
         if os.environ.get("DJANGO_CONFIGURATION") == "Build":
             return
 

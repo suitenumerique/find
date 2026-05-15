@@ -28,7 +28,9 @@ class TestFieldConditions:
 
     def test_eq_operator_boolean(self):
         """Test eq operator with boolean value."""
-        condition = FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=True)
+        condition = FieldCondition[QueryField](
+            field="is_active", op=Operator.EQ, value=True
+        )
         result = build_filter(condition)
         assert result.to_dict() == {"term": {"is_active": True}}
 
@@ -46,9 +48,13 @@ class TestFieldConditions:
 
     def test_all_operator(self):
         """Test all operator requires all values to match."""
-        condition = FieldCondition(field="tags", op=Operator.ALL, value=["tag1", "tag2"])
+        condition = FieldCondition(
+            field="tags", op=Operator.ALL, value=["tag1", "tag2"]
+        )
         result = build_filter(condition)
-        expected = {"bool": {"must": [{"term": {"tags": "tag1"}}, {"term": {"tags": "tag2"}}]}}
+        expected = {
+            "bool": {"must": [{"term": {"tags": "tag1"}}, {"term": {"tags": "tag2"}}]}
+        }
         assert result.to_dict() == expected
 
     def test_prefix_operator(self):
@@ -91,7 +97,9 @@ class TestFieldConditions:
         """Test exists operator with false value (must_not exists)."""
         condition = FieldCondition(field="tags", op=Operator.EXISTS, value=False)
         result = build_filter(condition)
-        assert result.to_dict() == {"bool": {"must_not": [{"exists": {"field": "tags"}}]}}
+        assert result.to_dict() == {
+            "bool": {"must_not": [{"exists": {"field": "tags"}}]}
+        }
 
 
 class TestFieldMapping:
@@ -115,10 +123,16 @@ class TestBooleanCombinators:
 
     def test_and_clause(self):
         """Test AND clause combines conditions with must."""
-        clause = AndClause[QueryField](and_=[
-            FieldCondition[QueryField](field="reach", op=Operator.EQ, value="public"),
-            FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=True),
-        ])
+        clause = AndClause[QueryField](
+            and_=[
+                FieldCondition[QueryField](
+                    field="reach", op=Operator.EQ, value="public"
+                ),
+                FieldCondition[QueryField](
+                    field="is_active", op=Operator.EQ, value=True
+                ),
+            ]
+        )
         result = build_filter(clause)
         expected = {
             "bool": {
@@ -132,19 +146,23 @@ class TestBooleanCombinators:
 
     def test_and_clause_single_condition(self):
         """Test AND clause with single condition."""
-        clause = AndClause(and_=[
-            FieldCondition(field="reach", op=Operator.EQ, value="public"),
-        ])
+        clause = AndClause(
+            and_=[
+                FieldCondition(field="reach", op=Operator.EQ, value="public"),
+            ]
+        )
         result = build_filter(clause)
         expected = {"bool": {"must": [{"term": {"reach": "public"}}]}}
         assert result.to_dict() == expected
 
     def test_or_clause(self):
         """Test OR clause combines conditions with should."""
-        clause = OrClause(or_=[
-            FieldCondition(field="reach", op=Operator.EQ, value="public"),
-            FieldCondition(field="reach", op=Operator.EQ, value="authenticated"),
-        ])
+        clause = OrClause(
+            or_=[
+                FieldCondition(field="reach", op=Operator.EQ, value="public"),
+                FieldCondition(field="reach", op=Operator.EQ, value="authenticated"),
+            ]
+        )
         result = build_filter(clause)
         expected = {
             "bool": {
@@ -159,20 +177,22 @@ class TestBooleanCombinators:
 
     def test_or_clause_three_conditions(self):
         """Test OR clause with three conditions."""
-        clause = OrClause(or_=[
-            FieldCondition(field="reach", op=Operator.EQ, value="public"),
-            FieldCondition(field="reach", op=Operator.EQ, value="authenticated"),
-            FieldCondition(field="reach", op=Operator.EQ, value="restricted"),
-        ])
+        clause = OrClause(
+            or_=[
+                FieldCondition(field="reach", op=Operator.EQ, value="public"),
+                FieldCondition(field="reach", op=Operator.EQ, value="authenticated"),
+                FieldCondition(field="reach", op=Operator.EQ, value="restricted"),
+            ]
+        )
         result = build_filter(clause)
         assert len(result.to_dict()["bool"]["should"]) == 3
         assert result.to_dict()["bool"]["minimum_should_match"] == 1
 
     def test_not_clause(self):
         """Test NOT clause wraps condition in must_not."""
-        clause = NotClause(not_=FieldCondition(
-            field="reach", op=Operator.EQ, value="restricted"
-        ))
+        clause = NotClause(
+            not_=FieldCondition(field="reach", op=Operator.EQ, value="restricted")
+        )
         result = build_filter(clause)
         expected = {"bool": {"must_not": [{"term": {"reach": "restricted"}}]}}
         assert result.to_dict() == expected
@@ -183,13 +203,23 @@ class TestNestedExpressions:
 
     def test_nested_and_or(self):
         """Test AND containing OR clauses."""
-        clause = AndClause[QueryField](and_=[
-            OrClause[QueryField](or_=[
-                FieldCondition[QueryField](field="reach", op=Operator.EQ, value="public"),
-                FieldCondition[QueryField](field="reach", op=Operator.EQ, value="authenticated"),
-            ]),
-            FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=True),
-        ])
+        clause = AndClause[QueryField](
+            and_=[
+                OrClause[QueryField](
+                    or_=[
+                        FieldCondition[QueryField](
+                            field="reach", op=Operator.EQ, value="public"
+                        ),
+                        FieldCondition[QueryField](
+                            field="reach", op=Operator.EQ, value="authenticated"
+                        ),
+                    ]
+                ),
+                FieldCondition[QueryField](
+                    field="is_active", op=Operator.EQ, value=True
+                ),
+            ]
+        )
         result = build_filter(clause)
         result_dict = result.to_dict()
         assert "bool" in result_dict
@@ -200,16 +230,30 @@ class TestNestedExpressions:
 
     def test_nested_or_and(self):
         """Test OR containing AND clauses."""
-        clause = OrClause[QueryField](or_=[
-            AndClause[QueryField](and_=[
-                FieldCondition[QueryField](field="reach", op=Operator.EQ, value="public"),
-                FieldCondition[QueryField](field="tags", op=Operator.IN, value=["important"]),
-            ]),
-            AndClause[QueryField](and_=[
-                FieldCondition[QueryField](field="reach", op=Operator.EQ, value="authenticated"),
-                FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=True),
-            ]),
-        ])
+        clause = OrClause[QueryField](
+            or_=[
+                AndClause[QueryField](
+                    and_=[
+                        FieldCondition[QueryField](
+                            field="reach", op=Operator.EQ, value="public"
+                        ),
+                        FieldCondition[QueryField](
+                            field="tags", op=Operator.IN, value=["important"]
+                        ),
+                    ]
+                ),
+                AndClause[QueryField](
+                    and_=[
+                        FieldCondition[QueryField](
+                            field="reach", op=Operator.EQ, value="authenticated"
+                        ),
+                        FieldCondition[QueryField](
+                            field="is_active", op=Operator.EQ, value=True
+                        ),
+                    ]
+                ),
+            ]
+        )
         result = build_filter(clause)
         result_dict = result.to_dict()
         assert "bool" in result_dict
@@ -218,18 +262,32 @@ class TestNestedExpressions:
 
     def test_deeply_nested_expression(self):
         """Test deeply nested boolean expression."""
-        clause = AndClause[QueryField](and_=[
-            OrClause[QueryField](or_=[
-                AndClause[QueryField](and_=[
-                    FieldCondition[QueryField](field="reach", op=Operator.EQ, value="public"),
-                    FieldCondition[QueryField](field="tags", op=Operator.IN, value=["important"]),
-                ]),
-                NotClause[QueryField](not_=FieldCondition[QueryField](
-                    field="reach", op=Operator.EQ, value="restricted"
-                )),
-            ]),
-            FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=True),
-        ])
+        clause = AndClause[QueryField](
+            and_=[
+                OrClause[QueryField](
+                    or_=[
+                        AndClause[QueryField](
+                            and_=[
+                                FieldCondition[QueryField](
+                                    field="reach", op=Operator.EQ, value="public"
+                                ),
+                                FieldCondition[QueryField](
+                                    field="tags", op=Operator.IN, value=["important"]
+                                ),
+                            ]
+                        ),
+                        NotClause[QueryField](
+                            not_=FieldCondition[QueryField](
+                                field="reach", op=Operator.EQ, value="restricted"
+                            )
+                        ),
+                    ]
+                ),
+                FieldCondition[QueryField](
+                    field="is_active", op=Operator.EQ, value=True
+                ),
+            ]
+        )
         result = build_filter(clause)
         result_dict = result.to_dict()
         assert "bool" in result_dict
@@ -238,10 +296,18 @@ class TestNestedExpressions:
 
     def test_not_containing_and(self):
         """Test NOT clause containing AND clause."""
-        clause = NotClause[QueryField](not_=AndClause[QueryField](and_=[
-            FieldCondition[QueryField](field="reach", op=Operator.EQ, value="restricted"),
-            FieldCondition[QueryField](field="is_active", op=Operator.EQ, value=False),
-        ]))
+        clause = NotClause[QueryField](
+            not_=AndClause[QueryField](
+                and_=[
+                    FieldCondition[QueryField](
+                        field="reach", op=Operator.EQ, value="restricted"
+                    ),
+                    FieldCondition[QueryField](
+                        field="is_active", op=Operator.EQ, value=False
+                    ),
+                ]
+            )
+        )
         result = build_filter(clause)
         result_dict = result.to_dict()
         assert "bool" in result_dict
