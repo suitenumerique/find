@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.en":"test document","content.en":"Test
+    body: '{"service":"test_service","title.en":"test document","content.en":"Test
       content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":[],"reach":"restricted","tags":["tag1","tag2","important"],"is_active":true}'
     headers:
       authorization:
@@ -15,10 +15,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"rqpwu","_id":"2e408d4f-e2ef-42bb-a342-f07900a1e423","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"eyvah","_id":"36473b81-c9e1-4314-aa7a-464763cfd713","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":2,"_primary_term":1}'
     headers:
       Location:
-      - /rqpwu/_doc/2e408d4f-e2ef-42bb-a342-f07900a1e423
+      - /eyvah/_doc/36473b81-c9e1-4314-aa7a-464763cfd713
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:

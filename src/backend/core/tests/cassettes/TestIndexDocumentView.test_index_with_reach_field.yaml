@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.en":"test document","content.en":"Test
+    body: '{"service":"test_service","title.en":"test document","content.en":"Test
       content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":[],"reach":"public","tags":[],"is_active":true}'
     headers:
       authorization:
@@ -15,10 +15,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"zhktq","_id":"eb1b6e36-9e01-4e31-9817-764a6104926d","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"djcsx","_id":"ef26d5f2-3c01-43be-b422-dc2de60ccdff","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":2,"_primary_term":1}'
     headers:
       Location:
-      - /zhktq/_doc/eb1b6e36-9e01-4e31-9817-764a6104926d
+      - /djcsx/_doc/ef26d5f2-3c01-43be-b422-dc2de60ccdff
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:

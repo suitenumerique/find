@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"service":"test-service","title.en":"test document with caps","content.en":"Test
+    body: '{"service":"test_service","title.en":"test document with caps","content.en":"Test
       content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":[],"groups":[],"reach":"restricted","tags":[],"is_active":true}'
     headers:
       authorization:
@@ -15,10 +15,10 @@ interactions:
     uri: http://opensearch:9200/test-index/_doc/test-doc-id
   response:
     body:
-      string: '{"_index":"qeozm","_id":"b70fcdf5-47ce-4f90-9961-dbe3360297b2","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"_index":"eyvah","_id":"dce48aa8-baa9-43b0-89ee-4b7d419fa5d5","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
     headers:
       Location:
-      - /qeozm/_doc/b70fcdf5-47ce-4f90-9961-dbe3360297b2
+      - /eyvah/_doc/dce48aa8-baa9-43b0-89ee-4b7d419fa5d5
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:
