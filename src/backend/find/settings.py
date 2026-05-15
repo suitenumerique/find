@@ -233,6 +233,12 @@ class Base(Configuration):
     OPENSEARCH_USE_SSL = values.BooleanValue(
         default=True, environ_name="OPENSEARCH_USE_SSL", environ_prefix=None
     )
+    OPENSEARCH_VERIFY_CERTS = values.BooleanValue(
+        default=False, environ_name="OPENSEARCH_VERIFY_CERTS", environ_prefix=None
+    )
+    OPENSEARCH_CA_CERTS = values.Value(
+        default=None, environ_name="OPENSEARCH_CA_CERTS", environ_prefix=None
+    )
     OPENSEARCH_INDEX = values.Value(
         default="find", environ_name="OPENSEARCH_INDEX", environ_prefix=None
     )
