@@ -1,7 +1,5 @@
 """Fixtures for tests in the find core application"""
 
-import json
-import re
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,7 +8,6 @@ from django.conf import LazySettings
 
 import pytest
 from django_bolt.testing import TestClient
-from faker import Faker
 from opensearchpy.exceptions import NotFoundError
 from vcr.request import Request
 
@@ -18,9 +15,9 @@ from core import bolt_auth, handlers
 from core.authentication import ResourceUser
 from core.handlers import api
 from core.services import opensearch
+from core.services.indexing import ensure_index_exists
 
-fake = Faker()
-Faker.seed(12345)
+TEST_INDEX = "test-index"
 
 
 @pytest.fixture
@@ -89,27 +86,20 @@ def mock_opensearch_client():
 
 @pytest.fixture(autouse=True)
 def cleanup_test_index(settings: LazySettings, request: pytest.FixtureRequest) -> None:
-    """Randomize index name per test; cleanup real indices for integration tests only."""
-    using_mock = "mock_opensearch_client" in request.fixturenames
-    is_integration = "integration" in request.keywords
-
+    """Set fixed index name and ensure index exists for VCR recording."""
     original_index = settings.OPENSEARCH_INDEX
-    test_index = "".join(fake.random_letters(5)).lower()
-    settings.OPENSEARCH_INDEX = test_index
+    settings.OPENSEARCH_INDEX = TEST_INDEX
 
-    client = None
-    if is_integration and not using_mock:
-        client = opensearch.opensearch_client()
+    ensure_index_exists(TEST_INDEX)
 
     yield
 
     settings.OPENSEARCH_INDEX = original_index
 
-    if client is not None:
-        try:
-            client.indices.delete(index=test_index)
-        except NotFoundError:
-            pass
+    try:
+        opensearch.opensearch_client().indices.delete(index=TEST_INDEX)
+    except NotFoundError:
+        pass
 
 
 def redact_opensearch_request(request: Request) -> Request:
@@ -121,34 +111,6 @@ def redact_opensearch_request(request: Request) -> Request:
         request.headers["authorization"] = "<REDACTED>"
     if "user-agent" in request.headers:
         request.headers["user-agent"] = "opensearch-py/x.y.z (Python x.y.z)"
-
-    # Normalize index name in path
-    request.uri = re.sub(r"(https?://[^/]+)/[^/]+/", r"\1/test-index/", request.uri)
-
-    # Normalize document ID (UUID pattern in _doc/{id} paths)
-    request.uri = re.sub(
-        r"/_doc/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-        "/_doc/test-doc-id",
-        request.uri,
-    )
-
-    # Normalize timestamps in request body for deterministic matching
-    if request.body:
-        try:
-            body = request.body
-            if isinstance(body, bytes):
-                body = body.decode("utf-8")
-
-            # Normalize ISO timestamps (e.g., 2026-05-13T15:44:30.258378+00:00)
-            body = re.sub(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(\+\d{2}:\d{2}|Z)?",
-                "2020-01-01T00:00:00+00:00",
-                body,
-            )
-
-            request.body = body
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            pass  # Leave body as-is if we can't parse it
 
     return request
 

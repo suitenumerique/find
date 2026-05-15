@@ -1,7 +1,34 @@
 interactions:
 - request:
-    body: '{"service":"test_service","title.en":"test document","content.en":"Test
-      content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-01T00:00:00+00:00","size":100,"users":["user1","user2"],"groups":["group-a","group-b"],"reach":"restricted","tags":[],"is_active":true}'
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: GET
+    uri: http://opensearch:9200/test-index
+  response:
+    body:
+      string: '{"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no
+        such index [test-index]","index":"test-index","resource.id":"test-index","resource.type":"index_or_alias","index_uuid":"_na_"}],"type":"index_not_found_exception","reason":"no
+        such index [test-index]","index":"test-index","resource.id":"test-index","resource.type":"index_or_alias","index_uuid":"_na_"},"status":404}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '389'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: '{"settings":{"analysis":{"analyzer":{"french_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","french_elision","french_stop","french_stemmer"]},"english_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","english_stop","english_stemmer"]},"german_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","german_stop","german_stemmer"]},"dutch_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","dutch_stop","dutch_stemmer"]},"undetermined_language_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding"]},"trigram_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","trigram_filter"]}},"filter":{"french_elision":{"type":"elision","articles_case":true,"articles":["l","m","t","qu","n","s","j","d","c","jusqu","quoiqu","lorsqu","puisqu"]},"french_stop":{"type":"stop","stopwords":"_french_"},"french_stemmer":{"type":"stemmer","language":"light_french"},"english_stop":{"type":"stop","stopwords":"_english_"},"english_stemmer":{"type":"stemmer","language":"english"},"german_stop":{"type":"stop","stopwords":"_german_"},"german_stemmer":{"type":"stemmer","language":"light_german"},"dutch_stop":{"type":"stop","stopwords":"_dutch_"},"dutch_stemmer":{"type":"stemmer","language":"dutch"},"trigram_filter":{"type":"ngram","min_gram":3,"max_gram":3}}}},"mappings":{"dynamic":"strict","properties":{"id":{"type":"keyword"},"title.fr":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.fr":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.en":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.en":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.de":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.de":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.nl":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.nl":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.und":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.und":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"depth":{"type":"integer"},"path":{"type":"keyword","fields":{"text":{"type":"text"}}},"numchild":{"type":"integer"},"created_at":{"type":"date"},"updated_at":{"type":"date"},"size":{"type":"long"},"users":{"type":"keyword"},"groups":{"type":"keyword"},"reach":{"type":"keyword"},"service":{"type":"keyword"},"tags":{"type":"keyword"},"is_active":{"type":"boolean"}}}}'
     headers:
       authorization:
       - <REDACTED>
@@ -12,20 +39,73 @@ interactions:
       user-agent:
       - opensearch-py/x.y.z (Python x.y.z)
     method: PUT
-    uri: http://opensearch:9200/test-index/_doc/test-doc-id
+    uri: http://opensearch:9200/test-index
   response:
     body:
-      string: '{"_index":"kjnog","_id":"74947857-0034-477e-80e1-4cee4aa92343","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+      string: '{"acknowledged":true,"shards_acknowledged":true,"index":"test-index"}'
     headers:
-      Location:
-      - /kjnog/_doc/74947857-0034-477e-80e1-4cee4aa92343
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:
-      - '173'
+      - '69'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"service":"test_service","title.en":"test document","content.en":"Test
+      content for indexing","depth":0,"path":"/test","numchild":0,"created_at":"2020-01-01T00:00:00+00:00","updated_at":"2020-01-02T00:00:00+00:00","size":100,"users":["user1","user2"],"groups":["group-a","group-b"],"reach":"restricted","tags":[],"is_active":true}'
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: PUT
+    uri: http://opensearch:9200/test-index/_doc/2d2f4501-aafc-49dd-9d81-401c181f9068
+  response:
+    body:
+      string: '{"_index":"test-index","_id":"2d2f4501-aafc-49dd-9d81-401c181f9068","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}'
+    headers:
+      Location:
+      - /test-index/_doc/2d2f4501-aafc-49dd-9d81-401c181f9068
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '178'
       content-type:
       - application/json; charset=UTF-8
     status:
       code: 201
       message: Created
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: DELETE
+    uri: http://opensearch:9200/test-index
+  response:
+    body:
+      string: '{"acknowledged":true}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '21'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
 version: 1

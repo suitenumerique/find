@@ -1,5 +1,59 @@
 interactions:
 - request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: GET
+    uri: http://opensearch:9200/test-index
+  response:
+    body:
+      string: '{"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no
+        such index [test-index]","index":"test-index","resource.id":"test-index","resource.type":"index_or_alias","index_uuid":"_na_"}],"type":"index_not_found_exception","reason":"no
+        such index [test-index]","index":"test-index","resource.id":"test-index","resource.type":"index_or_alias","index_uuid":"_na_"},"status":404}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '389'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: '{"settings":{"analysis":{"analyzer":{"french_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","french_elision","french_stop","french_stemmer"]},"english_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","english_stop","english_stemmer"]},"german_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","german_stop","german_stemmer"]},"dutch_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","dutch_stop","dutch_stemmer"]},"undetermined_language_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding"]},"trigram_analyzer":{"type":"custom","tokenizer":"standard","filter":["lowercase","asciifolding","trigram_filter"]}},"filter":{"french_elision":{"type":"elision","articles_case":true,"articles":["l","m","t","qu","n","s","j","d","c","jusqu","quoiqu","lorsqu","puisqu"]},"french_stop":{"type":"stop","stopwords":"_french_"},"french_stemmer":{"type":"stemmer","language":"light_french"},"english_stop":{"type":"stop","stopwords":"_english_"},"english_stemmer":{"type":"stemmer","language":"english"},"german_stop":{"type":"stop","stopwords":"_german_"},"german_stemmer":{"type":"stemmer","language":"light_german"},"dutch_stop":{"type":"stop","stopwords":"_dutch_"},"dutch_stemmer":{"type":"stemmer","language":"dutch"},"trigram_filter":{"type":"ngram","min_gram":3,"max_gram":3}}}},"mappings":{"dynamic":"strict","properties":{"id":{"type":"keyword"},"title.fr":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.fr":{"type":"text","analyzer":"french_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.en":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.en":{"type":"text","analyzer":"english_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.de":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.de":{"type":"text","analyzer":"german_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.nl":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.nl":{"type":"text","analyzer":"dutch_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"title.und":{"type":"keyword","fields":{"text":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}}}},"content.und":{"type":"text","analyzer":"undetermined_language_analyzer","fields":{"trigrams":{"type":"text","analyzer":"trigram_analyzer"}}},"depth":{"type":"integer"},"path":{"type":"keyword","fields":{"text":{"type":"text"}}},"numchild":{"type":"integer"},"created_at":{"type":"date"},"updated_at":{"type":"date"},"size":{"type":"long"},"users":{"type":"keyword"},"groups":{"type":"keyword"},"reach":{"type":"keyword"},"service":{"type":"keyword"},"tags":{"type":"keyword"},"is_active":{"type":"boolean"}}}}'
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: PUT
+    uri: http://opensearch:9200/test-index
+  response:
+    body:
+      string: '{"acknowledged":true,"shards_acknowledged":true,"index":"test-index"}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '69'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
     body: '{"_source":["title","content","size","depth","path","numchild","created_at","updated_at","reach","tags"],"script_fields":{"number_of_users":{"script":{"source":"doc[''users''].size()"}},"number_of_groups":{"script":{"source":"doc[''groups''].size()"}}},"sort":[{"created_at":{"order":"desc"}}],"size":5,"query":{"bool":{"must":[{"bool":{"should":[{"multi_match":{"query":"test","fields":["title.*.text^3","content.*"]}},{"multi_match":{"query":"test","fields":["title.*.text.trigrams^3","content.*.trigrams"],"boost":0.25,"minimum_should_match":"75%"}}],"minimum_should_match":1}}],"filter":[{"bool":{"must":[{"term":{"is_active":true}},{"term":{"service":"test-audience"}},{"bool":{"should":[{"bool":{"must_not":[{"term":{"reach":"restricted"}}]}},{"terms":{"users":["test-user-123"]}}],"minimum_should_match":1}}]}}]}}}'
     headers:
       authorization:
@@ -14,12 +68,38 @@ interactions:
     uri: http://opensearch:9200/test-index/_search?ignore_unavailable=true
   response:
     body:
-      string: '{"took":0,"timed_out":false,"_shards":{"total":0,"successful":0,"skipped":0,"failed":0},"hits":{"total":{"value":0,"relation":"eq"},"max_score":0.0,"hits":[]}}'
+      string: '{"took":3,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":0,"relation":"eq"},"max_score":null,"hits":[]}}'
     headers:
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)
       content-length:
-      - '159'
+      - '160'
+      content-type:
+      - application/json; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      authorization:
+      - <REDACTED>
+      connection:
+      - keep-alive
+      content-type:
+      - application/json
+      user-agent:
+      - opensearch-py/x.y.z (Python x.y.z)
+    method: DELETE
+    uri: http://opensearch:9200/test-index
+  response:
+    body:
+      string: '{"acknowledged":true}'
+    headers:
+      X-OpenSearch-Version:
+      - OpenSearch/x.y.z (opensearch)
+      content-length:
+      - '21'
       content-type:
       - application/json; charset=UTF-8
     status:

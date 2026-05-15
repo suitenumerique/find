@@ -1,6 +1,5 @@
 from datetime import timedelta
 from unittest.mock import MagicMock
-from uuid import uuid4
 
 from django.utils import timezone
 
@@ -9,19 +8,20 @@ from django_bolt.testing import TestClient
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
+TEST_DOC_ID = "2d2f4501-aafc-49dd-9d81-401c181f9068"
+
 
 @pytest.fixture
 def valid_document_payload() -> dict:
-    now = timezone.now()
     return {
-        "id": str(uuid4()),
+        "id": TEST_DOC_ID,
         "title": "Test Document",
         "content": "Test content for indexing",
         "depth": 0,
         "path": "/test",
         "numchild": 0,
-        "created_at": (now - timedelta(days=2)).isoformat(),
-        "updated_at": (now - timedelta(days=1)).isoformat(),
+        "created_at": "2020-01-01T00:00:00+00:00",
+        "updated_at": "2020-01-02T00:00:00+00:00",
         "size": 100,
         "is_active": True,
         "users": [],
