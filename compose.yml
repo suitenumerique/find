@@ -47,6 +47,7 @@ services:
         DOCKER_USER: ${DOCKER_USER:-1000}
     user: ${DOCKER_USER:-1000}
     image: find:backend-development
+    command: ["python", "manage.py", "runbolt", "--host", "0.0.0.0", "--port", "8000", "--dev"]
     environment:
       - PYLINTHOME=/app/.pylint.d
       - DJANGO_CONFIGURATION=Development

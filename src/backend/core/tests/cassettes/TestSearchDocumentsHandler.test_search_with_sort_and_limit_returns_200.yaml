@@ -54,7 +54,7 @@ interactions:
       code: 200
       message: OK
 - request:
-    body: '{"_source":["title","content","size","depth","path","numchild","created_at","updated_at","reach","tags"],"script_fields":{"number_of_users":{"script":{"source":"doc[''users''].size()"}},"number_of_groups":{"script":{"source":"doc[''groups''].size()"}}},"sort":[{"created_at":{"order":"desc"}}],"size":5,"query":{"bool":{"must":[{"bool":{"should":[{"multi_match":{"query":"test","fields":["title.*.text^3","content.*"]}},{"multi_match":{"query":"test","fields":["title.*.text.trigrams^3","content.*.trigrams"],"boost":0.25,"minimum_should_match":"75%"}}],"minimum_should_match":1}}],"filter":[{"bool":{"must":[{"term":{"is_active":true}},{"term":{"service":"test-audience"}},{"bool":{"should":[{"bool":{"must_not":[{"term":{"reach":"restricted"}}]}},{"terms":{"users":["test-user-123"]}}],"minimum_should_match":1}}]}}]}}}'
+    body: '{"_source":["title.*","content.*","size","depth","path","numchild","created_at","updated_at","reach","tags"],"script_fields":{"number_of_users":{"script":{"source":"doc[''users''].size()"}},"number_of_groups":{"script":{"source":"doc[''groups''].size()"}}},"sort":[{"created_at":{"order":"desc"}}],"size":5,"query":{"bool":{"must":[{"bool":{"must":[{"multi_match":{"query":"test","fields":["title.fr.text^3","title.en.text^3","title.de.text^3","title.nl.text^3","title.und.text^3","content.fr","content.en","content.de","content.nl","content.und"]}}],"should":[{"multi_match":{"query":"test","fields":["title.fr.text.trigrams^3","title.en.text.trigrams^3","title.de.text.trigrams^3","title.nl.text.trigrams^3","title.und.text.trigrams^3","content.fr.trigrams","content.en.trigrams","content.de.trigrams","content.nl.trigrams","content.und.trigrams"],"boost":0.01,"minimum_should_match":"100%"}}]}}],"filter":[{"bool":{"must":[{"term":{"is_active":true}},{"bool":{"should":[{"bool":{"must_not":[{"term":{"reach":"restricted"}}]}},{"terms":{"users":["test-user-123"]}}],"minimum_should_match":1}}]}}]}}}'
     headers:
       authorization:
       - <REDACTED>
@@ -68,7 +68,7 @@ interactions:
     uri: http://opensearch:9200/test-index/_search?ignore_unavailable=true
   response:
     body:
-      string: '{"took":3,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":0,"relation":"eq"},"max_score":null,"hits":[]}}'
+      string: '{"took":1,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":0,"relation":"eq"},"max_score":null,"hits":[]}}'
     headers:
       X-OpenSearch-Version:
       - OpenSearch/x.y.z (opensearch)

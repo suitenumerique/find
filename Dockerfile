@@ -101,13 +101,8 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ---- Production image ----
 FROM core AS backend-production
 
-# Gunicorn
-RUN mkdir -p /usr/local/etc/gunicorn
-COPY docker/files/usr/local/etc/gunicorn/find.py /usr/local/etc/gunicorn/find.py
-
 # Un-privileged user running the application
 ARG DOCKER_USER
 USER ${DOCKER_USER}
 
-# The default command runs gunicorn WSGI server in find's main module
-CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/find.py", "find.wsgi:application"]
+CMD ["python", "manage.py", "runbolt", "--host", "0.0.0.0", "--port", "8000"]

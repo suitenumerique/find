@@ -138,7 +138,6 @@ class Base(Configuration):
 
     MIDDLEWARE = [
         "django.middleware.security.SecurityMiddleware",
-
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "corsheaders.middleware.CorsMiddleware",
         "django.middleware.common.CommonMiddleware",
@@ -152,15 +151,24 @@ class Base(Configuration):
         "core",
         "demo",
         # Third party apps
+        "django_bolt",
         "corsheaders",
         "dockerflow.django",
         # OIDC third party
         "mozilla_django_oidc",
     ]
 
+    # Django-Bolt API autodiscovery
+    BOLT_API = ["core.handlers:api"]
+
     # Cache
     CACHES = {
         "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    }
+
+    # Dummy database for pytest-django compatibility (Find uses OpenSearch, not SQL)
+    DATABASES = {
+        "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"},
     }
 
     # OpenSearch settings
@@ -191,10 +199,12 @@ class Base(Configuration):
 
     # Trigrams search settings
     TRIGRAMS_BOOST = values.Value(
-        default=0.25, environ_name="TRIGRAMS_BOOST", environ_prefix=None
+        default=0.01, environ_name="TRIGRAMS_BOOST", environ_prefix=None
     )
     TRIGRAMS_MINIMUM_SHOULD_MATCH = values.Value(
-        default="75%", environ_name="TRIGRAMS_MINIMUM_SHOULD_MATCH", environ_prefix=None
+        default="100%",
+        environ_name="TRIGRAMS_MINIMUM_SHOULD_MATCH",
+        environ_prefix=None,
     )
 
     # CORS
