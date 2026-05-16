@@ -16,7 +16,7 @@ from configurations import importer
 importer.install()
 django.setup()
 
-from core.handlers import api
+from core.api import api
 
 api.mount_django(r"/oidc")
 

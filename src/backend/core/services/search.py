@@ -1,7 +1,5 @@
 """OpenSearch search utilities."""
 
-import logging
-
 from django.conf import settings
 
 from opensearchpy import Q
@@ -10,8 +8,6 @@ from core import enums
 from core.query.builder import build_filter
 from core.schemas import SearchParams, WhereClause
 from core.services import opensearch
-
-logger = logging.getLogger(__name__)
 
 
 def search(params: SearchParams, search_indices: list[str]) -> dict[str, object]:
@@ -52,29 +48,31 @@ def search(params: SearchParams, search_indices: list[str]) -> dict[str, object]
 
 def get_full_text_query(query: str, filter_query) -> Q:  # type: ignore[valid-type]
     """Build OpenSearch full-text query."""
+    lang_codes = settings.SUPPORTED_LANGUAGE_CODES
+    content_fields = [f"content.{lang}" for lang in lang_codes]
+    title_fields = [f"title.{lang}.text^3" for lang in lang_codes]
+
     multi_match_standard = Q(
         "multi_match",
         query=query,
-        fields=[
-            "title.*.text^3",
-            "content.*",
-        ],
+        fields=title_fields + content_fields,
     )
+
+    trigram_content_fields = [f"{f}.trigrams" for f in content_fields]
+    trigram_title_fields = [f"title.{lang}.text.trigrams^3" for lang in lang_codes]
+
     multi_match_trigram = Q(
         "multi_match",
         query=query,
-        fields=[
-            "title.*.text.trigrams^3",
-            "content.*.trigrams",
-        ],
+        fields=trigram_title_fields + trigram_content_fields,
         boost=settings.TRIGRAMS_BOOST,
         minimum_should_match=settings.TRIGRAMS_MINIMUM_SHOULD_MATCH,
     )
 
     inner_bool = Q(
         "bool",
-        should=[multi_match_standard, multi_match_trigram],
-        minimum_should_match=1,
+        must=[multi_match_standard],
+        should=[multi_match_trigram],
     )
 
     if filter_query:

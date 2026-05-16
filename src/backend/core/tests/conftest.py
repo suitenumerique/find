@@ -11,7 +11,7 @@ from django_bolt.testing import TestClient
 from opensearchpy.exceptions import NotFoundError
 from vcr.request import Request
 
-from core import bolt_auth, handlers
+from core import bolt_auth, handlers, middleware
 from core.authentication import ResourceUser
 from core.handlers import api
 from core.services import opensearch
@@ -30,29 +30,48 @@ def bolt_client() -> Generator[TestClient, None, None]:
 
 @pytest.fixture
 def mock_oidc_user() -> Generator[ResourceUser, None, None]:
-    """Mock OIDC user for handler tests.
-
-    Patches _require_oidc_user to return a mock user with sub='test-user-123'.
-    Use this instead of @responses.activate + setup_oicd_resource_server since
-    Bolt's Rust/Python bridge doesn't propagate responses mocking correctly.
-    """
+    """Mock OIDC user for handler tests via SearchAuthMiddleware."""
     user = ResourceUser(sub="test-user-123")
     user.token_audience = "test-audience"
 
-    with patch.object(handlers, "_require_oidc_user", new=AsyncMock(return_value=user)):
+    async def mock_process_request(self, request):
+        request.state["user"] = user
+        return await self.get_response(request)
+
+    with patch.object(
+        middleware.SearchAuthMiddleware, "process_request", mock_process_request
+    ):
         yield user
 
 
 @pytest.fixture
 def mock_service_context() -> Generator[dict, None, None]:
-    """Mock service context for handler tests.
-
-    Patches _require_service_context to return a mock service context.
-    """
+    """Mock service context for handler tests via ServiceAuthMiddleware."""
     context = {"service_name": "test_service", "client_id": "test_client"}
 
+    async def mock_process_request(self, request):
+        request.state["service_name"] = context["service_name"]
+        request.state["client_id"] = context["client_id"]
+        return await self.get_response(request)
+
     with patch.object(
-        handlers, "_require_service_context", new=AsyncMock(return_value=context)
+        middleware.ServiceAuthMiddleware, "process_request", mock_process_request
+    ):
+        yield context
+
+
+@pytest.fixture
+def mock_search_service_auth() -> Generator[dict, None, None]:
+    """Mock service auth for search endpoint via SearchAuthMiddleware."""
+    context = {"service_name": "test_service", "client_id": "test_client"}
+
+    async def mock_process_request(self, request):
+        request.state["service_name"] = context["service_name"]
+        request.state["client_id"] = context["client_id"]
+        return await self.get_response(request)
+
+    with patch.object(
+        middleware.SearchAuthMiddleware, "process_request", mock_process_request
     ):
         yield context
 
