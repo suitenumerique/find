@@ -38,11 +38,13 @@ ingress:
   hosts: []
   #  - chart-example.local
   ## @param ingress.tls.enabled Whether to enable TLS for the Ingress
+  ## @param ingress.tls.secretName Secret name for TLS config
   ## @skip ingress.tls.additional
   ## @extra ingress.tls.additional[].secretName Secret name for additional TLS config
   ## @extra ingress.tls.additional[].hosts[] Hosts for additional TLS config
   tls:
     enabled: true
+    secretName: null
     additional: []
 
   ## @param ingress.customBackends Add custom backends to ingress
