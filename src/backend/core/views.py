@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from . import schemas
 from .authentication import ServiceTokenAuthentication
+from .log_redaction import redact_search_query
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
     ensure_index_exists,
@@ -341,7 +342,11 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             logger.error("Validation error: %s", errors)
             raise excpt
 
-        logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
+        logger.info(
+            "Search query=%s on index %s",
+            redact_search_query(params.q),
+            settings.OPENSEARCH_INDEX,
+        )
         result = search(
             q=params.q,
             nb_results=params.nb_results,
@@ -356,6 +361,5 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             path=params.path,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
-        logger.debug("results %s", result)
 
         return Response(result, status=status.HTTP_200_OK)

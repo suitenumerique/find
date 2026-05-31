@@ -5,6 +5,7 @@ import logging
 from django.conf import settings
 
 from core import enums
+from core.log_redaction import redact_search_query
 
 from .opensearch import opensearch_client
 
@@ -78,7 +79,7 @@ def get_query(  # noqa : PLR0913
             },
         }
 
-    logger.info("Performing full-text search: %s", q)
+    logger.info("Performing full-text search: %s", redact_search_query(q))
     return get_full_text_query(q, filter_)
 
 

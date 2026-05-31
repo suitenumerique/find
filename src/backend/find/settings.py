@@ -20,6 +20,9 @@ import sentry_sdk
 from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import ignore_logger
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
+
+from find.sentry_scrubber import before_send
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -492,6 +495,23 @@ class Base(Configuration):
                 environment=cls.__name__.lower(),
                 release=get_release(),
                 integrations=[DjangoIntegration()],
+                send_default_pii=False,
+                include_local_variables=False,
+                before_send=before_send,
+                event_scrubber=EventScrubber(
+                    denylist=DEFAULT_DENYLIST
+                    + [
+                        "authorization",
+                        "id_token",
+                        "access_token",
+                        "refresh_token",
+                        "oidc_rp_client_secret",
+                        "oidc_rs_client_secret",
+                        "oidc_rs_private_key_str",
+                        "opensearch_password",
+                    ],
+                    recursive=True,
+                ),
             )
             scope = sentry_sdk.get_current_scope()
             scope.set_extra("application", "backend")
