@@ -11,7 +11,7 @@ Configure a **Service** for Docs application with these settings
 - **Name**: `drive`<br>_request.auth.name of the Docs application._
 - **Client id**: `drive`<br>_Name of the token audience or client_id of the Docs application._
 
-See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
+See [setup-indexer.md](setup-indexer.md) for details.
 
 ## Configure settings of Drive
 
