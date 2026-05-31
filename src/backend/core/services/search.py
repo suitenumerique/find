@@ -78,7 +78,7 @@ def get_query(  # noqa : PLR0913
             },
         }
 
-    logger.info("Performing full-text search: %s", q)
+    logger.info("Performing full-text search")
     return get_full_text_query(q, filter_)
 
 

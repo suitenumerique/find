@@ -69,8 +69,8 @@ class FinderResourceServerBackend(ResourceServerBackend):
     def __init__(self):
         try:
             super().__init__()
-        except Exception as e:
-            logger.error(e)
+        except Exception:
+            logger.exception("Failed to initialize OIDC resource server backend")
             raise
 
         self.UserModel = ResourceUser

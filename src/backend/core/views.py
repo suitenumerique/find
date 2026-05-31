@@ -341,7 +341,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             logger.error("Validation error: %s", errors)
             raise excpt
 
-        logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
+        logger.info("Search on index %s", settings.OPENSEARCH_INDEX)
         result = search(
             q=params.q,
             nb_results=params.nb_results,
@@ -356,6 +356,5 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             path=params.path,
         )["hits"]["hits"]
         logger.info("found %d results", len(result))
-        logger.debug("results %s", result)
 
         return Response(result, status=status.HTTP_200_OK)
