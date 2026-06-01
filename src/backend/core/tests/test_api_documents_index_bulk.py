@@ -70,7 +70,9 @@ def test_api_documents_index_bulk_ensure_index():
     documents = factories.DocumentFactory.build_batch(3)
 
     with pytest.raises(NotFoundError):
-        opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
+        opensearch_client_.indices.get(
+            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+        )
 
     response = APIClient().post(
         "/api/v1.0/documents/index/",
@@ -86,8 +88,9 @@ def test_api_documents_index_bulk_ensure_index():
         {"index": 2, "_id": documents[2]["id"], "status": "success"},
     ]
 
-    # The index has been rebuilt
-    opensearch_client_.indices.get(index=settings.OPENSEARCH_INDEX)
+    opensearch_client_.indices.get(
+        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -302,7 +305,8 @@ def test_api_documents_index_bulk_default(field, default_value):
     ]
 
     indexed_document = opensearch.opensearch_client().get(
-        index=settings.OPENSEARCH_INDEX, id=documents[0]["id"]
+        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}",
+        id=documents[0]["id"],
     )["_source"]
     assert indexed_document[field] == default_value
 

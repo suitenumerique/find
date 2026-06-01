@@ -2,8 +2,6 @@
 
 import logging
 
-from django.conf import settings
-
 from lasuite.oidc_resource_server.authentication import ResourceServerAuthentication
 from lasuite.oidc_resource_server.mixins import ResourceServerMixin
 from pydantic import ValidationError as PydanticValidationError
@@ -15,6 +13,8 @@ from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
 from .services.indexing import (
     ensure_index_exists,
+    get_all_active_service_indices,
+    get_service_index_name,
     prepare_document_for_indexing,
 )
 from .services.opensearch import opensearch_client
@@ -67,7 +67,7 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = settings.OPENSEARCH_INDEX
+        index_name = get_service_index_name(request.auth.name)
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
@@ -219,9 +219,18 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             params.tags,
         )
 
+        indices = get_all_active_service_indices()
+
+        if not indices:
+            return Response(
+                {"nb-deleted-documents": 0, "undeleted-document-ids": []},
+                status=status.HTTP_200_OK,
+            )
+
         client = opensearch_client()
-        deletable_matches = client.search(
-            index=settings.OPENSEARCH_INDEX,
+        deletable_matches = client.search(  # pylint: disable=unexpected-keyword-arg
+            index=indices,
+            ignore_unavailable=True,
             body={
                 "query": self._build_query(
                     self.request.user.sub,
@@ -233,8 +242,9 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
         if deletable_ids:
-            response = client.delete_by_query(
-                index=settings.OPENSEARCH_INDEX,
+            response = client.delete_by_query(  # pylint: disable=unexpected-keyword-arg
+                index=indices,
+                ignore_unavailable=True,
                 body={"query": {"ids": {"values": deletable_ids}}},
             )
             nb_deleted = response.get("deleted", 0)
@@ -340,13 +350,18 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             logger.error("Validation error: %s", errors)
             raise excpt
 
-        logger.info("Search '%s' on index %s", params.q, settings.OPENSEARCH_INDEX)
+        indices = get_all_active_service_indices()
+
+        if not indices:
+            return Response([], status=status.HTTP_200_OK)
+
+        logger.info("Search '%s' across %d service indices", params.q, len(indices))
         result = search(
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
             order_direction=params.order_direction,
-            search_indices=[settings.OPENSEARCH_INDEX],
+            search_indices=indices,
             reach=params.reach,
             visited=params.visited,
             user_sub=user_sub,

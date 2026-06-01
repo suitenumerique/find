@@ -30,7 +30,9 @@ class TestIndexServiceIsolation:
         assert response.status_code == status.HTTP_201_CREATED
 
         client = opensearch_client()
-        indexed_doc = client.get(index=settings.OPENSEARCH_INDEX, id=document["id"])
+        indexed_doc = client.get(
+            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-docs-service", id=document["id"]
+        )
         assert indexed_doc["_source"]["service"] == "docs-service"
 
     def test_bulk_index_service_field_from_auth_not_payload(self):
@@ -49,5 +51,7 @@ class TestIndexServiceIsolation:
 
         client = opensearch_client()
         for doc in documents:
-            indexed_doc = client.get(index=settings.OPENSEARCH_INDEX, id=doc["id"])
+            indexed_doc = client.get(
+                index=f"{settings.OPENSEARCH_INDEX_PREFIX}-my-docs", id=doc["id"]
+            )
             assert indexed_doc["_source"]["service"] == "my-docs"
