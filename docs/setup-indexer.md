@@ -94,6 +94,7 @@ For each application a new **Service** must be created through the admin interfa
 | Is active           | Toggle service availability (inactive services are excluded from search fan-out) |
 | Client id           | Calling service client_id (e.g `impress` for docs)            |
 | Token (_read-only_) | Random token for calling service authentication                |
+| Allowed services for search | _Currently unused._ Legacy many-to-many field retained on the model for possible future use; search now fans out across all active services regardless of this setting |
 
 And add the key in the calling application Django settings.
 
