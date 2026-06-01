@@ -43,7 +43,7 @@ class Service(models.Model):
     is_active = models.BooleanField(default=True)
     client_id = models.CharField(blank=True, null=True)
     services = models.ManyToManyField(
-        "self", blank=True, verbose_name="Allowed services for search"
+        "self", blank=True, verbose_name=_("Allowed services for search")
     )
 
     class Meta:
