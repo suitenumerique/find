@@ -22,7 +22,9 @@ the configured identity provider. It is wired to `SearchDocumentView` via `Resou
 
 ## What happens when a service tries to search
 
-A service bearer token posted to `/search/` returns **HTTP 401 Unauthorized**.
+A service bearer token posted to `/search/` is rejected with a 4xx status (typically
+**HTTP 400 Bad Request** from `django-lasuite`'s `SuspiciousOperation` when introspection
+fails, or **HTTP 401/403** if the token never reaches introspection).
 
 `ResourceServerAuthentication` does not recognise service bearer tokens. The request is rejected
 before any OpenSearch query runs.
@@ -41,8 +43,10 @@ belonging to users it has no relationship with.
 
 The following test scenarios lock this contract in:
 
-- `test_api_documents_index.py` verifies that `/index/` rejects OIDC tokens (HTTP 401).
-- `test_api_documents_search.py` verifies that `/search/` rejects service bearer tokens (HTTP 401).
+- `test_api_documents_index.py` verifies that `/index/` rejects OIDC-style bearer tokens
+  (HTTP 403 `Invalid token.`).
+- `test_api_documents_search.py` verifies that `/search/` rejects service bearer tokens and
+  anonymous requests (HTTP 4xx).
 - `test_api_documents_delete.py` verifies that `/delete/` accepts service bearer tokens and rejects
   OIDC user tokens.
 - `test_integration_per_service_indices.py` verifies the full round-trip: services index and delete
