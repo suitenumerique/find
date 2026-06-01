@@ -12,7 +12,7 @@ Add the following variables to your Django settings to configure Find
 and enable full-text search.
 
 ```python
-# Login for opensearch
+# Login for opensearch
 OPENSEARCH_USER=opensearch-user
 OPENSEARCH_PASSWORD=your-opensearch-password
 
@@ -23,9 +23,30 @@ OPENSEARCH_PORT=9200
 # Enable SSL for opensearch connection (False in dev mode)
 OPENSEARCH_USE_SSL=True
 
-# Unified index name for all services
-OPENSEARCH_INDEX=find
+# Prefix for per-service indices (each service gets its own index: {prefix}-{service.name})
+OPENSEARCH_INDEX_PREFIX=find
 ```
+
+### Per-service indices
+
+Find creates one OpenSearch index per registered service. The index name follows the pattern:
+
+```
+{OPENSEARCH_INDEX_PREFIX}-{service.name}
+```
+
+For example, with `OPENSEARCH_INDEX_PREFIX=find`:
+
+- The `docs` service writes to `find-docs`
+- The `drive` service writes to `find-drive`
+
+Indices are created lazily on the first write. You don't need to create them manually.
+
+When a service has `is_active=False`, its index is excluded from all search and delete fan-outs.
+Documents in that index are effectively hidden from users until the service is re-activated.
+
+`Service.name` is immutable after creation. Renaming a service raises a `ValidationError`.
+If you need to rename, create a new service and migrate your documents.
 
 ### Language
 
@@ -64,13 +85,12 @@ Other applications can index their files through the **`/index/`** endpoint with
 For each application a new **Service** must be created through the admin interface
 (see http://localhost:9071/admin/core/service/add/)
 
-| Field                       | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| Name                        | Name of the service (used as `service` field) |
-| Is active                   | Toggle service availability                        |
-| Client id                   | Calling service client_id (e.g `impress` for docs) |
-| Allowed services for search | List of sub-services. Will add the results from all these services<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication    |
+| Field               | Description                                                    |
+|---------------------|----------------------------------------------------------------|
+| Name                | Name of the service (used as `service` field and index suffix) |
+| Is active           | Toggle service availability (inactive services are excluded from search fan-out) |
+| Client id           | Calling service client_id (e.g `impress` for docs)            |
+| Token (_read-only_) | Random token for calling service authentication                |
 
 And add the key in the calling application Django settings.
 
