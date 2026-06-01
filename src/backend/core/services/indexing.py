@@ -24,16 +24,16 @@ LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_pro
 LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 
-def get_service_index_name(service_name: str) -> str:
-    """Return the OpenSearch index name for a given service."""
-    return f"{settings.OPENSEARCH_INDEX_PREFIX}-{service_name}"
+def get_service_index_name(service_slug: str) -> str:
+    """Return the OpenSearch index name for a given service slug."""
+    return f"{settings.OPENSEARCH_INDEX_PREFIX}-{service_slug}"
 
 
 def get_all_active_service_indices() -> list[str]:
     """Return index names for all currently active services."""
     return [
-        get_service_index_name(s.name)
-        for s in Service.objects.filter(is_active=True).only("name")
+        get_service_index_name(s.slug)
+        for s in Service.objects.filter(is_active=True).only("slug")
     ]
 
 

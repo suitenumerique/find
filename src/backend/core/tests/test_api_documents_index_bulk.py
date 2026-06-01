@@ -71,7 +71,7 @@ def test_api_documents_index_bulk_ensure_index():
 
     with pytest.raises(NotFoundError):
         opensearch_client_.indices.get(
-            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
         )
 
     response = APIClient().post(
@@ -89,7 +89,7 @@ def test_api_documents_index_bulk_ensure_index():
     ]
 
     opensearch_client_.indices.get(
-        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
     )
 
 
@@ -305,7 +305,7 @@ def test_api_documents_index_bulk_default(field, default_value):
     ]
 
     indexed_document = opensearch.opensearch_client().get(
-        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}",
+        index=f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}",
         id=documents[0]["id"],
     )["_source"]
     assert indexed_document[field] == default_value

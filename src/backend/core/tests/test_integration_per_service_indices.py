@@ -2,11 +2,11 @@
 
 These tests exercise the full cross-cutting behaviour of the index-splitting
 architecture: fan-out search, service-owned delete, service activation gating,
-per-user access isolation, and Service.name immutability.
+per-user access isolation, and Service.slug immutability.
 
-Service instances use auto-generated names (via ServiceFactory sequence) to
+Service instances use auto-generated slugs (via ServiceFactory sequence) to
 avoid unique-constraint collisions when the suite runs under pytest-xdist.
-Index names are derived from the actual service.name at runtime.
+Index names are derived from the actual service.slug at runtime.
 """
 
 from django.core.exceptions import ValidationError
@@ -77,8 +77,8 @@ def test_full_roundtrip_two_services(settings):
     _index_via_api(svc_a, [doc_a])
     _index_via_api(svc_b, [doc_b])
 
-    idx_a = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_a.name}"
-    idx_b = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_b.name}"
+    idx_a = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_a.slug}"
+    idx_b = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_b.slug}"
     _refresh_index(idx_a)
     _refresh_index(idx_b)
 
@@ -150,7 +150,7 @@ def test_deactivated_service_hidden_then_reactivated_visible(settings):
     doc_x = factories.DocumentFactory.build(users=[user_sub])
 
     _index_via_api(svc, [doc_x])
-    svc_idx = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc.name}"
+    svc_idx = f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc.slug}"
     _refresh_index(svc_idx)
 
     # Service active — docX must be visible
@@ -214,8 +214,8 @@ def test_user_only_sees_own_docs_across_indices(settings):
     _index_via_api(svc_a, [doc_a])
     _index_via_api(svc_b, [doc_b])
 
-    _refresh_index(f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_a.name}")
-    _refresh_index(f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_b.name}")
+    _refresh_index(f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_a.slug}")
+    _refresh_index(f"{settings.OPENSEARCH_INDEX_PREFIX}-{svc_b.slug}")
 
     indices = get_all_active_service_indices()
 
@@ -254,33 +254,33 @@ def test_user_only_sees_own_docs_across_indices(settings):
     assert doc_a["id"] not in u2_ids
 
 
-def test_service_name_immutable_blocks_rename(settings):
-    """Service.name is immutable: a rename attempt raises ValidationError.
+def test_service_slug_immutable_blocks_rename(settings):
+    """Service.slug is immutable: a re-slug attempt raises ValidationError.
 
     The original OpenSearch index is unaffected — its name is derived from the
-    immutable service name, so the rename attempt cannot silently corrupt the
+    immutable service slug, so the re-slug attempt cannot silently corrupt the
     index topology.
 
     - Create a service and its OpenSearch index.
-    - Attempt to rename the service → ValidationError is raised.
+    - Attempt to change the slug → ValidationError is raised.
     - The original index still exists under its original name.
-    - No index under the attempted new name was created.
+    - No index under the attempted new slug was created.
     """
     svc = factories.ServiceFactory()
-    original_index = get_service_index_name(svc.name)
+    original_index = get_service_index_name(svc.slug)
     ensure_index_exists(original_index)
 
     client = opensearch_client()
     assert client.indices.exists(index=original_index)
 
-    # Attempt rename — must raise ValidationError
-    svc.name = "immutable-rename-tgt"
+    # Attempt re-slug — must raise ValidationError
+    svc.slug = "immutablerenametgt"
     with pytest.raises(ValidationError):
         svc.save()
 
     # Original index must still exist unchanged
     assert client.indices.exists(index=original_index)
 
-    # No index must have been created for the attempted new name
-    renamed_idx = f"{settings.OPENSEARCH_INDEX_PREFIX}-immutable-rename-tgt"
+    # No index must have been created for the attempted new slug
+    renamed_idx = f"{settings.OPENSEARCH_INDEX_PREFIX}-immutablerenametgt"
     assert not client.indices.exists(index=renamed_idx)

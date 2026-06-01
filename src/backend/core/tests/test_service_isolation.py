@@ -17,8 +17,8 @@ class TestIndexServiceIsolation:
 
     def test_index_document_service_field_from_auth_not_payload(self):
         """Service field in payload is ignored; auth token determines service."""
-        service = factories.ServiceFactory(name="docs-service")
-        document = factories.DocumentFactory.build(service="spoofed-drive")
+        service = factories.ServiceFactory(slug="docsservice")
+        document = factories.DocumentFactory.build(service="spoofeddrive")
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -31,14 +31,14 @@ class TestIndexServiceIsolation:
 
         client = opensearch_client()
         indexed_doc = client.get(
-            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-docs-service", id=document["id"]
+            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-docsservice", id=document["id"]
         )
-        assert indexed_doc["_source"]["service"] == "docs-service"
+        assert indexed_doc["_source"]["service"] == "docsservice"
 
     def test_bulk_index_service_field_from_auth_not_payload(self):
         """Verify service field is correctly set for bulk indexing."""
-        service = factories.ServiceFactory(name="my-docs")
-        documents = factories.DocumentFactory.build_batch(3, service="attempt-spoof")
+        service = factories.ServiceFactory(slug="mydocs")
+        documents = factories.DocumentFactory.build_batch(3, service="attemptspoof")
 
         response = APIClient().post(
             "/api/v1.0/documents/index/",
@@ -52,6 +52,6 @@ class TestIndexServiceIsolation:
         client = opensearch_client()
         for doc in documents:
             indexed_doc = client.get(
-                index=f"{settings.OPENSEARCH_INDEX_PREFIX}-my-docs", id=doc["id"]
+                index=f"{settings.OPENSEARCH_INDEX_PREFIX}-mydocs", id=doc["id"]
             )
-            assert indexed_doc["_source"]["service"] == "my-docs"
+            assert indexed_doc["_source"]["service"] == "mydocs"

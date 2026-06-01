@@ -66,7 +66,7 @@ class IndexDocumentView(views.APIView):
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
-        index_name = get_service_index_name(request.auth.name)
+        index_name = get_service_index_name(request.auth.slug)
         opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
@@ -90,7 +90,7 @@ class IndexDocumentView(views.APIView):
         """
         document_dict = prepare_document_for_indexing(
             schemas.Document(**request.data).model_dump(),
-            service_name=request.auth.name,
+            service_name=request.auth.slug,
         )
         _id = document_dict.pop("id")
         logger.info(
@@ -142,7 +142,7 @@ class IndexDocumentView(views.APIView):
             else:
                 document_dict = prepare_document_for_indexing(
                     document.model_dump(),
-                    service_name=request.auth.name,
+                    service_name=request.auth.slug,
                 )
                 logger.info(
                     "Indexing document %s on index %s",
@@ -217,7 +217,7 @@ class DeleteDocumentsView(views.APIView):
             params.tags,
         )
 
-        index_name = get_service_index_name(request.auth.name)
+        index_name = get_service_index_name(request.auth.slug)
         client = opensearch_client()
 
         if params.document_ids:

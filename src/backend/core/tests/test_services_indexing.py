@@ -22,7 +22,7 @@ def cleanup_test_index():
 
 
 def test_get_service_index_name_prefixes(settings):
-    """Index name is {prefix}-{service_name}."""
+    """Index name is {prefix}-{service_slug}."""
     settings.OPENSEARCH_INDEX_PREFIX = "find"
     assert get_service_index_name("docs") == "find-docs"
 
@@ -30,13 +30,13 @@ def test_get_service_index_name_prefixes(settings):
 def test_get_all_active_service_indices_filters_inactive(settings):
     """Only active services are included in the index list."""
     settings.OPENSEARCH_INDEX_PREFIX = "find"
-    factories.ServiceFactory(name="svc-a", is_active=True)
-    factories.ServiceFactory(name="svc-b", is_active=True)
-    factories.ServiceFactory(name="svc-c", is_active=False)
+    factories.ServiceFactory(slug="svca", is_active=True)
+    factories.ServiceFactory(slug="svcb", is_active=True)
+    factories.ServiceFactory(slug="svcc", is_active=False)
     indices = get_all_active_service_indices()
     assert len(indices) == 2
-    assert "find-svc-a" in indices
-    assert "find-svc-b" in indices
+    assert "find-svca" in indices
+    assert "find-svcb" in indices
 
 
 def test_get_all_active_service_indices_empty(settings):

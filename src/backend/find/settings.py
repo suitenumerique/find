@@ -254,7 +254,7 @@ class Base(Configuration):
     )
     OPENSEARCH_INDEX_PREFIX = values.Value(
         default="find", environ_name="OPENSEARCH_INDEX_PREFIX", environ_prefix=None
-    )  # Per-service indices are named {OPENSEARCH_INDEX_PREFIX}-{service.name}
+    )  # Per-service indices are named {OPENSEARCH_INDEX_PREFIX}-{service.slug}
 
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",

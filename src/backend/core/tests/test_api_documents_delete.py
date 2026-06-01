@@ -79,8 +79,8 @@ def test_api_documents_delete_success(settings):
 
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(3, users=["user_sub"])
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
-    prepare_index(service_index, documents, service_name=service.name)
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
+    prepare_index(service_index, documents, service_name=service.slug)
     document_to_delete_ids = [doc["id"] for doc in documents[:2]]
 
     response = APIClient().post(
@@ -108,8 +108,8 @@ def test_api_documents_delete_other_service_index_untouched(settings):
     service = factories.ServiceFactory()
     other_service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(2)
-    other_service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{other_service.name}"
-    prepare_index(other_service_index, documents, service_name=other_service.name)
+    other_service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{other_service.slug}"
+    prepare_index(other_service_index, documents, service_name=other_service.slug)
 
     document_ids = [doc["id"] for doc in documents]
 
@@ -137,8 +137,8 @@ def test_api_documents_delete_mixed_existing_and_missing_ids(settings):
 
     service = factories.ServiceFactory()
     documents = factories.DocumentFactory.build_batch(4)
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
-    prepare_index(service_index, documents, service_name=service.name)
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
+    prepare_index(service_index, documents, service_name=service.slug)
 
     existing_document_ids = [doc["id"] for doc in documents]
     non_existing_document_ids = ["non-existent-1", "non-existent-2"]
@@ -166,9 +166,9 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
     """Requests missing both document_ids and tags should return 400."""
     service = factories.ServiceFactory()
     prepare_index(
-        f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}",
+        f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}",
         [],
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
@@ -238,9 +238,9 @@ def test_api_documents_delete_nonexistent_documents(settings):
     service = factories.ServiceFactory()
     # Create index but with no documents
     prepare_index(
-        f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}",
+        f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}",
         [],
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
@@ -279,11 +279,11 @@ def test_api_documents_delete_by_single_tag(settings):
         factories.DocumentFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
         factories.DocumentFactory.build(users=["other_user_sub"], tags=["keep-tag-3"]),
     ]
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
     prepare_index(
         service_index,
         document_to_deletes + document_to_keep,
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
@@ -326,11 +326,11 @@ def test_api_documents_delete_by_multiple_tags(settings):
         factories.DocumentFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
         factories.DocumentFactory.build(users=["other_user_sub"], tags=["keep-tag-3"]),
     ]
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
     prepare_index(
         service_index,
         document_to_deletes + document_to_keep,
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
@@ -367,7 +367,7 @@ def test_api_documents_delete_by_ids_and_tags(settings):
         users=["user_sub"]
     )
 
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
     prepare_index(
         service_index,
         [
@@ -375,7 +375,7 @@ def test_api_documents_delete_by_ids_and_tags(settings):
             document_delete_by_tag_keep_by_id,
             document_keep_by_tag_delete_by_id,
         ],
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
@@ -418,11 +418,11 @@ def test_api_documents_delete_by_tag_more_than_default_search_size(settings):
     document_to_keep = factories.DocumentFactory.build_batch(
         2, users=["user_sub"], tags=["keep-tag"]
     )
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.slug}"
     prepare_index(
         service_index,
         document_to_deletes + document_to_keep,
-        service_name=service.name,
+        service_name=service.slug,
     )
 
     response = APIClient().post(
