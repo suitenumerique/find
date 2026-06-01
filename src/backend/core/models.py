@@ -4,6 +4,7 @@ import secrets
 import string
 
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Length
 from django.utils.text import slugify
@@ -25,11 +26,6 @@ class Service(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     client_id = models.CharField(blank=True, null=True)
-    services = models.ManyToManyField(
-        "self",
-        verbose_name=_("Allowed services for search"),
-        blank=True,
-    )
 
     class Meta:
         db_table = "find_service"
@@ -48,6 +44,14 @@ class Service(models.Model):
 
     def save(self, *args, **kwargs):
         """Automatically slugify the service name and generate a token on creation"""
+        if self.pk is not None:
+            stored_name = (
+                Service.objects.filter(pk=self.pk)
+                .values_list("name", flat=True)
+                .first()
+            )
+            if self.name != stored_name:
+                raise ValidationError("Service.name is immutable after creation.")
         self.name = slugify(self.name)
         if not self.token:
             self.token = self.generate_secure_token()

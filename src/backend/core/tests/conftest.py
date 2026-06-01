@@ -12,21 +12,21 @@ fake = Faker()
 @pytest.fixture(autouse=True)
 def cleanup_test_index(settings):
     """
-    Fixture to set a randomized index name for tests and remove it on tear down.
+    Fixture to set a randomized index prefix for tests and remove it on tear down.
     """
-    original_index = settings.OPENSEARCH_INDEX
-    test_index = "".join(fake.random_letters(5)).lower()
-    settings.OPENSEARCH_INDEX = test_index
+    original_prefix = settings.OPENSEARCH_INDEX_PREFIX
+    test_prefix = "".join(fake.random_letters(5)).lower()
+    settings.OPENSEARCH_INDEX_PREFIX = test_prefix
 
-    # Create client here to prevent "teardown" issues when the opensearch settings are
-    # removed for error tests.
+    # Client must be created here to prevent teardown issues when opensearch settings
+    # are removed for error tests.
     client = opensearch.opensearch_client()
 
     yield
 
-    settings.OPENSEARCH_INDEX = original_index
+    settings.OPENSEARCH_INDEX_PREFIX = original_prefix
 
     try:
-        client.indices.delete(index=test_index)
+        client.indices.delete(index=f"{test_prefix}-*")
     except NotFoundError:
         pass

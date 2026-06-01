@@ -4,9 +4,10 @@ import logging
 
 from django.conf import settings
 
-from opensearchpy.exceptions import NotFoundError
+from opensearchpy.exceptions import NotFoundError, RequestError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
 
+from core.models import Service
 from core.services.opensearch_configuration import (
     ANALYZERS,
     FILTERS,
@@ -23,24 +24,43 @@ LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_pro
 LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 
+def get_service_index_name(service_name: str) -> str:
+    """Return the OpenSearch index name for a given service."""
+    return f"{settings.OPENSEARCH_INDEX_PREFIX}-{service_name}"
+
+
+def get_all_active_service_indices() -> list[str]:
+    """Return index names for all currently active services."""
+    return [
+        get_service_index_name(s.name)
+        for s in Service.objects.filter(is_active=True).only("name")
+    ]
+
+
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
         opensearch_client().indices.get(index=index_name)
     except NotFoundError:
         logger.info("Creating index: %s", index_name)
-        opensearch_client().indices.create(
-            index=index_name,
-            body={
-                "settings": {
-                    "analysis": {
-                        "analyzer": ANALYZERS,
-                        "filter": FILTERS,
+        try:
+            opensearch_client().indices.create(
+                index=index_name,
+                body={
+                    "settings": {
+                        "analysis": {
+                            "analyzer": ANALYZERS,
+                            "filter": FILTERS,
+                        },
                     },
+                    "mappings": MAPPINGS,
                 },
-                "mappings": MAPPINGS,
-            },
-        )
+            )
+        except RequestError as error:
+            if error.error == "resource_already_exists_exception":
+                pass  # Another process created the index first — idempotent
+            else:
+                raise
 
 
 def prepare_document_for_indexing(document, service_name):

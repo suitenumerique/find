@@ -1,5 +1,6 @@
 """Tests Service model for find's core app."""
 
+from django.core.exceptions import ValidationError
 from django.db import DataError, IntegrityError
 
 import pytest
@@ -39,3 +40,11 @@ def test_models_services_token_50_characters_more():
     """The token field should be 50 characters long."""
     with pytest.raises(DataError):
         factories.ServiceFactory(token="a" * 51)
+
+
+def test_service_name_immutable_after_creation():
+    """The name field should be immutable after creation."""
+    service = factories.ServiceFactory(name="original-name")
+    service.name = "new-name"
+    with pytest.raises(ValidationError):
+        service.save()
