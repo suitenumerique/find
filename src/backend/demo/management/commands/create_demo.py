@@ -146,9 +146,7 @@ def create_demo(stdout):
     """
     opensearch_client_ = opensearch_client()
     try:
-        opensearch_client_.indices.delete(
-            index=f"{settings.OPENSEARCH_INDEX_PREFIX}-*"
-        )
+        opensearch_client_.indices.delete(index=f"{settings.OPENSEARCH_INDEX_PREFIX}-*")
     except NotFoundError:
         pass
 
