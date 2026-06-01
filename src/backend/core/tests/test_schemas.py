@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.schemas import cleanlist
+from core.schemas import SearchQueryParameters, cleanlist
 
 
 def test_cleanlist_empty():
@@ -24,3 +24,8 @@ def test_cleanlist():
     assert cleanlist("  1,  2,3   ") == ["1", "2", "3"]
     assert cleanlist(["1 ", "  2", "3 "]) == ["1", "2", "3"]
     assert cleanlist([None, 2, 3, ""]) == ["2", "3"]
+
+
+def test_search_query_parameters_no_services_field():
+    """Assert that services field is not present in SearchQueryParameters"""
+    assert "services" not in SearchQueryParameters.model_fields.keys()

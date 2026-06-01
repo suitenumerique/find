@@ -155,7 +155,8 @@ def create_demo(stdout):
             defaults.NB_OBJECTS["services"]
         )
 
-        ensure_index_exists(settings.OPENSEARCH_INDEX)
+        for s in services:
+            ensure_index_exists(f"{settings.OPENSEARCH_INDEX_PREFIX}-{s.name}")
 
     with Timeit(stdout, "Creating documents"):
         actions = BulkIndexing(stdout)
@@ -163,7 +164,9 @@ def create_demo(stdout):
             service = random.choice(services)
             document = generate_document()
             document["service"] = service.name
-            actions.push(settings.OPENSEARCH_INDEX, uuid4(), document)
+            actions.push(
+                f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}", uuid4(), document
+            )
         actions.flush()
 
     with Timeit(stdout, "Creating dev services"):
@@ -171,8 +174,11 @@ def create_demo(stdout):
             service = factories.ServiceFactory(**conf)
 
     # Check and report on indexed documents
-    opensearch_client_.indices.refresh(index=settings.OPENSEARCH_INDEX)
-    indexed = opensearch_client_.count(index=settings.OPENSEARCH_INDEX)["count"]
+    service_indices = ",".join(
+        f"{settings.OPENSEARCH_INDEX_PREFIX}-{s.name}" for s in services
+    )
+    opensearch_client_.indices.refresh(index=service_indices)
+    indexed = opensearch_client_.count(index=service_indices)["count"]
     stdout.write(f"  TOTAL: {indexed:d} documents")
 
 

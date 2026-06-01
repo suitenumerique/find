@@ -252,9 +252,9 @@ class Base(Configuration):
     OPENSEARCH_USE_SSL = values.BooleanValue(
         default=True, environ_name="OPENSEARCH_USE_SSL", environ_prefix=None
     )
-    OPENSEARCH_INDEX = values.Value(
-        default="find", environ_name="OPENSEARCH_INDEX", environ_prefix=None
-    )
+    OPENSEARCH_INDEX_PREFIX = values.Value(
+        default="find", environ_name="OPENSEARCH_INDEX_PREFIX", environ_prefix=None
+    )  # Per-service indices are named {OPENSEARCH_INDEX_PREFIX}-{service.name}
 
     SPECTACULAR_SETTINGS = {
         "TITLE": "Find API",

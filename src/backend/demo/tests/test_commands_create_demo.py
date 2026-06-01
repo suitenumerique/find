@@ -27,7 +27,11 @@ def test_commands_create_demo(settings):
     call_command("create_demo")
 
     assert models.Service.objects.exclude(name="docs").count() == 4
-    assert opensearch_client().count(index=settings.OPENSEARCH_INDEX)["count"] == 4
+    indices = ",".join(
+        f"{settings.OPENSEARCH_INDEX_PREFIX}-{s.name}"
+        for s in models.Service.objects.all()
+    )
+    assert opensearch_client().count(index=indices)["count"] == 4
 
     docs = models.Service.objects.get(name="docs")
     assert docs.client_id == "impress"

@@ -281,6 +281,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         - Enables searching through indexed documents with support for various filters
           and sorting options.
         - The search results can be sorted or filtered via querystring parameters.
+        - Search is restricted to user OIDC tokens; service bearer tokens cannot search.
     """
 
     permission_classes = [IsAuthAuthenticated]
@@ -317,8 +318,6 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         nb_results : int, optional
             The number of results to return.
             Defaults to 50 if not specified.
-        services: List[str], optional
-            List of services on which we intend to run the query (current service if left empty)
         visited: List[sub], optional
             List of public/authenticated documents the user has visited to limit
             the document returned to the ones the current user has seen.
