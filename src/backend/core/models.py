@@ -1,6 +1,5 @@
 """Models for find's core app"""
 
-import re
 import secrets
 import string
 
@@ -66,16 +65,15 @@ class Service(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Generate token, auto-derive slug on creation, enforce slug immutability.
+        """Generate token and enforce slug immutability.
 
-        - ``slug`` is auto-derived from ``name`` if not provided (strip
-          non-alphanumeric, lowercase). It is immutable after creation.
+        - ``slug`` must be provided explicitly on creation and is immutable
+          thereafter. The DB check constraint enforces the allowed character
+          set; no auto-derivation is performed.
         - ``name`` is a free-form display field and can be edited.
         - ``token`` is generated once on creation if missing.
         """
-        if not self.slug:
-            self.slug = re.sub(r"[^a-zA-Z0-9]", "", self.name or "").lower()
-        if self.pk is not None:
+        if not self._state.adding:
             stored_slug = (
                 Service.objects.filter(pk=self.pk)
                 .values_list("slug", flat=True)

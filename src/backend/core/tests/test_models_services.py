@@ -24,19 +24,6 @@ def test_models_services_name_not_required_unique():
     factories.ServiceFactory(slug="bb", name="Same Name")
 
 
-def test_models_services_slug_auto_derived_from_name():
-    """When no slug is provided, it is auto-derived from name (alphanumeric, lowercase)."""
-    service = factories.ServiceFactory(slug=None, name="My Service Name")
-    assert service.slug == "myservicename"
-    assert service.name == "My Service Name"
-
-
-def test_models_services_slug_auto_derivation_strips_special_chars():
-    """Slug derivation strips hyphens, underscores, spaces and punctuation."""
-    service = factories.ServiceFactory(slug=None, name="docs-service_v2!")
-    assert service.slug == "docsservicev2"
-
-
 def test_models_services_slug_rejects_non_alphanumeric():
     """Explicit non-alphanumeric slugs are rejected by the DB check constraint."""
     with pytest.raises(IntegrityError):
