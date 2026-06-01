@@ -39,12 +39,13 @@ def get_all_active_service_indices() -> list[str]:
 
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
+    client = opensearch_client()
     try:
-        opensearch_client().indices.get(index=index_name)
+        client.indices.get(index=index_name)
     except NotFoundError:
         logger.info("Creating index: %s", index_name)
         try:
-            opensearch_client().indices.create(
+            client.indices.create(
                 index=index_name,
                 body={
                     "settings": {
