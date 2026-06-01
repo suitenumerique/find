@@ -42,8 +42,9 @@ For example, with `OPENSEARCH_INDEX_PREFIX=find`:
 
 Indices are created lazily on the first write. You don't need to create them manually.
 
-When a service has `is_active=False`, its index is excluded from all search and delete fan-outs.
-Documents in that index are effectively hidden from users until the service is re-activated.
+When a service has `is_active=False`, its token can no longer index or delete, and its index is
+excluded from search fan-out. Documents in that index are effectively hidden from users until the
+service is re-activated.
 
 `Service.name` is immutable after creation. Renaming a service raises a `ValidationError`.
 If you need to rename, create a new service and migrate your documents.
