@@ -26,6 +26,9 @@ class Service(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     client_id = models.CharField(blank=True, null=True)
+    services = models.ManyToManyField(
+        "self", blank=True, verbose_name="Allowed services for search"
+    )
 
     class Meta:
         db_table = "find_service"
