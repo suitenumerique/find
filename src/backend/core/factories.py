@@ -50,7 +50,8 @@ class ServiceFactory(factory.django.DjangoModelFactory):
     A factory for generating service instances for testing and development purposes.
     """
 
-    name = factory.Sequence(lambda n: f"test-index-{n!s}")
+    slug = factory.Sequence(lambda n: f"testidx{n!s}")
+    name = factory.LazyAttribute(lambda o: f"Test Service {o.slug}")
     created_at = factory.Faker("date_time_this_year", tzinfo=None)
     is_active = True
     client_id = "some_client_id"

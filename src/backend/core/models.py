@@ -1,16 +1,23 @@
 """Models for find's core app"""
 
+import re
 import secrets
 import string
 
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models.functions import Length
-from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 models.CharField.register_lookup(Length)
 TOKEN_LENGTH = 50
+SLUG_REGEX = r"^[a-z0-9]+$"
+SLUG_VALIDATOR = RegexValidator(
+    regex=SLUG_REGEX,
+    message=_("Slug must contain only lowercase letters and digits."),
+)
 
 
 class User(AbstractUser):
@@ -20,15 +27,23 @@ class User(AbstractUser):
 class Service(models.Model):
     """Service registered to index its documents to our find"""
 
-    name = models.SlugField(max_length=20, unique=True)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(
+        max_length=20,
+        unique=True,
+        editable=False,
+        validators=[SLUG_VALIDATOR],
+        help_text=_(
+            "Stable identifier used in the OpenSearch index name. "
+            "Lowercase alphanumeric only. Set on creation, immutable thereafter."
+        ),
+    )
     token = models.CharField(max_length=TOKEN_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     client_id = models.CharField(blank=True, null=True)
     services = models.ManyToManyField(
-        "self",
-        verbose_name=_("Allowed services for search"),
-        blank=True,
+        "self", blank=True, verbose_name=_("Allowed services for search")
     )
 
     class Meta:
@@ -41,14 +56,35 @@ class Service(models.Model):
                 condition=models.Q(token__length=TOKEN_LENGTH),
                 name="token_length_exact_50",
             ),
+            models.CheckConstraint(
+                condition=models.Q(slug__regex=SLUG_REGEX),
+                name="slug_alphanumeric_only",
+            ),
         ]
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Automatically slugify the service name and generate a token on creation"""
-        self.name = slugify(self.name)
+        """Generate token, auto-derive slug on creation, enforce slug immutability.
+
+        - ``slug`` is auto-derived from ``name`` if not provided (strip
+          non-alphanumeric, lowercase). It is immutable after creation.
+        - ``name`` is a free-form display field and can be edited.
+        - ``token`` is generated once on creation if missing.
+        """
+        if not self.slug:
+            self.slug = re.sub(r"[^a-zA-Z0-9]", "", self.name or "").lower()
+        if self.pk is not None:
+            stored_slug = (
+                Service.objects.filter(pk=self.pk)
+                .values_list("slug", flat=True)
+                .first()
+            )
+            if self.slug != stored_slug:
+                raise ValidationError(
+                    {"slug": _("Service.slug is immutable after creation.")}
+                )
         if not self.token:
             self.token = self.generate_secure_token()
         super().save(*args, **kwargs)

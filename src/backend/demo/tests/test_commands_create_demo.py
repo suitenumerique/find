@@ -26,11 +26,11 @@ def test_commands_create_demo(settings):
     """The create_demo management command should create objects as expected."""
     call_command("create_demo")
 
-    assert models.Service.objects.exclude(name="docs").count() == 4
+    assert models.Service.objects.exclude(slug="docs").count() == 4
     assert opensearch_client().count(index=settings.OPENSEARCH_INDEX)["count"] == 4
 
-    docs = models.Service.objects.get(name="docs")
+    docs = models.Service.objects.get(slug="docs")
     assert docs.client_id == "impress"
 
-    drive = models.Service.objects.get(name="drive")
+    drive = models.Service.objects.get(slug="drive")
     assert drive.client_id == "drive"
