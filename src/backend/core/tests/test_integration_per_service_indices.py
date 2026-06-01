@@ -1,7 +1,7 @@
 """Integration tests for the per-service OpenSearch index architecture.
 
 These tests exercise the full cross-cutting behaviour of the index-splitting
-architecture: fan-out search, cross-service delete, service activation gating,
+architecture: fan-out search, service-owned delete, service activation gating,
 per-user access isolation, and Service.name immutability.
 
 Service instances use auto-generated names (via ServiceFactory sequence) to
@@ -62,7 +62,7 @@ def test_full_roundtrip_two_services(settings):
 
     - Index doc A via one service and doc B via another service.
     - Fan-out search returns both docs.
-    - Fan-out delete removes both docs.
+    - Each service deletes its own document.
     - Follow-up search returns empty.
     """
     user_sub = "roundtrip-user-sub"
@@ -94,15 +94,30 @@ def test_full_roundtrip_two_services(settings):
     assert doc_a["id"] in result_ids
     assert doc_b["id"] in result_ids
 
-    # Fan-out delete — both docs must be removed
-    delete_resp = APIClient().post(
+    # Service-owned delete — each service removes only its own doc
+    delete_resp_a = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"document_ids": [doc_a["id"], doc_b["id"]]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {svc_a.token:s}",
     )
-    assert delete_resp.status_code == 200
-    assert delete_resp.json()["nb-deleted-documents"] == 2
+    assert delete_resp_a.status_code == 200
+    assert delete_resp_a.json() == {
+        "nb-deleted-documents": 1,
+        "undeleted-document-ids": [doc_b["id"]],
+    }
+
+    delete_resp_b = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"document_ids": [doc_b["id"]]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {svc_b.token:s}",
+    )
+    assert delete_resp_b.status_code == 200
+    assert delete_resp_b.json() == {
+        "nb-deleted-documents": 1,
+        "undeleted-document-ids": [],
+    }
 
     _refresh_index(idx_a)
     _refresh_index(idx_b)

@@ -5,7 +5,6 @@ from typing import List
 
 import opensearchpy
 import pytest
-import responses
 from opensearchpy.helpers import bulk
 from rest_framework.test import APIClient
 
@@ -13,7 +12,7 @@ from core import factories
 from core.services.indexing import ensure_index_exists, prepare_document_for_indexing
 from core.services.opensearch import opensearch_client
 
-from .utils import build_authorization_bearer, setup_oicd_resource_server
+from .utils import build_authorization_bearer
 
 logger = logging.getLogger(__name__)
 
@@ -56,19 +55,29 @@ def test_api_documents_delete_anonymous():
         format="json",
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.json() == {
         "detail": "Authentication credentials were not provided."
     }
 
 
-@responses.activate
+def test_api_documents_delete_oidc_token_rejected():
+    """OIDC-style bearer tokens should not be allowed to delete documents."""
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"document_ids": ["doc1"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Invalid token."}
+
+
 def test_api_documents_delete_success(settings):
-    """Authenticated users should be able to delete documents they have access to."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    """Authenticated services should delete documents from their own index."""
 
     service = factories.ServiceFactory()
-    # Create documents user has access to
     documents = factories.DocumentFactory.build_batch(3, users=["user_sub"])
     service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
     prepare_index(service_index, documents, service_name=service.name)
@@ -78,7 +87,7 @@ def test_api_documents_delete_success(settings):
         "/api/v1.0/documents/delete/",
         {"document_ids": document_to_delete_ids},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -94,15 +103,13 @@ def test_api_documents_delete_success(settings):
             assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_no_access(settings):
-    """Users should not be able to delete documents they don't have access to."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+def test_api_documents_delete_other_service_index_untouched(settings):
+    """A service token should not delete documents from another service index."""
     service = factories.ServiceFactory()
-    # Create documents where user_sub does NOT have access
-    documents = factories.DocumentFactory.build_batch(2, users=["other_sub"])
-    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
-    prepare_index(service_index, documents, service_name=service.name)
+    other_service = factories.ServiceFactory()
+    documents = factories.DocumentFactory.build_batch(2)
+    other_service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{other_service.name}"
+    prepare_index(other_service_index, documents, service_name=other_service.name)
 
     document_ids = [doc["id"] for doc in documents]
 
@@ -110,7 +117,7 @@ def test_api_documents_delete_no_access(settings):
         "/api/v1.0/documents/delete/",
         {"document_ids": document_ids},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -121,61 +128,42 @@ def test_api_documents_delete_no_access(settings):
 
     opensearch_client_ = opensearch_client()
     for doc_id in document_ids:
-        doc = opensearch_client_.get(index=service_index, id=doc_id)
+        doc = opensearch_client_.get(index=other_service_index, id=doc_id)
         assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_mixed_access(settings):
-    """Deleting a mix of owned and non-owned documents should only delete owned ones."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+def test_api_documents_delete_mixed_existing_and_missing_ids(settings):
+    """Deleting a mix of existing and missing IDs should report only missing IDs."""
 
     service = factories.ServiceFactory()
-    # Create documents with different access
-    owned_documents = factories.DocumentFactory.build_batch(2, users=["user_sub"])
-    other_documents = factories.DocumentFactory.build_batch(2, users=["other_user"])
+    documents = factories.DocumentFactory.build_batch(4)
     service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
-    prepare_index(
-        service_index,
-        owned_documents + other_documents,
-        service_name=service.name,
-    )
+    prepare_index(service_index, documents, service_name=service.name)
 
-    owned_document_ids = [doc["id"] for doc in owned_documents]
-    other_document_ids = [doc["id"] for doc in other_documents]
+    existing_document_ids = [doc["id"] for doc in documents]
     non_existing_document_ids = ["non-existent-1", "non-existent-2"]
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
-        {
-            "document_ids": owned_document_ids
-            + other_document_ids
-            + non_existing_document_ids,
-        },
+        {"document_ids": existing_document_ids + non_existing_document_ids},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "nb-deleted-documents": 2,
-        "undeleted-document-ids": other_document_ids + non_existing_document_ids,
+        "nb-deleted-documents": 4,
+        "undeleted-document-ids": non_existing_document_ids,
     }
 
     opensearch_client_ = opensearch_client()
-    for document_id in owned_document_ids:
+    for document_id in existing_document_ids:
         with pytest.raises(opensearchpy.exceptions.NotFoundError):
             opensearch_client_.get(index=service_index, id=document_id)
 
-    for document_id in other_document_ids:
-        document = opensearch_client_.get(index=service_index, id=document_id)
-        assert document["found"]
 
-
-@responses.activate
 def test_api_documents_delete_missing_document_ids_and_tags(settings):
     """Requests missing both document_ids and tags should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
     prepare_index(
         f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}",
@@ -187,7 +175,7 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
         "/api/v1.0/documents/delete/",
         {},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 400
@@ -200,16 +188,15 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_empty_document_ids(settings):
+def test_api_documents_delete_empty_document_ids():
     """Requests with empty document_ids and no tags should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"document_ids": []},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 400
@@ -222,16 +209,15 @@ def test_api_documents_delete_empty_document_ids(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_both_filters_empty(settings):
+def test_api_documents_delete_both_filters_empty():
     """Requests with both document_ids and tags empty should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
 
     response = APIClient().post(
         "/api/v1.0/documents/delete/",
         {"document_ids": [], "tags": []},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 400
@@ -244,13 +230,11 @@ def test_api_documents_delete_both_filters_empty(settings):
     ]
 
 
-@responses.activate
 def test_api_documents_delete_nonexistent_documents(settings):
     """
     Deleting non-existent documents should not raise an error
     and return the list of undeleted ids.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
     # Create index but with no documents
     prepare_index(
@@ -263,7 +247,7 @@ def test_api_documents_delete_nonexistent_documents(settings):
         "/api/v1.0/documents/delete/",
         {"document_ids": ["non-existent-id"]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -273,13 +257,11 @@ def test_api_documents_delete_nonexistent_documents(settings):
     }
 
 
-@responses.activate
 @pytest.mark.flaky(
     reruns=2, reason="OpenSearch index race condition under high parallelism"
 )
 def test_api_documents_delete_by_single_tag(settings):
-    """Users should be able to delete documents by tags."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    """Services should be able to delete documents by tags."""
     service = factories.ServiceFactory()
 
     document_to_deletes = [
@@ -295,7 +277,7 @@ def test_api_documents_delete_by_single_tag(settings):
             users=["user_sub"], tags=["keep-tag-1", "keep-tag-2"]
         ),
         factories.DocumentFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
-        factories.DocumentFactory.build(users=["other_user_sub"], tags=["delete-tag"]),
+        factories.DocumentFactory.build(users=["other_user_sub"], tags=["keep-tag-3"]),
     ]
     service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
     prepare_index(
@@ -308,7 +290,7 @@ def test_api_documents_delete_by_single_tag(settings):
         "/api/v1.0/documents/delete/",
         {"tags": ["delete-tag"]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -324,10 +306,8 @@ def test_api_documents_delete_by_single_tag(settings):
         assert doc["found"]
 
 
-@responses.activate
 def test_api_documents_delete_by_multiple_tags(settings):
-    """Users should be able to delete documents matching any of multiple tags."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    """Services should be able to delete documents matching any of multiple tags."""
     service = factories.ServiceFactory()
 
     document_to_deletes = [
@@ -344,9 +324,7 @@ def test_api_documents_delete_by_multiple_tags(settings):
             users=["user_sub"], tags=["keep-tag-1", "keep-tag-2"]
         ),
         factories.DocumentFactory.build(users=["user_sub"], tags=["keep-tag-1"]),
-        factories.DocumentFactory.build(
-            users=["other_user_sub"], tags=["delete-tag-1"]
-        ),
+        factories.DocumentFactory.build(users=["other_user_sub"], tags=["keep-tag-3"]),
     ]
     service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
     prepare_index(
@@ -359,7 +337,7 @@ def test_api_documents_delete_by_multiple_tags(settings):
         "/api/v1.0/documents/delete/",
         {"tags": ["delete-tag-1", "delete-tag-2"]},
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -375,10 +353,8 @@ def test_api_documents_delete_by_multiple_tags(settings):
         assert doc["found"]
 
 
-@responses.activate
 def test_api_documents_delete_by_ids_and_tags(settings):
-    """Users should be able to delete documents by both IDs and tags (AND logic)."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    """Services should be able to delete documents by both IDs and tags (AND logic)."""
     service = factories.ServiceFactory()
 
     document_delete_by_tag_and_id = factories.DocumentFactory.build(
@@ -412,7 +388,7 @@ def test_api_documents_delete_by_ids_and_tags(settings):
             "tags": ["delete-tag"],
         },
         format="json",
-        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
     )
 
     assert response.status_code == 200
@@ -431,3 +407,39 @@ def test_api_documents_delete_by_ids_and_tags(settings):
         index=service_index, id=document_delete_by_tag_keep_by_id["id"]
     )
     assert doc["found"]
+
+
+def test_api_documents_delete_by_tag_more_than_default_search_size(settings):
+    """Tag-only deletion should not be capped by OpenSearch's default 10 search hits."""
+    service = factories.ServiceFactory()
+    document_to_deletes = factories.DocumentFactory.build_batch(
+        12, users=["user_sub"], tags=["delete-tag"]
+    )
+    document_to_keep = factories.DocumentFactory.build_batch(
+        2, users=["user_sub"], tags=["keep-tag"]
+    )
+    service_index = f"{settings.OPENSEARCH_INDEX_PREFIX}-{service.name}"
+    prepare_index(
+        service_index,
+        document_to_deletes + document_to_keep,
+        service_name=service.name,
+    )
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"tags": ["delete-tag"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"nb-deleted-documents": 12, "undeleted-document-ids": []}
+
+    opensearch_client_ = opensearch_client()
+    for document in document_to_deletes:
+        with pytest.raises(opensearchpy.exceptions.NotFoundError):
+            opensearch_client_.get(index=service_index, id=document["id"])
+
+    for document in document_to_keep:
+        doc = opensearch_client_.get(index=service_index, id=document["id"])
+        assert doc["found"]
