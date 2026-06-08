@@ -16,6 +16,7 @@ from socket import gethostbyname, gethostname
 
 from django.utils.translation import gettext_lazy as _
 
+import posthog
 import sentry_sdk
 from configurations import Configuration, values
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -291,6 +292,11 @@ class Base(Configuration):
     # Sentry
     SENTRY_DSN = values.Value(None, environ_name="SENTRY_DSN", environ_prefix=None)
 
+    POSTHOG_API_KEY = values.Value(
+        None, environ_name="POSTHOG_API_KEY", environ_prefix=None
+    )
+    POSTHOG_HOST = values.Value(None, environ_name="POSTHOG_HOST", environ_prefix=None)
+
     # Celery
     CELERY_BROKER_URL = values.Value("redis://redis:6379/0")
     CELERY_BROKER_TRANSPORT_OPTIONS = values.DictValue({})
@@ -498,6 +504,11 @@ class Base(Configuration):
 
             # Ignore the logs added by the DockerflowMiddleware
             ignore_logger("request.summary")
+
+        # PostHog Python SDK — opt-in, module-global init mirroring the Sentry pattern.
+        if cls.POSTHOG_API_KEY and cls.POSTHOG_HOST:
+            posthog.api_key = cls.POSTHOG_API_KEY
+            posthog.host = cls.POSTHOG_HOST
 
 
 class Build(Base):
