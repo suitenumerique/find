@@ -30,7 +30,6 @@ class Service(models.Model):
     slug = models.SlugField(
         max_length=20,
         unique=True,
-        editable=False,
         validators=[SLUG_VALIDATOR],
         help_text=_(
             "Stable identifier used in the OpenSearch index name. "

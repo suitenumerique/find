@@ -7,6 +7,8 @@ from django.urls import reverse
 
 import pytest
 
+from core.admin import ServiceAdminForm
+from core.models import Service
 from core.selftests import SelfTestResult
 
 pytestmark = pytest.mark.django_db
@@ -25,6 +27,22 @@ def _override_storage_settings(settings):
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+
+
+def test_service_admin_form_enables_slug_on_creation():
+    """The service slug must be explicit when adding a service in admin."""
+    form = ServiceAdminForm()
+
+    assert not form.fields["slug"].disabled
+
+
+@patch("django.forms.models.model_to_dict", return_value={})
+def test_service_admin_form_disables_slug_after_creation(_mock_model_to_dict):
+    """The service slug must be read-only when editing an existing service in admin."""
+    service = Service(pk=1, name="Test Service", slug="testidx")
+    form = ServiceAdminForm(instance=service)
+
+    assert form.fields["slug"].disabled
 
 
 def test_selftest_requires_authentication(client):
