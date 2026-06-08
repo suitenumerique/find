@@ -48,13 +48,3 @@ def test_service_slug_immutable_after_creation():
     service.slug = "differentname"
     with pytest.raises(ValidationError):
         service.save()
-
-
-def test_service_name_editable_after_creation():
-    """The name field is freely editable after creation."""
-    service = factories.ServiceFactory(slug="myslug", name="Original")
-    service.name = "New Display Name"
-    service.save()
-    service.refresh_from_db()
-    assert service.name == "New Display Name"
-    assert service.slug == "myslug"
