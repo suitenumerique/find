@@ -1,27 +1,17 @@
-import re
-
 import django.core.validators
 from django.db import migrations, models
 
 
-def backfill_slug_from_name(apps, schema_editor):
+def wipe_services(apps, schema_editor):
+    """Drop pre-existing services before introducing the required ``slug`` column.
+
+    No production data exists, so there is no value-preserving backfill to do.
+    Wiping ``Service`` rows up front lets ``AddField`` introduce ``slug`` with
+    its final ``NOT NULL UNIQUE`` shape in a single operation. Going through
+    the ORM cascades to the ``services`` self-referential M2M join table.
+    """
     Service = apps.get_model("core", "Service")  # noqa: N806
-    seen = set()
-    for service in Service.objects.all():
-        derived = re.sub(r"[^a-zA-Z0-9]", "", service.name or "").lower()
-        if not derived:
-            raise RuntimeError(
-                f"Cannot derive slug for Service id={service.pk!r} "
-                f"name={service.name!r}: name contains no alphanumeric characters."
-            )
-        if derived in seen:
-            raise RuntimeError(
-                f"Slug collision while backfilling: name={service.name!r} -> "
-                f"slug={derived!r} already used by another service."
-            )
-        seen.add(derived)
-        service.slug = derived
-        service.save(update_fields=["slug"])
+    Service.objects.all().delete()
 
 
 class Migration(migrations.Migration):
@@ -30,16 +20,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="service",
-            name="slug",
-            field=models.CharField(max_length=20, null=True),
-        ),
         migrations.RunPython(
-            backfill_slug_from_name,
+            wipe_services,
             reverse_code=migrations.RunPython.noop,
         ),
-        migrations.AlterField(
+        migrations.AddField(
             model_name="service",
             name="slug",
             field=models.SlugField(
