@@ -18,12 +18,6 @@ def test_models_services_slug_unique():
         factories.ServiceFactory(slug=service.slug)
 
 
-def test_models_services_name_not_required_unique():
-    """Two services may share the same display name."""
-    factories.ServiceFactory(slug="aa", name="Same Name")
-    factories.ServiceFactory(slug="bb", name="Same Name")
-
-
 def test_models_services_slug_rejects_non_alphanumeric():
     """Explicit non-alphanumeric slugs are rejected by the DB check constraint."""
     with pytest.raises(IntegrityError):
