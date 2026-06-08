@@ -1,5 +1,6 @@
 """Admin config for find's core app"""
 
+from django import forms
 from django.contrib import admin
 from django.shortcuts import render
 from django.urls import path
@@ -9,10 +10,24 @@ from .models import Service
 from .selftests import registry
 
 
+class ServiceAdminForm(forms.ModelForm):
+    """Admin form keeping the slug immutable after creation."""
+
+    class Meta:
+        model = Service
+        fields = ("name", "slug", "is_active", "client_id", "services")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["slug"].disabled = True
+
+
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
     """Register the serivce model for the admin site"""
 
+    form = ServiceAdminForm
     list_display = ("name", "created_at", "is_active")
     search_fields = ("name",)
     list_filter = ("is_active", "created_at")
