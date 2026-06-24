@@ -3,7 +3,7 @@
 # Run manually: pre-commit run --all-files
 
 default_language_version:
-  python: python3.12
+  python: python3.14
 
 repos:
   # General pre-commit hooks
