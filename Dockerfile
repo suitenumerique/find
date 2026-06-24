@@ -1,7 +1,7 @@
 # Django find
 
 # ---- base image to inherit from ----
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.14.6-slim-bookworm AS base
 
 # Upgrade system packages to install security updates
 RUN apt-get update && \
