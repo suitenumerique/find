@@ -266,7 +266,6 @@ MAPPINGS = {
         "users": {"type": "keyword"},
         "groups": {"type": "keyword"},
         "reach": {"type": "keyword"},
-        "service": {"type": "keyword"},
         "tags": {"type": "keyword"},
         "is_active": {"type": "boolean"},
     },

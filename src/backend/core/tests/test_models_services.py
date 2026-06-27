@@ -17,10 +17,11 @@ def test_models_services_name_unique():
         factories.ServiceFactory(name=service.name)
 
 
-def test_models_services_name_slugified():
+def test_models_services_name_slugified(settings):
     """The name field should be slugified."""
     service = factories.ServiceFactory(name="My service name")
     assert service.name == "my-service-name"
+    assert service.index_name == f"{settings.OPENSEARCH_INDEX_PREFIX}-my-service-name"
 
 
 def test_models_services_token_50_characters_exact():

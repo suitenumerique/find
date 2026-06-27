@@ -20,7 +20,7 @@ from pydantic import (
 from . import enums
 
 
-class Document(BaseModel):
+class DocumentSchema(BaseModel):
     """Schema for validating the documents submitted to our API for indexing"""
 
     id: UUID4
@@ -106,10 +106,11 @@ def cleanlist(value):
 StringListParameter = Annotated[List[str], BeforeValidator(cleanlist)]
 
 
-class SearchQueryParameters(BaseModel):
+class SearchQueryParametersSchema(BaseModel):
     """Schema for validating the querystring on the search API endpoint"""
 
     q: str
+    services: StringListParameter = Field(default_factory=list)
     visited: StringListParameter = Field(default_factory=list)
     reach: Optional[enums.ReachEnum] = None
     tags: StringListParameter = Field(default_factory=list)
@@ -119,9 +120,10 @@ class SearchQueryParameters(BaseModel):
     nb_results: Optional[conint(ge=1, le=300)] = Field(default=50)
 
 
-class DeleteDocuments(BaseModel):
+class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 
+    service: str = Field(max_length=300)
     document_ids: Optional[List[str]] = Field(default=None)
     tags: Optional[List[str]] = Field(default=None)
 
