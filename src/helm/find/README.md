@@ -21,6 +21,7 @@
 | `ingress.path`                             | Path to use for the Ingress                          | `/`                    |
 | `ingress.hosts`                            | Additional host to configure for the Ingress         | `[]`                   |
 | `ingress.tls.enabled`                      | Whether to enable TLS for the Ingress                | `true`                 |
+| `ingress.tls.secretName`                   | Secret name for TLS config                           | `nil`                  |
 | `ingress.tls.additional[].secretName`      | Secret name for additional TLS config                |                        |
 | `ingress.tls.additional[].hosts[]`         | Hosts for additional TLS config                      |                        |
 | `ingress.customBackends`                   | Add custom backends to ingress                       | `[]`                   |
