@@ -6,7 +6,7 @@ services:
     env_file:
       - env.d/development/postgresql
     ports:
-      - "25432:5432"
+      - "10012:5432"
 
   opensearch:
     image: opensearchproject/opensearch:latest
@@ -22,8 +22,8 @@ services:
     volumes:
       - ./data/opensearch:/usr/share/opensearch/data
     ports:
-      - "9200:9200"
-      - "9600:9600"
+      - "10014:9200"
+      - "10015:9600"
     healthcheck:
       test: ["CMD", "curl", "--head", "-fsS", "http://localhost:9200/"]
       start_period: 5s
@@ -34,7 +34,7 @@ services:
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:latest
     ports:
-      - "5601:5601"
+      - "10016:5601"
     environment:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
@@ -45,6 +45,8 @@ services:
 
   redis:
     image: redis:5
+    ports:
+      - "10013:6379"
 
   app:
     build:
@@ -61,7 +63,7 @@ services:
       - env.d/development/common
       - env.d/development/postgresql
     ports:
-      - "8081:8000"
+      - "10001:8000"
     networks:
       default: {}
       lasuite:

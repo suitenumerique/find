@@ -58,6 +58,22 @@ dependency-related or migration-related issues.
 
 Your Docker services should now be up and running 🎉
 
+### Development Services
+
+When running the project, the following services are available:
+
+| Service                  | URL / Port                                        | Description                     | Credentials                   |
+|--------------------------|---------------------------------------------------|---------------------------------|-------------------------------|
+| **Frontend**             | N/A                                               |                                 |                               |
+| **Backend API**          | [http://localhost:10001](http://localhost:10001)  | Django                          | `admin@example.com` / `admin` |
+| **Keycloak**             | N/A                                               |                                 |                               |
+| **Nginx**                | N/A                                               |                                 |                               |
+| **PostgreSQL**           | 10012                                             | Database server                 | `dinum` / `pass`              |
+| **Redis**                | 10013                                             | Cache and message broker        | No auth required              |
+| **Opensearch**           | [http://localhost:10014](http://localhost:10014)  | Document storage                | No auth required              |
+| **Opensearch admin**     | 10015                                             | OpenSearch Performance Analyzer |                               |
+| **Opensearch dashboard** | [http://localhost:10016](http://localhost:10016)  | Opensearch UI                   | No auth required              |
+
 ### Adding content
 
 You can create a basic demo site by running:
@@ -73,7 +89,7 @@ $ make help
 ### Django admin
 
 You can access the Django admin site at
-[http://localhost:8071/admin](http://localhost:8071/admin).
+[http://localhost:10001/admin](http://localhost:10001/admin).
 
 You first need to create a superuser account:
 
