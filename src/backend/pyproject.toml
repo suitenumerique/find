@@ -40,7 +40,7 @@ dependencies = [
   "psycopg[binary]==3.3.3",
   "py3langid==0.3.0",
   "pydantic==2.13.4",
-  "pyjwt==2.12.1",
+  "pyjwt==2.13.0",
   "redis==6.4.0",
   "requests==2.33.1",
   "sentry-sdk==2.58.0",
