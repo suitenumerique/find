@@ -31,7 +31,7 @@ dependencies = [
   "django-lasuite[all]==0.0.26",
   "django-redis==6.0.0",
   "django==6.0.5",
-  "djangorestframework==3.17.1",
+  "djangorestframework==3.17.2",
   "dockerflow==2026.3.4",
   "drf_spectacular==0.29.0",
   "gunicorn==25.3.0",
