@@ -380,7 +380,7 @@ wheels = [
 
 [[package]]
 name = "django-lasuite"
-version = "0.0.26"
+version = "0.0.29"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
@@ -391,9 +391,9 @@ dependencies = [
     { name = "requests" },
     { name = "requests-toolbelt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d7/6c022ff6b2e5c6f7226005c5f62920763ddb9ae2d4948b6af6d206314036/django_lasuite-0.0.26.tar.gz", hash = "sha256:b4ffb15d3e56e366d71b527195d26198e2d26e28cc1ab1c11aefdc581db9c02b", size = 34952, upload-time = "2026-04-03T14:02:33.957Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/ab/72a79b7133fb2d17835bef40f45f7e6d2b4343469c37fd00386122e9068d/django_lasuite-0.0.29.tar.gz", hash = "sha256:831cb859e45e33963c9d89168c2de14f9844e805000b0f0d1512ffd0b9731a39", size = 35248, upload-time = "2026-08-25T13:03:43.597Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/ab/18a1505061b536616ea4b9f75154042116ca4f1a9f64467f5a3549c686d2/django_lasuite-0.0.26-py3-none-any.whl", hash = "sha256:ba812e643eae3f55a50a69bf09eaa3b8ffa4fe9dd3296b8e27b4f7bbc25e3400", size = 54158, upload-time = "2026-04-03T14:02:32.691Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/cf/86648643221816f18ebd5a3e59b6d2a85ee85b38b19c7abe939f798a2845/django_lasuite-0.0.29-py3-none-any.whl", hash = "sha256:33bcff90ced2709190ef01241badb17ceed08a32725b9cdd3105650b36da303b", size = 54899, upload-time = "2026-08-25T13:03:42.212Z" },
 ]
 
 [package.optional-dependencies]
@@ -571,7 +571,7 @@ requires-dist = [
     { name = "django-configurations", specifier = "==2.5.1" },
     { name = "django-cors-headers", specifier = "==4.9.0" },
     { name = "django-extensions", marker = "extra == 'dev'", specifier = "==4.1" },
-    { name = "django-lasuite", extras = ["all"], specifier = "==0.0.26" },
+    { name = "django-lasuite", extras = ["all"], specifier = "==0.0.29" },
     { name = "django-redis", specifier = "==6.0.0" },
     { name = "djangorestframework", specifier = "==3.17.1" },
     { name = "dockerflow", specifier = "==2026.3.4" },
