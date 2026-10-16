@@ -11,6 +11,7 @@ and this project adheres to
 ## Fixed
 
 - 🔒️(ci) restrict GITHUB_TOKEN permissions in workflows
+- 🔒️(dependencies) upgrade vulnerable transitive dependencies
 
 ## Added
 
