@@ -11,6 +11,9 @@ on:
     branches:
       - 'main'
 
+permissions:
+  contents: read
+
 env:
   DOCKER_USER: 1001:127
 

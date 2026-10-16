@@ -8,6 +8,10 @@ and this project adheres to
 
 ## Unreleased
 
+## Fixed
+
+- 🔒️(ci) restrict GITHUB_TOKEN permissions in workflows
+
 ## Added
 
 - 🎉(project) Initial release
