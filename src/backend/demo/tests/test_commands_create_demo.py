@@ -2,6 +2,7 @@
 
 from unittest import mock
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 
@@ -27,7 +28,12 @@ def test_commands_create_demo():
     call_command("create_demo")
 
     assert models.Service.objects.exclude(name="docs").count() == 4
-    assert opensearch_client().count()["count"] == 4
+    assert (
+        opensearch_client().count(index=f"{settings.OPENSEARCH_INDEX_PREFIX}-*")[
+            "count"
+        ]
+        == 4
+    )
 
     docs = models.Service.objects.get(name="docs")
     assert docs.client_id == "impress"

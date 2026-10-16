@@ -1,4 +1,4 @@
-"""Fixtures for tests in the find core application"""
+"""Fixtures shared by all tests of the find backend"""
 
 import pytest
 from faker import Faker
