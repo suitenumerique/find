@@ -15,4 +15,5 @@ and this project adheres to
 
 ## Added
 
+- 📝(adr) accept async django-ninja and Menshen authentication
 - 🎉(project) Initial release
