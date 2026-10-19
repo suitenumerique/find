@@ -244,26 +244,31 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         )
 
         client = opensearch_client()
-        deletable_matches = client.search(
-            index=index_name,
-            body={
-                "query": self._build_query(
-                    self.request.user.sub,
-                    document_ids=params.document_ids,
-                    tags=params.tags,
-                )
-            },
+        query = self._build_query(
+            self.request.user.sub,
+            document_ids=params.document_ids,
+            tags=params.tags,
         )
-        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
-        if deletable_ids:
-            response = client.delete_by_query(
+        # Fetch the matching IDs only to report which explicitly requested IDs
+        # could not be deleted. OpenSearch defaults to 10 search hits.
+        if params.document_ids:
+            deletable_matches = client.search(
                 index=index_name,
-                body={"query": {"ids": {"values": deletable_ids}}},
+                body={"query": query},
+                size=len(params.document_ids),
             )
-            nb_deleted = response.get("deleted", 0)
+            deletable_ids = [
+                hit["_id"] for hit in deletable_matches["hits"]["hits"]
+            ]
         else:
-            nb_deleted = 0
+            deletable_ids = []
+
+        response = client.delete_by_query(
+            index=index_name,
+            body={"query": query},
+        )
+        nb_deleted = response.get("deleted", 0)
 
         return Response(
             {

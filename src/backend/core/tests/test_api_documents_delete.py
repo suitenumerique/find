@@ -415,3 +415,81 @@ def test_api_documents_delete_by_ids_and_tags(settings):
         index=service.index_name, id=document_delete_by_tag_keep_by_id["id"]
     )
     assert doc["found"]
+
+
+@responses.activate
+def test_api_documents_delete_more_than_ten_by_ids(settings):
+    """Deleting by IDs should not be limited by OpenSearch's default search size."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    owned_documents = factories.DocumentSchemaFactory.build_batch(
+        12, users=["user_sub"]
+    )
+    inaccessible_document = factories.DocumentSchemaFactory.build(
+        users=["other_sub"]
+    )
+    prepare_index(service.index_name, owned_documents + [inaccessible_document])
+
+    owned_ids = [document["id"] for document in owned_documents]
+    inaccessible_id = inaccessible_document["id"]
+    missing_id = "missing-document"
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {
+            "service": service.name,
+            "document_ids": owned_ids + [inaccessible_id, missing_id],
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nb-deleted-documents": 12,
+        "undeleted-document-ids": [inaccessible_id, missing_id],
+    }
+
+
+@responses.activate
+def test_api_documents_delete_more_than_ten_by_tags(settings):
+    """Deleting by tags should remove every authorized matching document."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    matching_documents = factories.DocumentSchemaFactory.build_batch(
+        12, users=["user_sub"], tags=["delete-tag"]
+    )
+    inaccessible_document = factories.DocumentSchemaFactory.build(
+        users=["other_sub"], tags=["delete-tag"]
+    )
+    document_to_keep = factories.DocumentSchemaFactory.build(
+        users=["user_sub"], tags=["keep-tag"]
+    )
+    prepare_index(
+        service.index_name,
+        matching_documents + [inaccessible_document, document_to_keep],
+    )
+
+    response = APIClient().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "tags": ["delete-tag"]},
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nb-deleted-documents": 12,
+        "undeleted-document-ids": [],
+    }
+
+    client = opensearch_client()
+    for document in matching_documents:
+        with pytest.raises(opensearchpy.exceptions.NotFoundError):
+            client.get(index=service.index_name, id=document["id"])
+
+    for document in [inaccessible_document, document_to_keep]:
+        document_in_index = client.get(index=service.index_name, id=document["id"])
+        assert document_in_index["found"]
+
