@@ -429,7 +429,11 @@ def test_api_documents_delete_more_than_ten_by_ids(settings):
     inaccessible_document = factories.DocumentSchemaFactory.build(
         users=["other_sub"]
     )
-    prepare_index(service.index_name, owned_documents + [inaccessible_document])
+    unrequested_document = factories.DocumentSchemaFactory.build(users=["user_sub"])
+    prepare_index(
+        service.index_name,
+        owned_documents + [inaccessible_document, unrequested_document],
+    )
 
     owned_ids = [document["id"] for document in owned_documents]
     inaccessible_id = inaccessible_document["id"]
@@ -449,6 +453,14 @@ def test_api_documents_delete_more_than_ten_by_ids(settings):
         "nb-deleted-documents": 12,
         "undeleted-document-ids": [inaccessible_id, missing_id],
     }
+
+    client = opensearch_client()
+    for document_id in owned_ids:
+        with pytest.raises(opensearchpy.exceptions.NotFoundError):
+            client.get(index=service.index_name, id=document_id)
+
+    for document in [inaccessible_document, unrequested_document]:
+        assert client.get(index=service.index_name, id=document["id"])["found"]
 
 
 @responses.activate
