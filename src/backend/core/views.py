@@ -244,26 +244,42 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         )
 
         client = opensearch_client()
-        deletable_matches = client.search(
-            index=index_name,
-            body={
-                "query": self._build_query(
-                    self.request.user.sub,
-                    document_ids=params.document_ids,
-                    tags=params.tags,
-                )
-            },
+        query = self._build_query(
+            self.request.user.sub,
+            document_ids=params.document_ids,
+            tags=params.tags,
         )
-        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
 
-        if deletable_ids:
-            response = client.delete_by_query(
-                index=index_name,
-                body={"query": {"ids": {"values": deletable_ids}}},
-            )
-            nb_deleted = response.get("deleted", 0)
-        else:
-            nb_deleted = 0
+        # Fetch matching IDs only to report which requested IDs could not be deleted.
+        # Bound each search by OpenSearch's default max_result_window.
+        deletable_ids = set()
+        if params.document_ids:
+            requested_ids = list(dict.fromkeys(params.document_ids))
+            chunk_size = 10_000
+            for start in range(0, len(requested_ids), chunk_size):
+                chunk = requested_ids[start : start + chunk_size]
+                deletable_matches = client.search(
+                    index=index_name,
+                    body={
+                        "query": self._build_query(
+                            self.request.user.sub,
+                            document_ids=chunk,
+                            tags=params.tags,
+                        ),
+                        "_source": False,
+                    },
+                    size=len(chunk),
+                )
+                deletable_ids.update(
+                    hit["_id"] for hit in deletable_matches["hits"]["hits"]
+                )
+
+        response = client.delete_by_query(
+            index=index_name,
+            body={"query": query},
+            request_timeout=120,
+        )
+        nb_deleted = response.get("deleted", 0)
 
         return Response(
             {
