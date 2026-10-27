@@ -226,13 +226,20 @@ needs a backend.
    validate JWT tokens locally. We will cache introspection results keyed by a
    token hash. Because tokens can be revoked, the TTL must stay short (seconds
    to a minute) and never exceed `exp`. Will Menshen publish JWKS for its JWT
-   tokens?
-2. **Subject identity.** The exchanged token carries the subject token's `sub`,
-   so the `users` access filter in OpenSearch should keep working. This must be
-   checked end to end against the identity provider used in production.
+   tokens? Menshen PR #71 (open) stores the signing keys as a standard JWK
+   set, a prerequisite for a JWKS endpoint, but does not expose one. Local
+   validation would also accept revoked tokens until `exp` (5 minutes by
+   default), so introspection stays the default until this is settled.
+2. **Subject identity.** *Resolved (2026-10-27).* Docs and Drive index the
+   users' OIDC `sub` in `users`, the identity provider issues the same `sub`
+   to every service, and Menshen copies the subject token's `sub` into the
+   exchanged token and returns it on introspection. The `users` access filter
+   keeps working unchanged; the first end-to-end exchange (step 2) confirms it.
 3. **Caller-side cost.** Docs and Drive must exchange the user token before
    calling Find, and should cache the exchanged token until it expires, or every
    search (including search-as-you-type) pays an extra round trip to Menshen.
+   Tracked in suitenumerique/docs#2920 and suitenumerique/drive#934: migrate
+   the Find search call to Menshen, then cache the exchanged token.
 
 ## Consequences
 
