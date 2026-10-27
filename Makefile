@@ -108,6 +108,10 @@ stop: ## stop the development server using Docker
 	@$(COMPOSE) stop
 .PHONY: stop
 
+menshen-check: ## check a token exchange for Find against the local Menshen
+	@bin/menshen-check
+.PHONY: menshen-check
+
 # -- Backend
 
 demo: ## flush db then create a demo for load testing purpose

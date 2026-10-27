@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+# Check a local Menshen bootstrapped with its demo fixtures, end to end:
+#   1. get a user access token from Keycloak, as the "docs" client,
+#   2. exchange it with Menshen, as Docs, for a token targeting Find,
+#   3. introspect the exchanged token with Menshen, as Find,
+#   4. check the subject and scopes, that Drive can exchange its own token,
+#      and that ungranted exchanges are refused.
+#
+# Tokens are passed to curl through files, not arguments, so that they do not
+# show in process listings. Service credentials are Menshen's development ones.
+
+set -eo pipefail
+
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8080}"
+KEYCLOAK_REALM="${KEYCLOAK_REALM:-menshen}"
+MENSHEN_URL="${MENSHEN_URL:-http://localhost:8071}"
+USERNAME="${USERNAME:-menshen}"
+# Menshen's development user has its username as password
+PASSWORD="${PASSWORD:-${USERNAME}}"
+SCOPES="find:docs:search"
+
+# user_token <client> <output file>: get a user access token as an OIDC client
+function user_token() {
+    curl -sf "${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token" \
+        -d grant_type=password -d client_id="$1" -d client_secret="$1-oidc-secret" \
+        --data-urlencode username="${USERNAME}" --data-urlencode password="${PASSWORD}" \
+        -d scope=openid |
+        jq -j .access_token >"$2"
+}
+
+# exchange <service> <subject token file> <scope> <output file>: print the status
+function exchange() {
+    curl -s -o "$4" -w "%{http_code}" -u "$1:$1-secret" \
+        "${MENSHEN_URL}/auth/token/exchange/" \
+        -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
+        --data-urlencode subject_token@"$2" \
+        -d subject_token_type=urn:ietf:params:oauth:token-type:access_token \
+        -d audience=find \
+        --data-urlencode scope="$3"
+}
+
+function fail() {
+    echo "❌ $*" >&2
+    exit 1
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "${tmp}"' EXIT
+
+echo "1. user token from Keycloak (client docs, user ${USERNAME})"
+user_token docs "${tmp}/docs-user-token" ||
+    fail "could not get a user token, is Menshen bootstrapped (make demo)?"
+user_sub=$(cut -d. -f2 "${tmp}/docs-user-token" | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r .sub || true)
+if [ -z "${user_sub}" ] || [ "${user_sub}" = "null" ]; then
+    fail "no sub in the user token"
+fi
+echo "   sub=${user_sub}"
+
+echo "2. exchange as docs for audience find, scope '${SCOPES}'"
+status=$(exchange docs "${tmp}/docs-user-token" "${SCOPES}" "${tmp}/exchange.json")
+[ "${status}" = "200" ] || fail "exchange returned ${status}: $(cat "${tmp}/exchange.json")"
+jq -j .access_token "${tmp}/exchange.json" >"${tmp}/find-token"
+echo "   scope=$(jq -r .scope "${tmp}/exchange.json") expires_in=$(jq -r .expires_in "${tmp}/exchange.json")"
+
+echo "3. introspect as find"
+curl -sf -u find:find-secret "${MENSHEN_URL}/auth/token/introspect/" \
+    --data-urlencode token@"${tmp}/find-token" >"${tmp}/introspect.json"
+jq -c '{active, sub, aud, scope, client_id, exp}' "${tmp}/introspect.json" | sed 's/^/   /'
+
+echo "4. checks"
+[ "$(jq -r .active "${tmp}/introspect.json")" = "true" ] || fail "token is not active"
+[ "$(jq -r .sub "${tmp}/introspect.json")" = "${user_sub}" ] ||
+    fail "introspected sub differs from the user token's sub"
+echo "   ✅ the exchanged token carries the user's sub"
+[ "$(jq -r .scope "${tmp}/introspect.json" | tr ' ' '\n' | sort | xargs)" = \
+    "$(echo "${SCOPES}" | tr ' ' '\n' | sort | xargs)" ] || fail "unexpected scopes"
+echo "   ✅ the exchanged token carries the requested find scopes"
+
+user_token drive "${tmp}/drive-user-token" || fail "could not get a user token as drive"
+status=$(exchange drive "${tmp}/drive-user-token" find:drive:search "${tmp}/drive.json")
+[ "${status}" = "200" ] || fail "drive exchange returned ${status}: $(cat "${tmp}/drive.json")"
+echo "   ✅ drive can exchange its own token for find:drive:search"
+
+for scope in find:drive:search find:drive:delete; do
+    status=$(exchange docs "${tmp}/docs-user-token" "${scope}" "${tmp}/denied.json")
+    code=$(jq -r .code "${tmp}/denied.json" 2>/dev/null || true)
+    if [ "${status}" != "403" ] || [ "${code}" != "invalid_scopes" ]; then
+        fail "docs asking ${scope}: expected 403 invalid_scopes, got ${status} ${code}"
+    fi
+    echo "   ✅ docs cannot get ${scope} (${status} ${code})"
+done
+
+# Menshen refuses a subject token issued to another client with a
+# SuspiciousOperation: Django answers 400, but django-ninja answers 500 with
+# the traceback when DEBUG is on, as in Menshen's development stack.
+status=$(exchange drive "${tmp}/docs-user-token" find:drive:search "${tmp}/denied.txt")
+if [ "${status}" != "400" ] &&
+    ! { [ "${status}" = "500" ] && grep -q SuspiciousOperation "${tmp}/denied.txt"; }; then
+    fail "drive exchanging a token issued to docs: expected a refusal, got ${status}"
+fi
+echo "   ✅ drive cannot exchange a token issued to docs (${status})"
+
+echo "🎉 Menshen is configured for Find"
