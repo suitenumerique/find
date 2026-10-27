@@ -15,5 +15,6 @@ and this project adheres to
 
 ## Added
 
+- ✅(tests) restore search, access-control and single indexing tests
 - 📝(adr) accept async django-ninja and Menshen authentication
 - 🎉(project) Initial release

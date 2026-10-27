@@ -1,9 +1,10 @@
 """Tests for deleting documents from OpenSearch over the API"""
 
+from django.test import Client
+
 import opensearchpy
 import pytest
 import responses
-from rest_framework.test import APIClient
 
 from core import factories
 from core.services.opensearch import opensearch_client
@@ -16,10 +17,10 @@ pytestmark = pytest.mark.django_db
 
 def test_api_documents_delete_anonymous():
     """Anonymous requests should not be allowed to delete documents."""
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": "service-name", "document_ids": ["doc1"]},
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 401
@@ -33,10 +34,10 @@ def test_api_documents_delete_wrong_service_name(settings):
     """Requests with a wrong service name should return 400 Bad Request."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": "wrong-service", "document_ids": ["0"]},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -55,10 +56,10 @@ def test_api_documents_delete_success(settings):
     prepare_index(service.index_name, documents)
     document_to_delete_ids = [doc["id"] for doc in documents[:2]]
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": document_to_delete_ids},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -86,10 +87,10 @@ def test_api_documents_delete_no_access(settings):
 
     document_ids = [doc["id"] for doc in documents]
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": document_ids},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -123,7 +124,7 @@ def test_api_documents_delete_mixed_access(settings):
     other_document_ids = [doc["id"] for doc in other_documents]
     non_existing_document_ids = ["non-existent-1", "non-existent-2"]
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {
             "service": service.name,
@@ -131,7 +132,7 @@ def test_api_documents_delete_mixed_access(settings):
             + other_document_ids
             + non_existing_document_ids,
         },
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -158,10 +159,10 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -181,10 +182,10 @@ def test_api_documents_delete_empty_document_ids(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": []},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -204,10 +205,10 @@ def test_api_documents_delete_both_filters_empty(settings):
     setup_oicd_resource_server(responses, settings, sub="user_sub")
     service = factories.ServiceFactory()
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": [], "tags": []},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -226,10 +227,10 @@ def test_api_documents_delete_missing_service(settings):
     """Requests missing the service field should return 400."""
     setup_oicd_resource_server(responses, settings, sub="user_sub")
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"document_ids": ["doc1"]},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -250,10 +251,10 @@ def test_api_documents_delete_nonexistent_documents(settings):
     # Create index but with no documents
     prepare_index(service.index_name, [])
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "document_ids": ["non-existent-id"]},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -292,10 +293,10 @@ def test_api_documents_delete_by_single_tag(settings):
     ]
     prepare_index(service.index_name, document_to_deletes + document_to_keep)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "tags": ["delete-tag"]},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -340,10 +341,10 @@ def test_api_documents_delete_by_multiple_tags(settings):
     ]
     prepare_index(service.index_name, document_to_deletes + document_to_keep)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {"service": service.name, "tags": ["delete-tag-1", "delete-tag-2"]},
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -385,7 +386,7 @@ def test_api_documents_delete_by_ids_and_tags(settings):
         ],
     )
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/delete/",
         {
             "service": service.name,
@@ -395,7 +396,7 @@ def test_api_documents_delete_by_ids_and_tags(settings):
             ],
             "tags": ["delete-tag"],
         },
-        format="json",
+        content_type="application/json",
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
@@ -415,3 +416,63 @@ def test_api_documents_delete_by_ids_and_tags(settings):
         index=service.index_name, id=document_delete_by_tag_keep_by_id["id"]
     )
     assert doc["found"]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="#173: delete may target the wrong index when a service has sub-services",
+)
+@responses.activate
+def test_api_documents_delete_service_with_sub_services(settings):
+    """Deletion should target the index of the requested service."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
+
+    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
+    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
+    service_c.services.set([service_a])
+
+    documents = {}
+    for service in [service_a, service_c]:
+        documents[service.name] = factories.DocumentSchemaFactory.build(
+            users=["user_sub"]
+        )
+        prepare_index(service.index_name, [documents[service.name]])
+
+    # The wrong index is picked for one of the two services, whatever the set order
+    for service in [service_a, service_c]:
+        document = documents[service.name]
+        response = Client().post(
+            "/api/v1.0/documents/delete/",
+            {"service": service.name, "document_ids": [document["id"]]},
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "nb-deleted-documents": 1,
+            "undeleted-document-ids": [],
+        }
+
+
+@pytest.mark.xfail(strict=True, reason="#174: at most 10 documents are deleted")
+@responses.activate
+def test_api_documents_delete_more_than_ten_documents(settings):
+    """All the matching documents should be deleted, not only the first 10."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    documents = factories.DocumentSchemaFactory.build_batch(
+        11, users=["user_sub"], tags=["delete-tag"]
+    )
+    prepare_index(service.index_name, documents)
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "tags": ["delete-tag"]},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"nb-deleted-documents": 11, "undeleted-document-ids": []}

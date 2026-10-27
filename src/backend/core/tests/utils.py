@@ -5,7 +5,17 @@ import json
 import logging
 from functools import partial
 
+from core import factories
+
 logger = logging.getLogger(__name__)
+
+
+def bulk_create_documents(document_payloads):
+    """Build documents owned by "user_sub" from payloads."""
+    return [
+        factories.DocumentSchemaFactory.build(**document_payload, users=["user_sub"])
+        for document_payload in document_payloads
+    ]
 
 
 def build_authorization_bearer(token="some_token"):

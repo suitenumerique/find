@@ -3,11 +3,11 @@
 import datetime
 from unittest import mock
 
+from django.test import Client
 from django.utils import timezone
 
 import pytest
 from opensearchpy import NotFoundError
-from rest_framework.test import APIClient
 
 from core import factories
 from core.services import opensearch
@@ -19,7 +19,9 @@ def test_api_documents_index_bulk_anonymous():
     """Anonymous requests should not be allowed to index documents in bulk."""
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    response = APIClient().post("/api/v1.0/documents/index/", documents, format="json")
+    response = Client().post(
+        "/api/v1.0/documents/index/", documents, content_type="application/json"
+    )
 
     assert response.status_code == 403
     assert response.json() == {
@@ -31,11 +33,11 @@ def test_api_documents_index_bulk_invalid_token():
     """Requests with invalid tokens should not be allowed to index documents in bulk."""
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION="Bearer invalid",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 403
@@ -47,11 +49,11 @@ def test_api_documents_index_bulk_success():
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 201
@@ -71,11 +73,11 @@ def test_api_documents_index_bulk_ensure_index():
     with pytest.raises(NotFoundError):
         opensearch_client_.indices.get(index=service.index_name)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 201
@@ -208,11 +210,11 @@ def test_api_documents_index_bulk_invalid_document(
     # Modify the first document with the invalid value for the specified field
     documents[0][field] = invalid_value
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 400
@@ -252,11 +254,11 @@ def test_api_documents_index_bulk_required(field):
 
     del documents[0][field]
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 400
@@ -286,11 +288,11 @@ def test_api_documents_index_bulk_default(field, default_value):
 
     del documents[0][field]
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 201
@@ -315,11 +317,11 @@ def test_api_documents_index_bulk_updated_at_before_created_at():
         seconds=1
     )
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 400
@@ -352,11 +354,11 @@ def test_api_documents_index_bulk_datetime_future(field):
     now = timezone.now()
     documents[0][field] = now + datetime.timedelta(seconds=3)
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 400
@@ -385,11 +387,11 @@ def test_api_documents_index_empty_content_check():
     documents[0]["content"] = ""
     documents[0]["title"] = ""
 
-    response = APIClient().post(
+    response = Client().post(
         "/api/v1.0/documents/index/",
         documents,
         HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-        format="json",
+        content_type="application/json",
     )
 
     assert response.status_code == 400
@@ -428,11 +430,11 @@ def test_api_documents_index_opensearch_errors():
             ]
         }
 
-        response = APIClient().post(
+        response = Client().post(
             "/api/v1.0/documents/index/",
             documents,
             HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
-            format="json",
+            content_type="application/json",
         )
 
     assert response.status_code == 201
