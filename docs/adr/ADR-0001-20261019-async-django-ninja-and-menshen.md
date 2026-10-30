@@ -10,7 +10,9 @@ Django.
 ## Status
 
 Accepted (2026-10-27). Implementation plan amended (2026-10-27): no spike,
-and a single switch from DRF to django-ninja.
+and a single switch from DRF to django-ninja. Amended (2026-10-29): scopes are
+granted through Menshen's action scopes (suitenumerique/menshen#106), the
+introspection cache is settled, and Menshen alone checks the token format.
 
 ## Context
 
@@ -163,14 +165,19 @@ We adopt **django-ninja with async views, served over ASGI**, and integrate
 
 - **User requests (search, delete)**: Menshen-exchanged bearer tokens,
   validated by an async ninja auth class that introspects them with Menshen and
-  caches the result for a short TTL (see "Open questions").
+  caches the result for a short TTL (see "Open questions"). The token format
+  is Menshen's to check: Find only rejects empty tokens or tokens containing
+  whitespace locally, and treats Menshen's 422 as a rejected token rather than
+  as Menshen being unavailable. Making the client report invalid tokens is
+  proposed in suitenumerique/menshen#112.
 - **Indexing**: keeps per-service tokens (Menshen covers tokens issued on behalf
   of a user, and indexing happens without one). Tokens are stored hashed rather
   than in plaintext.
-- **Async Menshen client**: `menshen_client` uses blocking `requests`. We will
-  contribute an async `introspect` (based on `httpx.AsyncClient`) to
-  `menshen_client` rather than maintain a private copy. Until then, the sync
-  client is called through `asyncio.to_thread`.
+- **Async Menshen client**: `menshen_client` uses blocking `requests`. An async
+  client (`TokenExchangeAsyncClient`, based on httpx) is proposed upstream in
+  suitenumerique/menshen#110, and we use it rather than maintain a private
+  copy. Until it is released, the sync client (0.2.0) is called through
+  `asyncio.to_thread`.
 
 ### Service identification by scopes
 
@@ -184,13 +191,24 @@ mean keeping `Service.services` in its admin, apart from the exchange rules
 that already decide which services may call Find.
 
 We encode **what the caller may do, and on which service's documents, in OAuth
-scopes** granted by Menshen's token exchange rules (`TokenExchangeRule` /
-`ScopeGrant`). Scopes follow Menshen's `service:resource:action` convention,
-with the indexed service name as the resource:
+scopes** granted by Menshen. Scopes follow Menshen's `service:resource:action`
+convention, with the indexed service name as the resource:
 
 - `find:<service>:search`: search the documents indexed by `<service>`
   (e.g. `find:docs:search`, `find:drive:search`);
 - `find:<service>:delete`: delete documents indexed by `<service>`.
+
+Callers never request these scopes directly. Each exchange requests one
+**action scope** allowed by the caller's token exchange rule
+(`TokenExchangeRule` / `TokenExchangeActionPermission`), and Menshen replaces
+it in the exchanged token by the scopes the action grants (`ActionScope` /
+`ActionScopeGrant`). Docs requests `action:search-find-docs` and
+`action:delete-find-docs`, granted as `find:docs:search` and `find:docs:delete`;
+Drive requests the same actions for itself. An action may grant several
+`find:*:search` scopes: this is how a service is allowed to search other
+services' documents. Find never sees the action, only the granted scopes, so
+the action names are a contract between Menshen and the callers, not with
+Find.
 
 Find's rules:
 
@@ -209,9 +227,10 @@ Find's rules:
   documents a user may see inside them.
 
 As a result, the "Allowed services for search" configuration moves from Find's
-admin to Menshen. Authorization between services is configured in one place,
-and Find only reads scopes. It logs the introspected `client_id` to identify
-the calling service, but does not use it for authorization.
+admin to Menshen's action scopes. Authorization between services is
+configured in one place, and Find only reads scopes. It logs the introspected
+`client_id` to identify the calling service, but does not use it for
+authorization.
 
 ### Removed
 
@@ -228,11 +247,14 @@ needs a backend.
    exchange, introspect and revoke endpoints but no JWKS endpoint, so Find cannot
    validate JWT tokens locally. We will cache introspection results keyed by a
    token hash. Because tokens can be revoked, the TTL must stay short (seconds
-   to a minute) and never exceed `exp`. Will Menshen publish JWKS for its JWT
-   tokens? Menshen PR #71 (open) stores the signing keys as a standard JWK
-   set, a prerequisite for a JWKS endpoint, but does not expose one. Local
-   validation would also accept revoked tokens until `exp` (5 minutes by
-   default), so introspection stays the default until this is settled.
+   to a minute) and never exceed `exp`. *Cache settled (2026-10-29)*: 30
+   seconds by default (`MENSHEN_INTROSPECTION_CACHE_TTL`), capped by `exp`,
+   rejected tokens included, and Menshen failures are not cached. Will Menshen
+   publish JWKS for its JWT tokens? Menshen PR #71 (open) stores the signing
+   keys as a standard JWK set, a prerequisite for a JWKS endpoint, but does
+   not expose one. Local validation would also accept revoked tokens until
+   `exp` (5 minutes by default), so introspection stays the default until this
+   is settled.
 2. **Subject identity.** *Resolved (2026-10-27).* Docs and Drive index the
    users' OIDC `sub` in `users`, the identity provider issues the same `sub`
    to every service, and Menshen copies the subject token's `sub` into the
@@ -267,16 +289,19 @@ needs a backend.
 - Find depends on Menshen being available for every user request (mitigated by
   the introspection cache).
 - Async code needs care: blocking calls, CPU-bound work and sync middleware can
-  silently erase the gains.
+  silently erase the gains. Django's Redis cache backends have no native async
+  methods: `cache.aget`/`aset` run the sync calls through `sync_to_async`,
+  serialized on a single thread, so every introspection cache lookup shares
+  that thread. To be revisited once the rest of the stack is async.
 - Which service may search which is no longer visible in Find's admin; it has
-  to be read from Menshen's rules.
+  to be read from Menshen's action scopes.
 
 ### Risks
 
-- Menshen's rules become security-sensitive for Find: a rule granting too broad
-  `find:*` scopes opens other services' indices to a caller (the per-document
-  access filter still applies). Find's scopes must be reviewed like any other
-  access-control change.
+- Menshen's action scopes become security-sensitive for Find: an action
+  granting too broad `find:*` scopes opens other services' indices to a
+  caller (the per-document access filter still applies). Find's scopes must be
+  reviewed like any other access-control change.
 - The async gain may be smaller than expected if most latency is OpenSearch
   query time rather than waiting. Find is not deployed yet, so this can only be
   measured once it runs on ASGI with real traffic.
