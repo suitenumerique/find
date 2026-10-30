@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
+from .services.deletion import delete_documents
 from .services.indexing import (
     ensure_index_exists,
     get_opensearch_indices,
@@ -236,34 +237,13 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        logger.info(
-            "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
+        nb_deleted, deletable_ids = run_async(
+            delete_documents,
             index_name,
-            params.document_ids,
-            params.tags,
+            self.request.user.sub,
+            document_ids=params.document_ids,
+            tags=params.tags,
         )
-
-        client = opensearch_client()
-        deletable_matches = client.search(
-            index=index_name,
-            body={
-                "query": self._build_query(
-                    self.request.user.sub,
-                    document_ids=params.document_ids,
-                    tags=params.tags,
-                )
-            },
-        )
-        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
-
-        if deletable_ids:
-            response = client.delete_by_query(
-                index=index_name,
-                body={"query": {"ids": {"values": deletable_ids}}},
-            )
-            nb_deleted = response.get("deleted", 0)
-        else:
-            nb_deleted = 0
 
         return Response(
             {
@@ -276,25 +256,6 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
             },
             status=status.HTTP_200_OK,
         )
-
-    def _build_query(self, user_sub, document_ids=None, tags=None):
-        """
-        Build OpenSearch query for document deletion.
-
-        Args:
-            user_sub: User subject identifier for authorization.
-            document_ids: Optional list of document IDs to filter.
-            tags: Optional list of tags to filter.
-
-        Returns:
-            Deletion OpenSearch query.
-        """
-        filters = [{"term": {"users": user_sub}}]
-        if document_ids:
-            filters.append({"ids": {"values": document_ids}})
-        if tags:
-            filters.append({"terms": {"tags": tags}})
-        return {"bool": {"must": filters}}
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):
