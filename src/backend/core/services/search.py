@@ -8,13 +8,13 @@ from core import enums, schemas
 from core.models import get_service_name
 from core.utils import get_language_value
 
-from .opensearch import opensearch_client
+from .opensearch import async_opensearch_client
 
 logger = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
-def search(  # noqa : PLR0913
+async def search(  # noqa : PLR0913
     q,
     nb_results,
     order_by,
@@ -37,7 +37,7 @@ def search(  # noqa : PLR0913
         tags=tags,
         path=path,
     )
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+    return await async_opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return

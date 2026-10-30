@@ -11,6 +11,7 @@ and this project adheres to
 ## Changed
 
 - 💥(search) return a stable response contract instead of raw hits #179
+- ⚡️(search) query OpenSearch with an async client
 
 ## Fixed
 
