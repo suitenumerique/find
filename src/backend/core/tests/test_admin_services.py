@@ -1,8 +1,10 @@
 """Tests for the service admin."""
 
+import threading
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.urls import reverse
 from django.utils.html import escape
 
@@ -104,6 +106,23 @@ def regenerate_tokens(admin_client, services):
     )
 
 
+def update_from_another_connection(service, token_hash):
+    """Change the token hash of a service and commit it, as another administrator"""
+
+    def update():
+        try:
+            models.Service.objects.filter(pk=service.pk).update(token_hash=token_hash)
+        finally:
+            connection.close()
+
+    thread = threading.Thread(target=update)
+    thread.start()
+    thread.join()
+
+
+# The other administrator's change must be committed outside the action's
+# transaction, which the conflict rolls back
+@pytest.mark.django_db(transaction=True)
 def test_admin_services_regenerate_tokens_concurrent_change(admin_client):
     """
     If a token changed since the selection was read, as when two administrators
@@ -112,14 +131,15 @@ def test_admin_services_regenerate_tokens_concurrent_change(admin_client):
     """
     services = factories.ServiceFactory.create_batch(2)
     set_token = models.Service.set_token
+    concurrent_hash = models.hash_token("concurrent-token")
     new_tokens = []
+    changed = []
 
     def set_token_concurrently(service, *args, **kwargs):
         # The first token is saved, then the second one was changed meanwhile
         if new_tokens:
-            models.Service.objects.filter(pk=service.pk).update(
-                token_hash=models.hash_token("concurrent-token")
-            )
+            update_from_another_connection(service, concurrent_hash)
+            changed.append(service.pk)
         new_tokens.append(set_token(service, *args, **kwargs))
         return new_tokens[-1]
 
@@ -129,8 +149,10 @@ def test_admin_services_regenerate_tokens_concurrent_change(admin_client):
     assert response.templates[0].name == "admin/change_list.html"
     assert "A token was changed meanwhile" in response.content.decode()
     assert len(new_tokens) == 2
-    stored_hashes = set(models.Service.objects.values_list("token_hash", flat=True))
-    assert not stored_hashes & {models.hash_token(token) for token in new_tokens}
+    for service in services:
+        stored = models.Service.objects.get(pk=service.pk)
+        expected = concurrent_hash if service.pk in changed else service.token_hash
+        assert stored.token_hash == expected
     for token in new_tokens:
         assert escape(token) not in response.content.decode()
 

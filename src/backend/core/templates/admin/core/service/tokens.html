@@ -43,6 +43,7 @@
   <a href="{% url opts|admin_urlname:'changelist' %}">{% translate "Back to services" %}</a>
 </p>
 {% translate "Copied" as copied %}
+{% translate "Copy failed: select the token to copy it" as copy_failed %}
 <script>
   // The Clipboard API is only available on HTTPS or localhost: keep the
   // buttons hidden otherwise, the token can still be selected and copied.
@@ -51,8 +52,12 @@
       button.hidden = false;
       button.addEventListener("click", async () => {
         const token = document.getElementById(button.dataset.target).textContent;
-        await navigator.clipboard.writeText(token);
-        button.textContent = "{{ copied|escapejs }}";
+        try {
+          await navigator.clipboard.writeText(token);
+          button.textContent = "{{ copied|escapejs }}";
+        } catch {
+          button.textContent = "{{ copy_failed|escapejs }}";
+        }
       });
     });
   }
