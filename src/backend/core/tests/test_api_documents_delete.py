@@ -241,6 +241,29 @@ def test_api_documents_delete_missing_service(settings):
 
 
 @responses.activate
+def test_api_documents_delete_too_many_document_ids(settings):
+    """Requests with more than 1000 document ids should return 400."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, "document_ids": [str(i) for i in range(1001)]},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {
+            "type": "too_long",
+            "loc": ["document_ids"],
+            "msg": "List should have at most 1000 items after validation, not 1001",
+        }
+    ]
+
+
+@responses.activate
 def test_api_documents_delete_nonexistent_documents(settings):
     """
     Deleting non-existent documents should not raise an error
@@ -262,6 +285,30 @@ def test_api_documents_delete_nonexistent_documents(settings):
     assert response.json() == {
         "nb-deleted-documents": 0,
         "undeleted-document-ids": ["non-existent-id"],
+    }
+
+
+@responses.activate
+@pytest.mark.parametrize(
+    "filters,undeleted_ids",
+    [({"document_ids": ["some-id"]}, ["some-id"]), ({"tags": ["tag"]}, [])],
+)
+def test_api_documents_delete_service_without_index(settings, filters, undeleted_ids):
+    """Deleting from a service that never indexed documents should delete nothing."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, **filters},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nb-deleted-documents": 0,
+        "undeleted-document-ids": undeleted_ids,
     }
 
 
@@ -455,7 +502,6 @@ def test_api_documents_delete_service_with_sub_services(settings):
         }
 
 
-@pytest.mark.xfail(strict=True, reason="#174: at most 10 documents are deleted")
 @responses.activate
 def test_api_documents_delete_more_than_ten_documents(settings):
     """All the matching documents should be deleted, not only the first 10."""

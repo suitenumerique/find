@@ -4,15 +4,17 @@ import logging
 
 from django.conf import settings
 
-from core import enums
+from core import enums, schemas
+from core.models import get_service_name
+from core.utils import get_language_value
 
-from .opensearch import opensearch_client
+from .opensearch import async_opensearch_client
 
 logger = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
-def search(  # noqa : PLR0913
+async def search(  # noqa : PLR0913
     q,
     nb_results,
     order_by,
@@ -35,14 +37,10 @@ def search(  # noqa : PLR0913
         tags=tags,
         path=path,
     )
-    return opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
+    return await async_opensearch_client().search(  # pylint: disable=unexpected-keyword-arg
         index=",".join(search_indices),
         body={
             "_source": enums.SOURCE_FIELDS,  # limit the fields to return
-            "script_fields": {
-                "number_of_users": {"script": {"source": "doc['users'].size()"}},
-                "number_of_groups": {"script": {"source": "doc['groups'].size()"}},
-            },
             "sort": get_sort(
                 order_by=order_by,
                 order_direction=order_direction,
@@ -53,6 +51,25 @@ def search(  # noqa : PLR0913
         # disable=unexpected-keyword-arg because
         # ignore_unavailable is not in the method declaration
         ignore_unavailable=True,
+    )
+
+
+def format_hit(hit):
+    """Build the search result returned by the API from an OpenSearch hit"""
+    source = hit["_source"]
+    return schemas.SearchResultSchema(
+        id=hit["_id"],
+        service=get_service_name(hit["_index"]),
+        title=get_language_value(source, enums.TITLE),
+        score=hit["_score"],
+        path=source[enums.PATH],
+        depth=source[enums.DEPTH],
+        numchild=source[enums.NUMCHILD],
+        size=source[enums.SIZE],
+        created_at=source[enums.CREATED_AT],
+        updated_at=source[enums.UPDATED_AT],
+        reach=source[enums.REACH],
+        tags=source[enums.TAGS],
     )
 
 
@@ -170,5 +187,9 @@ def get_sort(order_by, order_direction):
     """Build OpenSearch sort clause"""
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
+
+    if order_by == enums.TITLE:
+        # Titles are stored per language, title.sort gathers them all
+        return {f"{enums.TITLE}.sort": {"order": order_direction}}
 
     return {order_by: {"order": order_direction}}

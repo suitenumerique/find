@@ -13,14 +13,14 @@ from rest_framework.response import Response
 from . import schemas
 from .authentication import ServiceTokenAuthentication
 from .permissions import IsAuthAuthenticated
+from .services.deletion import delete_documents
 from .services.indexing import (
-    ensure_index_exists,
+    bulk_index_documents,
     get_opensearch_indices,
-    prepare_document_for_indexing,
+    index_document,
 )
-from .services.opensearch import opensearch_client
-from .services.search import search
-from .utils import get_language_value
+from .services.opensearch import run_async
+from .services.search import format_hit, search
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +51,9 @@ class IndexDocumentView(views.APIView):
         2. **Bulk Indexing**: If the request contains a list of documents, each document is
             validated and indexed in bulk. The response includes a detailed status of each
             document, indicating whether it was successfully indexed or if an error occurred.
-            The HTTP status code for the bulk indexing operation is `207 Multi-Status`, and the
-            response body contains information about the success or failure of each individual
-            document.
+            The HTTP status code is `201 Created` if every document was indexed and
+            `207 Multi-Status` if some failed to be indexed, and the response body contains
+            information about the success or failure of each individual document.
 
         Methods:
         -------
@@ -80,107 +80,58 @@ class IndexDocumentView(views.APIView):
               indexing fails.
 
         - **Bulk Indexing**:
-            - 207 Multi-Status if all documents formatting is correct, 400 Bad Request otherwise:
+            - 201 Created if all documents were indexed, 207 Multi-Status if some failed to be
+              indexed, 400 Bad Request if any document is invalid, in which case none is indexed.
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
         index_name = request.auth.index_name
-        opensearch_client_ = opensearch_client()
 
         if isinstance(request.data, list):
-            return self.bulk_index(request, index_name, opensearch_client_)
+            return self.bulk_index(request, index_name)
 
-        return self.single_index(request, index_name, opensearch_client_)
+        return self.single_index(request, index_name)
 
-    def single_index(self, request, index_name, opensearch_client_):
+    def single_index(self, request, index_name):
         """
         Index a single document into OpenSearch.
 
         Args:
             request: The HTTP request containing document data.
             index_name: The name of the OpenSearch index.
-            opensearch_client_: The OpenSearch client instance.
 
         Returns:
             Response: HTTP response with status and document ID.
                 - 201 Created: Returns the indexed document ID.
                 - 400 Bad Request: Returns an error message if the document is invalid.
         """
-        document_dict = prepare_document_for_indexing(
-            schemas.DocumentSchema(**request.data).model_dump()
-        )
-        _id = document_dict.pop("id")
-        logger.info(
-            "Indexing single document %s on index %s",
-            get_language_value(document_dict, "title"),
-            index_name,
-        )
-
-        ensure_index_exists(index_name)
-        opensearch_client_.index(
-            index=index_name,
-            body=document_dict,
-            id=_id,
-        )
+        document = schemas.DocumentSchema.model_validate(request.data)
+        _id = run_async(index_document, index_name, document)
 
         return Response(
             {"status": "created", "_id": _id}, status=status.HTTP_201_CREATED
         )
 
-    # pylint: disable=too-many-locals
-    def bulk_index(self, request, index_name, opensearch_client_):
+    def bulk_index(self, request, index_name):
         """
         Index multiple documents into OpenSearch in bulk.
 
         Args:
             request: The HTTP request containing a list of documents.
             index_name: The name of the OpenSearch index.
-            opensearch_client_: The OpenSearch client instance.
 
         Returns:
             Response: HTTP response with detailed status for each document.
-                - 201 Created: Returns status for all documents.
+                - 201 Created: Returns status for all documents, all indexed.
+                - 207 Multi-Status: Returns status for all documents, some failed to be
+                  indexed.
                 - 400 Bad Request: Returns errors if document validation fails.
         """
-        results = []
-        actions = []
-        has_errors = False
-
-        for i, document_data in enumerate(request.data):
-            try:
-                document = schemas.DocumentSchema(**document_data)
-            except PydanticValidationError as excpt:
-                errors = [
-                    {key: error[key] for key in ("msg", "type", "loc")}
-                    for error in excpt.errors()
-                ]
-                results.append({"index": i, "status": "error", "errors": errors})
-                has_errors = True
-            else:
-                document_dict = prepare_document_for_indexing(document.model_dump())
-                logger.info(
-                    "Indexing document %s on index %s",
-                    get_language_value(document_dict, "title"),
-                    index_name,
-                )
-                _id = document_dict.pop("id")
-                actions.append({"index": {"_id": _id}})
-                actions.append(document_dict)
-                results.append({"index": i, "_id": _id, "status": "valid"})
-
+        results, has_errors = run_async(bulk_index_documents, index_name, request.data)
         if has_errors:
             return Response(results, status=status.HTTP_400_BAD_REQUEST)
-
-        ensure_index_exists(index_name)
-        response = opensearch_client_.bulk(index=index_name, body=actions)
-        for i, item in enumerate(response["items"]):
-            if item["index"]["status"] != 201:
-                results[i]["status"] = "error"
-                results[i]["message"] = (
-                    item["index"].get("error", {}).get("reason", "Unknown error")
-                )
-            else:
-                results[i]["status"] = "success"
+        if any(result["status"] == "error" for result in results):
+            return Response(results, status=status.HTTP_207_MULTI_STATUS)
 
         return Response(results, status=status.HTTP_201_CREATED)
 
@@ -236,65 +187,21 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        logger.info(
-            "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
+        nb_deleted, undeleted_ids = run_async(
+            delete_documents,
             index_name,
-            params.document_ids,
-            params.tags,
+            self.request.user.sub,
+            document_ids=params.document_ids,
+            tags=params.tags,
         )
-
-        client = opensearch_client()
-        deletable_matches = client.search(
-            index=index_name,
-            body={
-                "query": self._build_query(
-                    self.request.user.sub,
-                    document_ids=params.document_ids,
-                    tags=params.tags,
-                )
-            },
-        )
-        deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
-
-        if deletable_ids:
-            response = client.delete_by_query(
-                index=index_name,
-                body={"query": {"ids": {"values": deletable_ids}}},
-            )
-            nb_deleted = response.get("deleted", 0)
-        else:
-            nb_deleted = 0
 
         return Response(
             {
                 "nb-deleted-documents": nb_deleted,
-                "undeleted-document-ids": [
-                    document_id
-                    for document_id in params.document_ids or []
-                    if document_id not in deletable_ids
-                ],
+                "undeleted-document-ids": undeleted_ids,
             },
             status=status.HTTP_200_OK,
         )
-
-    def _build_query(self, user_sub, document_ids=None, tags=None):
-        """
-        Build OpenSearch query for document deletion.
-
-        Args:
-            user_sub: User subject identifier for authorization.
-            document_ids: Optional list of document IDs to filter.
-            tags: Optional list of tags to filter.
-
-        Returns:
-            Deletion OpenSearch query.
-        """
-        filters = [{"term": {"users": user_sub}}]
-        if document_ids:
-            filters.append({"ids": {"values": document_ids}})
-        if tags:
-            filters.append({"terms": {"tags": tags}})
-        return {"bool": {"must": filters}}
 
 
 class SearchDocumentView(ResourceServerMixin, views.APIView):
@@ -349,7 +256,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns a list of search results matching the query.
+            - 200 OK: Returns {"results": [...]}, the documents matching the query
+              (see schemas.SearchResultSchema).
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
         # Get list of groups related to the user from SCIM provider (consider caching result)
@@ -375,7 +283,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             )
 
         logger.info("Search '%s' on indices %s", params.q, search_indices)
-        result = search(
+        hits = run_async(
+            search,
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
@@ -388,7 +297,10 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             tags=params.tags,
             path=params.path,
         )["hits"]["hits"]
-        logger.info("found %d results", len(result))
-        logger.debug("results %s", result)
+        logger.info("found %d results", len(hits))
+        logger.debug("results %s", hits)
 
-        return Response(result, status=status.HTTP_200_OK)
+        response = schemas.SearchResponseSchema(
+            results=[format_hit(hit) for hit in hits]
+        )
+        return Response(response.model_dump(mode="json"), status=status.HTTP_200_OK)

@@ -45,22 +45,30 @@ Keycloak's `menshen` realm has `docs` and `drive` OIDC clients (secrets
 | Docs (source) | `docs` | `docs` / `docs-secret` |
 | Drive (source) | `drive` | `drive` / `drive-secret` |
 
-and the exchange rules, all requiring the `openid` scope in the user's token:
+and the Docs → Find and Drive → Find exchange rules. Docs and Drive do not
+request Find's scopes directly but an **action scope**, which Menshen replaces
+in the exchanged token by the scope it grants:
 
-| Rule | Granted scopes |
-| --- | --- |
-| Docs → Find | `find:docs:search`, `find:docs:delete` |
-| Drive → Find | `find:drive:search`, `find:drive:delete` |
+| Rule | Action scope | Granted scope |
+| --- | --- | --- |
+| Docs → Find | `action:search-find-docs` | `find:docs:search` |
+| Docs → Find | `action:delete-find-docs` | `find:docs:delete` |
+| Drive → Find | `action:search-find-drive` | `find:drive:search` |
+| Drive → Find | `action:delete-find-drive` | `find:drive:delete` |
+
+An action scope must be requested alone, one per exchange. Find never sees it:
+it only reads the granted `find:` scopes when introspecting the token.
 
 In `find:<service>:<action>`, `<service>` is the service **whose documents**
 the caller may act on, not the caller. Docs and Drive only search and delete
 their own documents. Cross-service search is still supported for services
-added later: granting several `find:<service>:search` scopes on a rule lets
-that source search those services' documents (e.g. `find:drive:search` on a
-Docs → Find rule would let Docs search Drive's documents). This replaces the
-"Allowed services for search" setting of Find's admin. Scopes only select which
-indices are searched; Find's per-document access filter (`users`, `reach`,
-`visited`) still applies inside them.
+added later: an action can grant several `find:<service>:search` scopes, which
+lets its source search those services' documents (e.g. granting
+`find:drive:search` for `action:search-find-docs` would let Docs search
+Drive's documents). This replaces the "Allowed services for search" setting of
+Find's admin. Scopes only select which indices are searched; Find's
+per-document access filter (`users`, `reach`, `visited`) still applies inside
+them.
 
 The `docs` and `drive` Keycloak clients add `menshen` to their access tokens'
 audience (`oidc-audience-mapper`): Keycloak refuses to introspect a token for a
@@ -71,9 +79,12 @@ In Menshen's development realm, the `sub` claim is mapped to the user's email
 (`menshen@menshen.world`); real identity providers use an opaque identifier.
 
 `menshen-check` gets a token for the `menshen` user from Keycloak as Docs,
-exchanges it with Menshen for audience `find`, introspects it as Find, and
-checks that the user's `sub` and the requested scopes are preserved, that
-Drive can exchange its own user token, and that ungranted exchanges are
+exchanges it with Menshen for audience `find` with the
+`action:search-find-docs` action scope, introspects it as Find, and checks that
+the token is active for audience `find`, that the user's `sub` is preserved and
+that `find:docs:search` is granted. It then checks that the other actions of
+Docs and Drive grant their scope to the same user, a delete action no other
+scope and a search action no delete scope, and that ungranted exchanges are
 refused.
 
 ## Exchange a token by hand
@@ -89,7 +100,7 @@ FIND_TOKEN=$(curl -s -u docs:docs-secret http://localhost:8071/auth/token/exchan
   -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
   -d subject_token="$USER_TOKEN" \
   -d subject_token_type=urn:ietf:params:oauth:token-type:access_token \
-  -d audience=find -d scope="find:docs:search" | jq -r .access_token)
+  -d audience=find -d scope="action:search-find-docs" | jq -r .access_token)
 
 # Introspect, as Find
 curl -s -u find:find-secret http://localhost:8071/auth/token/introspect/ \

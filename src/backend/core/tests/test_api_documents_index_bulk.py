@@ -64,6 +64,31 @@ def test_api_documents_index_bulk_success():
     ]
 
 
+def test_api_documents_index_bulk_reindex():
+    """Re-indexing existing documents should be reported as successful."""
+    service = factories.ServiceFactory()
+    documents = factories.DocumentSchemaFactory.build_batch(2)
+
+    for _ in range(2):
+        response = Client().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            content_type="application/json",
+        )
+
+        assert response.status_code == 201
+        assert response.json() == [
+            {"index": 0, "_id": documents[0]["id"], "status": "success"},
+            {"index": 1, "_id": documents[1]["id"], "status": "success"},
+        ]
+
+    indexed = opensearch.opensearch_client().get(
+        index=service.index_name, id=documents[0]["id"]
+    )
+    assert indexed["_version"] == 2
+
+
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be created the opensearch index if needed."""
     opensearch_client_ = opensearch.opensearch_client()
@@ -230,6 +255,54 @@ def test_api_documents_index_bulk_invalid_document(
         {"index": 1, "_id": documents[1]["id"], "status": "valid"},
         {"index": 2, "_id": documents[2]["id"], "status": "valid"},
     ]
+
+
+@pytest.mark.parametrize("element", [None, "document", 1, []])
+def test_api_documents_index_bulk_not_an_object(element):
+    """Elements that are not objects should be reported as invalid documents."""
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        [document, element],
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {"index": 0, "_id": document["id"], "status": "valid"},
+        {
+            "index": 1,
+            "status": "error",
+            "errors": [
+                {
+                    "msg": "Input should be a valid dictionary or instance of "
+                    "DocumentSchema",
+                    "type": "model_type",
+                    "loc": [],
+                }
+            ],
+        },
+    ]
+
+
+def test_api_documents_index_bulk_empty():
+    """An empty bulk should index nothing, without creating the index."""
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        [],
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json() == []
+    with pytest.raises(NotFoundError):
+        opensearch.opensearch_client().indices.get(index=service.index_name)
 
 
 @pytest.mark.parametrize(
@@ -413,11 +486,13 @@ def test_api_documents_index_empty_content_check():
 
 
 def test_api_documents_index_opensearch_errors():
-    """Test bulk document indexing errors"""
+    """Documents that OpenSearch failed to index should be reported with a 207."""
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
+    with mock.patch(
+        "opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock
+    ) as mock_bulk:
         mock_bulk.return_value = {
             "items": [
                 {"index": {"status": 201}},
@@ -437,7 +512,7 @@ def test_api_documents_index_opensearch_errors():
             content_type="application/json",
         )
 
-    assert response.status_code == 201
+    assert response.status_code == 207
     assert response.json() == [
         {
             "_id": documents[0]["id"],

@@ -124,7 +124,9 @@ class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 
     service: str = Field(max_length=300)
-    document_ids: Optional[List[str]] = Field(default=None)
+    # Bounded to search all the requested documents in one query (OpenSearch
+    # refuses more than 10,000 results)
+    document_ids: Optional[List[str]] = Field(default=None, max_length=1000)
     tags: Optional[List[str]] = Field(default=None)
 
     @model_validator(mode="after")
@@ -135,3 +137,28 @@ class DeleteDocumentsSchema(BaseModel):
                 "At least one of 'document_ids' or 'tags' must be provided"
             )
         return self
+
+
+class SearchResultSchema(BaseModel):
+    """A document matching a search query"""
+
+    id: str
+    service: str
+    title: str
+    score: Optional[float] = Field(
+        description="Relevance score, null when results are ordered by another field"
+    )
+    path: str
+    depth: int
+    numchild: int
+    size: int
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    reach: Optional[enums.ReachEnum]
+    tags: List[str]
+
+
+class SearchResponseSchema(BaseModel):
+    """Response of the search API endpoint"""
+
+    results: List[SearchResultSchema]

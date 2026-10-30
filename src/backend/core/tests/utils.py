@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import time
 from functools import partial
 
 from core import factories
@@ -80,3 +81,39 @@ def setup_oicd_resource_server(
             settings.OIDC_OP_INTROSPECTION_ENDPOINT,
             body=json.dumps(token_data),
         )
+
+
+MENSHEN_TOKEN = "an-exchanged-token-with-at-least-32-characters"
+
+
+def setup_menshen_introspection(responses, settings, **introspection):
+    """
+    Configure Menshen and simulate its introspection of any token, returning a
+    valid token for "user_sub" called by Docs, unless overridden by the
+    `introspection` fields (e.g. `active=False`, `scope="find:drive:search"`).
+    NOTE : Use it with @responses.activate.
+
+    Returns the mocked introspection response, to count its calls.
+    """
+    settings.MENSHEN_URL = "https://menshen.example.com"
+    settings.MENSHEN_CLIENT_ID = "find"
+    settings.MENSHEN_CLIENT_SECRET = "find-secret"
+    settings.MENSHEN_AUDIENCE = "find"
+
+    token_data = {
+        "active": True,
+        "sub": "user_sub",
+        "scope": "find:docs:search",
+        "exp": int(time.time()) + 300,
+        "aud": "find",
+        "client_id": "docs",
+        **introspection,
+    }
+    if not token_data["active"]:
+        # Menshen only says that inactive tokens are inactive
+        token_data = {"active": False}
+    return responses.add(
+        responses.POST,
+        "https://menshen.example.com/auth/token/introspect/",
+        json=token_data,
+    )

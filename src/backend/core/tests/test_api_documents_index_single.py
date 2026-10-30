@@ -43,6 +43,25 @@ def test_api_documents_index_single_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
+def test_api_documents_index_single_regenerated_token():
+    """The previous token of a service should be rejected once regenerated."""
+    service = factories.ServiceFactory()
+    old_token = service.token
+    service.set_token()
+    service.save()
+    document = factories.DocumentSchemaFactory.build()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {old_token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Invalid token."}
+
+
 def test_api_documents_index_single_success():
     """A registered service should be able to index a document with a valid token."""
     service = factories.ServiceFactory()
@@ -254,6 +273,7 @@ def test_api_documents_index_single_ensure_index():
                 "properties": {
                     "de": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -269,6 +289,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "en": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -284,6 +305,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "fr": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -299,6 +321,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "nl": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -314,6 +337,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "und": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -327,6 +351,7 @@ def test_api_documents_index_single_ensure_index():
                             }
                         },
                     },
+                    "sort": {"type": "keyword", "normalizer": "sort_normalizer"},
                 }
             },
             "updated_at": {"type": "date"},
@@ -464,6 +489,22 @@ def test_api_documents_index_single_invalid_document(
     assert response.status_code == 400
     assert response.json()[0]["msg"] == error_message
     assert response.json()[0]["type"] == error_type
+
+
+@pytest.mark.parametrize("body", ["null", '"document"', "1"])
+def test_api_documents_index_single_not_an_object(body):
+    """A body that is neither an object nor a list should be refused."""
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        body,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()[0]["type"] == "model_type"
 
 
 @pytest.mark.parametrize(
