@@ -324,7 +324,10 @@ def test_aensure_index_exists_created_concurrently():
     ensure_index_exists(index_name)
 
     with mock.patch.object(
-        AsyncIndicesClient, "get", new_callable=mock.AsyncMock, side_effect=missed_index()
+        AsyncIndicesClient,
+        "get",
+        new_callable=mock.AsyncMock,
+        side_effect=missed_index(),
     ):
         run_async(aensure_index_exists, index_name)
 
