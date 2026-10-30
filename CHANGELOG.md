@@ -16,6 +16,7 @@ and this project adheres to
 
 ## Added
 
+- ✨(scopes) select indices from Menshen find scopes
 - 🔧(menshen) document and check a local Menshen for Find
 - ✅(tests) restore search, access-control and single indexing tests
 - 📝(adr) accept async django-ninja and Menshen authentication
