@@ -8,7 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from lasuite.oidc_resource_server.backend import ResourceServerBackend
 from rest_framework import authentication, exceptions
 
-from .models import Service
+from .models import Service, hash_token
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ class ServiceTokenAuthentication(authentication.BaseAuthentication):
     def authenticate_credentials(self, token):
         """Check that the token is registered and valid."""
         try:
-            service = self.model.objects.only("name").get(token=token, is_active=True)
+            service = self.model.objects.only("name").get(
+                token_hash=hash_token(token), is_active=True
+            )
         except self.model.DoesNotExist as excpt:
             raise exceptions.AuthenticationFailed("Invalid token.") from excpt
 

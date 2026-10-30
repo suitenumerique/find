@@ -57,3 +57,11 @@ class ServiceFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = models.Service
+
+    @classmethod
+    def _create(cls, model_class, *args, token=None, **kwargs):
+        """Accept a plaintext token, which is kept on the instance once hashed"""
+        service = model_class(*args, **kwargs)
+        service.set_token(token)
+        service.save()
+        return service
