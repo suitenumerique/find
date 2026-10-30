@@ -7,7 +7,9 @@ from unittest import mock
 from uuid import UUID
 
 import pytest
-from opensearchpy import NotFoundError
+from opensearchpy import NotFoundError, RequestError
+from opensearchpy._async.client.indices import IndicesClient as AsyncIndicesClient
+from opensearchpy.client.indices import IndicesClient
 
 from core import factories, schemas
 from core.models import get_opensearch_index_name
@@ -298,3 +300,44 @@ def test_bulk_index_documents_language_detection_off_event_loop():
 
     assert len(threads) == 2
     assert loop_threads[0] not in threads
+
+
+def missed_index():
+    """The error of indices.get when another request creates the index right after"""
+    return NotFoundError(404, "index_not_found_exception", {})
+
+
+def test_ensure_index_exists_created_concurrently():
+    """An index created by a concurrent request after the check should be kept."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    ensure_index_exists(index_name)
+
+    with mock.patch.object(IndicesClient, "get", side_effect=missed_index()):
+        ensure_index_exists(index_name)
+
+    assert opensearch_client().indices.exists(index=index_name)
+
+
+def test_aensure_index_exists_created_concurrently():
+    """An index created by a concurrent request after the check should be kept."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    ensure_index_exists(index_name)
+
+    with mock.patch.object(
+        AsyncIndicesClient, "get", new_callable=mock.AsyncMock, side_effect=missed_index()
+    ):
+        run_async(aensure_index_exists, index_name)
+
+    assert opensearch_client().indices.exists(index=index_name)
+
+
+@pytest.mark.parametrize("ensure", ["sync", "async"])
+def test_ensure_index_exists_other_creation_errors(ensure):
+    """Creation errors other than a concurrent creation should not be hidden."""
+    index_name = get_opensearch_index_name("Invalid-Name")
+
+    with pytest.raises(RequestError):
+        if ensure == "sync":
+            ensure_index_exists(index_name)
+        else:
+            run_async(aensure_index_exists, index_name)

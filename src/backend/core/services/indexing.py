@@ -6,7 +6,7 @@ import logging
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 
-from opensearchpy.exceptions import NotFoundError
+from opensearchpy.exceptions import NotFoundError, RequestError
 from py3langid.langid import MODEL_FILE, LanguageIdentifier
 from pydantic import ValidationError as PydanticValidationError
 
@@ -41,13 +41,22 @@ INDEX_BODY = {
 }
 
 
+def is_index_already_created(error):
+    """Whether a creation failed because a concurrent request created the index"""
+    return error.error == "resource_already_exists_exception"
+
+
 def ensure_index_exists(index_name):
     """Create index if it does not exist"""
     try:
         opensearch_client().indices.get(index=index_name)
     except NotFoundError:
         logger.info("Creating index: %s", index_name)
-        opensearch_client().indices.create(index=index_name, body=INDEX_BODY)
+        try:
+            opensearch_client().indices.create(index=index_name, body=INDEX_BODY)
+        except RequestError as error:
+            if not is_index_already_created(error):
+                raise
 
 
 async def aensure_index_exists(index_name):
@@ -57,7 +66,11 @@ async def aensure_index_exists(index_name):
         await client.indices.get(index=index_name)
     except NotFoundError:
         logger.info("Creating index: %s", index_name)
-        await client.indices.create(index=index_name, body=INDEX_BODY)
+        try:
+            await client.indices.create(index=index_name, body=INDEX_BODY)
+        except RequestError as error:
+            if not is_index_already_created(error):
+                raise
 
 
 async def index_document(index_name, document):
