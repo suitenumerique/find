@@ -182,7 +182,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        nb_deleted, deletable_ids = run_async(
+        nb_deleted, undeleted_ids = run_async(
             delete_documents,
             index_name,
             self.request.user.sub,
@@ -193,11 +193,7 @@ class DeleteDocumentsView(ResourceServerMixin, views.APIView):
         return Response(
             {
                 "nb-deleted-documents": nb_deleted,
-                "undeleted-document-ids": [
-                    document_id
-                    for document_id in params.document_ids or []
-                    if document_id not in deletable_ids
-                ],
+                "undeleted-document-ids": undeleted_ids,
             },
             status=status.HTTP_200_OK,
         )
