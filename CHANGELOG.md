@@ -24,6 +24,7 @@ and this project adheres to
 
 ## Added
 
+- ✨(admin) show service tokens once, with a copy button
 - ✨(scopes) select indices from Menshen find scopes
 - 🔧(menshen) document and check a local Menshen for Find
 - ✅(tests) restore search, access-control and single indexing tests

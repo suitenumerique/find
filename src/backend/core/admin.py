@@ -3,6 +3,7 @@
 from django.contrib import admin
 from django.shortcuts import render
 from django.urls import path
+from django.utils.translation import gettext_lazy as _
 
 from . import selftests_builtin  # pylint: disable=unused-import
 from .models import Service
@@ -18,6 +19,30 @@ class ServiceAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "created_at")
     ordering = ("-created_at",)
     readonly_fields = ("created_at",)
+    actions = ("regenerate_tokens",)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """Show the token of the new service, the only time it is available"""
+        return self.render_tokens(request, [obj])
+
+    @admin.action(description=_("Regenerate the tokens of selected services"))
+    def regenerate_tokens(self, request, queryset):
+        """Replace the tokens of the selected services and show the new ones"""
+        services = list(queryset)
+        for service in services:
+            service.set_token()
+            service.save(update_fields=["token_hash"])
+        return self.render_tokens(request, services)
+
+    def render_tokens(self, request, services):
+        """Render the plaintext tokens, in the response only, never in storage"""
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Service tokens"),
+            "opts": self.opts,
+            "services": services,
+        }
+        return render(request, "admin/core/service/tokens.html", context)
 
 
 def selftest_view(request):
