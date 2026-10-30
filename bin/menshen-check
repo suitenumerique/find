@@ -2,10 +2,11 @@
 
 # Check a local Menshen bootstrapped with its demo fixtures, end to end:
 #   1. get a user access token from Keycloak, as the "docs" client,
-#   2. exchange it with Menshen, as Docs, for a token targeting Find,
+#   2. exchange it with Menshen, as Docs, for a token targeting Find, by
+#      requesting an action scope,
 #   3. introspect the exchanged token with Menshen, as Find,
-#   4. check the subject and scopes, that Drive can exchange its own token,
-#      and that ungranted exchanges are refused.
+#   4. check the subject and the scope granted for the action, the other
+#      actions of Docs and Drive, and that ungranted exchanges are refused.
 #
 # Tokens are passed to curl through files, not arguments, so that they do not
 # show in process listings. Service credentials are Menshen's development ones.
@@ -18,7 +19,10 @@ MENSHEN_URL="${MENSHEN_URL:-http://localhost:8071}"
 USERNAME="${USERNAME:-menshen}"
 # Menshen's development user has its username as password
 PASSWORD="${PASSWORD:-${USERNAME}}"
-SCOPES="find:docs:search"
+# Docs and Drive request an action scope, alone, which Menshen replaces by the
+# find scope it grants
+ACTION="action:search-find-docs"
+GRANTED_SCOPE="find:docs:search"
 
 # user_token <client> <output file>: get a user access token as an OIDC client
 function user_token() {
@@ -57,8 +61,8 @@ if [ -z "${user_sub}" ] || [ "${user_sub}" = "null" ]; then
 fi
 echo "   sub=${user_sub}"
 
-echo "2. exchange as docs for audience find, scope '${SCOPES}'"
-status=$(exchange docs "${tmp}/docs-user-token" "${SCOPES}" "${tmp}/exchange.json")
+echo "2. exchange as docs for audience find, scope '${ACTION}'"
+status=$(exchange docs "${tmp}/docs-user-token" "${ACTION}" "${tmp}/exchange.json")
 [ "${status}" = "200" ] || fail "exchange returned ${status}: $(cat "${tmp}/exchange.json")"
 jq -j .access_token "${tmp}/exchange.json" >"${tmp}/find-token"
 echo "   scope=$(jq -r .scope "${tmp}/exchange.json") expires_in=$(jq -r .expires_in "${tmp}/exchange.json")"
@@ -73,16 +77,25 @@ echo "4. checks"
 [ "$(jq -r .sub "${tmp}/introspect.json")" = "${user_sub}" ] ||
     fail "introspected sub differs from the user token's sub"
 echo "   ✅ the exchanged token carries the user's sub"
-[ "$(jq -r .scope "${tmp}/introspect.json" | tr ' ' '\n' | sort | xargs)" = \
-    "$(echo "${SCOPES}" | tr ' ' '\n' | sort | xargs)" ] || fail "unexpected scopes"
-echo "   ✅ the exchanged token carries the requested find scopes"
+[ "$(jq -r .scope "${tmp}/introspect.json")" = "${GRANTED_SCOPE}" ] ||
+    fail "expected scope ${GRANTED_SCOPE}, got $(jq -r .scope "${tmp}/introspect.json")"
+echo "   ✅ the exchanged token carries ${GRANTED_SCOPE}, granted for ${ACTION}"
+
+# expect_action <service> <subject token file> <action> <granted scope>
+function expect_action() {
+    status=$(exchange "$1" "$2" "$3" "${tmp}/action.json")
+    [ "${status}" = "200" ] || fail "$1 asking $3 returned ${status}: $(cat "${tmp}/action.json")"
+    scope=$(jq -r .scope "${tmp}/action.json")
+    [ "${scope}" = "$4" ] || fail "$1 asking $3: expected scope $4, got ${scope}"
+    echo "   ✅ $1 gets $4 for $3"
+}
 
 user_token drive "${tmp}/drive-user-token" || fail "could not get a user token as drive"
-status=$(exchange drive "${tmp}/drive-user-token" find:drive:search "${tmp}/drive.json")
-[ "${status}" = "200" ] || fail "drive exchange returned ${status}: $(cat "${tmp}/drive.json")"
-echo "   ✅ drive can exchange its own token for find:drive:search"
+expect_action docs "${tmp}/docs-user-token" action:delete-find-docs find:docs:delete
+expect_action drive "${tmp}/drive-user-token" action:search-find-drive find:drive:search
+expect_action drive "${tmp}/drive-user-token" action:delete-find-drive find:drive:delete
 
-for scope in find:drive:search find:drive:delete; do
+for scope in action:search-find-drive action:delete-find-drive; do
     status=$(exchange docs "${tmp}/docs-user-token" "${scope}" "${tmp}/denied.json")
     code=$(jq -r .code "${tmp}/denied.json" 2>/dev/null || true)
     if [ "${status}" != "403" ] || [ "${code}" != "invalid_scopes" ]; then
@@ -94,7 +107,7 @@ done
 # Menshen refuses a subject token issued to another client with a
 # SuspiciousOperation: Django answers 400, but django-ninja answers 500 with
 # the traceback when DEBUG is on, as in Menshen's development stack.
-status=$(exchange drive "${tmp}/docs-user-token" find:drive:search "${tmp}/denied.txt")
+status=$(exchange drive "${tmp}/docs-user-token" action:search-find-drive "${tmp}/denied.txt")
 if [ "${status}" != "400" ] &&
     ! { [ "${status}" = "500" ] && grep -q SuspiciousOperation "${tmp}/denied.txt"; }; then
     fail "drive exchanging a token issued to docs: expected a refusal, got ${status}"
