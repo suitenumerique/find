@@ -9,7 +9,8 @@ Django.
 
 ## Status
 
-Accepted (2026-10-27)
+Accepted (2026-10-27). Implementation plan amended (2026-10-27): no spike,
+and a single switch from DRF to django-ninja.
 
 ## Context
 
@@ -275,7 +276,8 @@ needs a backend.
   access filter still applies). Find's scopes must be reviewed like any other
   access-control change.
 - The async gain may be smaller than expected if most latency is OpenSearch
-  query time rather than waiting. The spike below must measure it.
+  query time rather than waiting. Find is not deployed yet, so this can only be
+  measured once it runs on ASGI with real traffic.
 - The `menshen_client` async contribution could be delayed; the
   `asyncio.to_thread` fallback limits this risk.
 
@@ -286,15 +288,27 @@ needs a backend.
 2. **Configure Menshen** with the `find:<service>:search` and
    `find:<service>:delete` scopes and the exchange rules for Docs and Drive, and
    settle the remaining open questions with the Menshen team.
-3. **Spike (2–3 days)**: implement `documents/search/` with async ninja,
-   Menshen introspection, scope-based service selection and `AsyncOpenSearch`.
-   Load-test it against the current implementation (latency and throughput per
-   process, with a slowed-down identity provider). If the numbers contradict
-   this decision, supersede it with a new ADR.
-4. **Migrate** the three endpoints. Introduce response schemas (#179), fix
-   #172–#175 along the way, and remove DRF and the resource-server code.
-5. **Switch deployment to ASGI** (Dockerfile, gunicorn config, Helm chart),
-   and update `docs/architecture.md` (#186).
+3. **Prepare the migration on DRF**, in small independent changes that do not
+   depend on the web framework: response schemas (#179), scope-based service
+   selection, an async Menshen introspection service with its cache,
+   `AsyncOpenSearch` and async versions of the search, delete and indexing
+   service functions, hashed service tokens, and the fixes for #172–#175
+   that do not depend on authentication. Each piece is tested on its own.
+4. **Switch from DRF to django-ninja in a single change**: the three endpoints
+   move to async ninja at the same URLs, user authentication moves to Menshen
+   and service selection to scopes, and DRF, drf-spectacular and the
+   resource-server code are removed. DRF and ninja never serve the API side by
+   side. The endpoint tests stay unchanged except for the authentication helper
+   and the bugs it fixes.
+5. **Clean up and switch deployment to ASGI**: remove `Service.client_id` and
+   `Service.services`, keep only async-capable middleware (#177), switch the
+   Dockerfile, gunicorn config and Helm chart to ASGI, and update
+   `docs/architecture.md` (#186).
+
+Step 3 used to be a spike load-testing an async search endpoint against the
+current implementation. It was dropped: Find is not deployed anywhere, so
+there is no baseline worth comparing against, and keeping both frameworks
+side by side for the comparison would cost more than it teaches.
 
 ## References
 
