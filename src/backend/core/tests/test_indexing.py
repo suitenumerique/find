@@ -2,11 +2,24 @@
 Test suite for opensearch indexing service
 """
 
-import pytest
+import threading
+from unittest import mock
+from uuid import UUID
 
+import pytest
+from opensearchpy import NotFoundError
+
+from core import factories, schemas
 from core.models import get_opensearch_index_name
-from core.services.indexing import detect_language_code, ensure_index_exists
-from core.services.opensearch import opensearch_client
+from core.services import indexing
+from core.services.indexing import (
+    aensure_index_exists,
+    bulk_index_documents,
+    detect_language_code,
+    ensure_index_exists,
+    index_document,
+)
+from core.services.opensearch import opensearch_client, run_async
 
 SERVICE_NAME = "test-service"
 
@@ -189,3 +202,95 @@ def test_detect_language_code(text, expected_language_code):
     """Test detect_language_code function"""
 
     assert detect_language_code(text) == expected_language_code
+
+
+def test_aensure_index_exists():
+    """The index should be created with Find's mappings, only if it does not exist."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    with pytest.raises(NotFoundError):
+        opensearch_client().indices.get(index=index_name)
+
+    run_async(aensure_index_exists, index_name)
+    run_async(aensure_index_exists, index_name)
+
+    properties = opensearch_client().indices.get_mapping(index=index_name)[index_name][
+        "mappings"
+    ]["properties"]
+    assert properties["content"]["properties"]["fr"]["analyzer"] == "french_analyzer"
+    assert properties["users"] == {"type": "keyword"}
+
+
+def test_index_document():
+    """A validated document should be indexed with language-suffixed fields."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    document = schemas.DocumentSchema(
+        **factories.DocumentSchemaFactory.build(
+            title="The quick brown fox", content="jumps over the lazy dog"
+        )
+    )
+
+    _id = run_async(index_document, index_name, document)
+
+    assert _id == document.id
+    source = opensearch_client().get(index=index_name, id=str(_id))["_source"]
+    assert source["title.en"] == "the quick brown fox"
+    assert source["content.en"] == "jumps over the lazy dog"
+    assert "id" not in source
+
+
+def test_bulk_index_documents():
+    """All the documents should be indexed and reported as successful."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    documents = factories.DocumentSchemaFactory.build_batch(2)
+
+    results, has_errors = run_async(bulk_index_documents, index_name, documents)
+
+    assert has_errors is False
+    assert results == [
+        {"index": 0, "_id": UUID(documents[0]["id"]), "status": "success"},
+        {"index": 1, "_id": UUID(documents[1]["id"]), "status": "success"},
+    ]
+    opensearch_client().indices.refresh(index=index_name)
+    assert opensearch_client().count(index=index_name)["count"] == 2
+
+
+def test_bulk_index_documents_validation_error():
+    """Nothing should be indexed, nor the index created, if a document is invalid."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    valid, invalid = factories.DocumentSchemaFactory.build_batch(2)
+    invalid["size"] = -1
+
+    results, has_errors = run_async(bulk_index_documents, index_name, [valid, invalid])
+
+    assert has_errors is True
+    assert results[0] == {"index": 0, "_id": UUID(valid["id"]), "status": "valid"}
+    assert results[1]["status"] == "error"
+    assert [error["loc"] for error in results[1]["errors"]] == [("size",)]
+    with pytest.raises(NotFoundError):
+        opensearch_client().indices.get(index=index_name)
+
+
+def test_bulk_index_documents_language_detection_off_event_loop():
+    """Validation and language detection should not run in the event loop thread."""
+    index_name = get_opensearch_index_name(SERVICE_NAME)
+    threads = []
+    prepare = indexing.prepare_document_for_indexing
+
+    def recording_prepare(document):
+        threads.append(threading.get_ident())
+        return prepare(document)
+
+    async def bulk_index():
+        loop_threads.append(threading.get_ident())
+        return await bulk_index_documents(
+            index_name, factories.DocumentSchemaFactory.build_batch(2)
+        )
+
+    loop_threads = []
+    with mock.patch.object(
+        indexing, "prepare_document_for_indexing", side_effect=recording_prepare
+    ):
+        run_async(bulk_index)
+
+    assert len(threads) == 2
+    assert loop_threads[0] not in threads

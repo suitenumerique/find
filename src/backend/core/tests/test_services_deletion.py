@@ -107,7 +107,9 @@ def test_services_deletion_nothing_to_delete():
     document = factories.DocumentSchemaFactory.build(users=["other_sub"])
     prepare_index(service.index_name, [document])
 
-    with mock.patch("opensearchpy.AsyncOpenSearch.delete_by_query") as delete_by_query:
+    with mock.patch(
+        "opensearchpy.AsyncOpenSearch.delete_by_query", new_callable=mock.AsyncMock
+    ) as delete_by_query:
         result = run_async(
             delete_documents,
             service.index_name,

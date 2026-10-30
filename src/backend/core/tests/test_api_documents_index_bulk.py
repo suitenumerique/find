@@ -417,7 +417,9 @@ def test_api_documents_index_opensearch_errors():
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
-    with mock.patch.object(opensearch.opensearch_client(), "bulk") as mock_bulk:
+    with mock.patch(
+        "opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock
+    ) as mock_bulk:
         mock_bulk.return_value = {
             "items": [
                 {"index": {"status": 201}},
