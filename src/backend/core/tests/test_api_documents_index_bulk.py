@@ -486,7 +486,7 @@ def test_api_documents_index_empty_content_check():
 
 
 def test_api_documents_index_opensearch_errors():
-    """Test bulk document indexing errors"""
+    """Documents that OpenSearch failed to index should be reported with a 207."""
     service = factories.ServiceFactory()
     documents = factories.DocumentSchemaFactory.build_batch(3)
 
@@ -512,7 +512,7 @@ def test_api_documents_index_opensearch_errors():
             content_type="application/json",
         )
 
-    assert response.status_code == 201
+    assert response.status_code == 207
     assert response.json() == [
         {
             "_id": documents[0]["id"],

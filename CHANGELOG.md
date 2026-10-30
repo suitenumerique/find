@@ -18,6 +18,7 @@ and this project adheres to
 ## Fixed
 
 - 🐛(index) report re-indexed documents as successes in bulk #194
+- 🐛(index) answer 207 when OpenSearch fails some documents of a bulk
 - 🐛(search) sort by title across languages #175
 - 🐛(delete) delete every matching document, not only the first 10 #174
 - 🐛(delete) delete nothing, instead of failing, for a service without index
