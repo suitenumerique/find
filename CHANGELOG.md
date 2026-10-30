@@ -27,6 +27,7 @@ and this project adheres to
 
 ## Added
 
+- ✨(services) look up services by token from async code
 - ✨(menshen) authenticate user tokens with Menshen introspection
 - ✨(admin) show service tokens once, with a copy button
 - ✨(scopes) select indices from Menshen find scopes
