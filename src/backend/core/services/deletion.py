@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
     """
-    Delete the documents of an index that the user is allowed to delete, i.e. the
-    documents listing the user in their 'users' field.
+    Delete all the documents of an index matching the filters that the user is
+    allowed to delete, i.e. the documents listing the user in their 'users' field.
 
     Args:
         index_name: Name of the OpenSearch index to delete documents from.
@@ -19,8 +19,9 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
         tags: Optional list of tags to filter.
 
     Returns:
-        A tuple with the number of deleted documents and the list of the ids
-        of the documents matching the filters that the user may delete.
+        A tuple with the number of deleted documents and the list of the requested
+        document ids that were not deleted, because they do not exist, the user may
+        not delete them or they do not match the tags.
     """
     logger.info(
         "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
@@ -30,20 +31,27 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
     )
 
     client = async_opensearch_client()
-    deletable_matches = await client.search(
-        index=index_name,
-        body={"query": get_query(user_sub, document_ids=document_ids, tags=tags)},
-    )
-    deletable_ids = [hit["_id"] for hit in deletable_matches["hits"]["hits"]]
+    query = get_query(user_sub, document_ids=document_ids, tags=tags)
 
-    if not deletable_ids:
-        return 0, deletable_ids
+    undeleted_ids = []
+    if document_ids:
+        # An ids filter cannot match more documents than requested ids
+        deletable_matches = await client.search(
+            index=index_name,
+            body={"query": query, "_source": False},
+            size=len(set(document_ids)),
+        )
+        deletable_ids = {hit["_id"] for hit in deletable_matches["hits"]["hits"]}
+        undeleted_ids = [
+            document_id
+            for document_id in document_ids
+            if document_id not in deletable_ids
+        ]
+        if not deletable_ids:
+            return 0, undeleted_ids
 
-    response = await client.delete_by_query(
-        index=index_name,
-        body={"query": {"ids": {"values": deletable_ids}}},
-    )
-    return response.get("deleted", 0), deletable_ids
+    response = await client.delete_by_query(index=index_name, body={"query": query})
+    return response.get("deleted", 0), undeleted_ids
 
 
 def get_query(user_sub, document_ids=None, tags=None):

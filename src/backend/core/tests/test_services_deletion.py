@@ -30,15 +30,14 @@ def test_services_deletion_owned_documents_only():
     not_owned = factories.DocumentSchemaFactory.build(users=["other_sub"])
     prepare_index(service.index_name, [*owned, not_owned])
 
-    nb_deleted, deletable_ids = run_async(
+    result = run_async(
         delete_documents,
         service.index_name,
         "user_sub",
         document_ids=[owned[0]["id"], owned[1]["id"], not_owned["id"], "unknown"],
     )
 
-    assert nb_deleted == 2
-    assert sorted(deletable_ids) == sorted([owned[0]["id"], owned[1]["id"]])
+    assert result == (2, [not_owned["id"], "unknown"])
     assert get_indexed_ids(service.index_name) == {owned[2]["id"], not_owned["id"]}
 
 
@@ -51,7 +50,7 @@ def test_services_deletion_document_ids_and_tags():
     untagged = factories.DocumentSchemaFactory.build(users=["user_sub"])
     prepare_index(service.index_name, [*tagged, untagged])
 
-    nb_deleted, deletable_ids = run_async(
+    result = run_async(
         delete_documents,
         service.index_name,
         "user_sub",
@@ -59,8 +58,7 @@ def test_services_deletion_document_ids_and_tags():
         tags=["tag"],
     )
 
-    assert nb_deleted == 1
-    assert deletable_ids == [tagged[0]["id"]]
+    assert result == (1, [untagged["id"]])
     assert get_indexed_ids(service.index_name) == {tagged[1]["id"], untagged["id"]}
 
 
@@ -72,12 +70,11 @@ def test_services_deletion_tags_only():
     untagged = factories.DocumentSchemaFactory.build(users=["user_sub"])
     prepare_index(service.index_name, [tagged, other_tagged, untagged])
 
-    nb_deleted, deletable_ids = run_async(
+    result = run_async(
         delete_documents, service.index_name, "user_sub", tags=["a", "b"]
     )
 
-    assert nb_deleted == 2
-    assert sorted(deletable_ids) == sorted([tagged["id"], other_tagged["id"]])
+    assert result == (2, [])
     assert get_indexed_ids(service.index_name) == {untagged["id"]}
 
 
@@ -117,6 +114,44 @@ def test_services_deletion_nothing_to_delete():
             document_ids=[document["id"]],
         )
 
-    assert result == (0, [])
+    assert result == (0, [document["id"]])
     delete_by_query.assert_not_called()
     assert get_indexed_ids(service.index_name) == {document["id"]}
+
+
+def test_services_deletion_more_than_ten_documents_by_tags():
+    """All the documents matching the tags should be deleted, not only the first 10."""
+    service = factories.ServiceFactory()
+    tagged = factories.DocumentSchemaFactory.build_batch(
+        15, users=["user_sub"], tags=["tag"]
+    )
+    not_owned = factories.DocumentSchemaFactory.build(users=["other"], tags=["tag"])
+    prepare_index(service.index_name, [*tagged, not_owned])
+
+    with mock.patch(
+        "opensearchpy.AsyncOpenSearch.search", new_callable=mock.AsyncMock
+    ) as search:
+        result = run_async(
+            delete_documents, service.index_name, "user_sub", tags=["tag"]
+        )
+
+    assert result == (15, [])
+    # The ids of the deleted documents are only needed when ids are requested
+    search.assert_not_called()
+    assert get_indexed_ids(service.index_name) == {not_owned["id"]}
+
+
+def test_services_deletion_more_than_ten_documents_by_ids():
+    """All the requested documents should be deleted, not only the first 10."""
+    service = factories.ServiceFactory()
+    owned = factories.DocumentSchemaFactory.build_batch(15, users=["user_sub"])
+    not_owned = factories.DocumentSchemaFactory.build_batch(3, users=["other"])
+    prepare_index(service.index_name, [*owned, *not_owned])
+
+    requested_ids = [document["id"] for document in [*not_owned, *owned]]
+    result = run_async(
+        delete_documents, service.index_name, "user_sub", document_ids=requested_ids
+    )
+
+    assert result == (15, requested_ids[:3])
+    assert get_indexed_ids(service.index_name) == {d["id"] for d in not_owned}

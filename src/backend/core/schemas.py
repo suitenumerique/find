@@ -124,7 +124,9 @@ class DeleteDocumentsSchema(BaseModel):
     """Schema for validating the delete documents request"""
 
     service: str = Field(max_length=300)
-    document_ids: Optional[List[str]] = Field(default=None)
+    # Bounded to search all the requested documents in one query (OpenSearch
+    # refuses more than 10,000 results)
+    document_ids: Optional[List[str]] = Field(default=None, max_length=1000)
     tags: Optional[List[str]] = Field(default=None)
 
     @model_validator(mode="after")
