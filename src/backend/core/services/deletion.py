@@ -6,6 +6,13 @@ from .opensearch import async_opensearch_client
 
 logger = logging.getLogger(__name__)
 
+# A document changed or deleted since it was matched is not deleted, without error
+SKIPPED_STATUSES = {404, 409}
+
+
+class DeletionError(Exception):
+    """OpenSearch could not delete some of the deletable documents"""
+
 
 async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
     """
@@ -22,6 +29,10 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
         A tuple with the number of deleted documents and the list of the requested
         document ids that were not deleted, because they do not exist, the user may
         not delete them or they do not match the tags.
+
+    Raises:
+        DeletionError: if OpenSearch failed to delete deletable documents, which
+            may then be partially deleted.
     """
     logger.info(
         "Deleting documents from index %s with filters: document_ids=%s, tags=%s",
@@ -34,7 +45,21 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
     query = get_query(user_sub, document_ids=document_ids, tags=tags)
 
     if not document_ids:
-        response = await client.delete_by_query(index=index_name, body={"query": query})
+        response = await client.delete_by_query(
+            index=index_name,
+            body={"query": query},
+            # A document changed since it was matched is kept, as with ids
+            conflicts="proceed",
+            # A service that never indexed documents has no index
+            ignore_unavailable=True,
+        )
+        if response.get("failures") or response.get("timed_out"):
+            logger.error(
+                "Failed to delete documents from index %s: %s",
+                index_name,
+                response.get("failures") or "timed out",
+            )
+            raise DeletionError(index_name)
         return response.get("deleted", 0), []
 
     # An ids filter cannot match more documents than requested ids
@@ -42,6 +67,7 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
         index=index_name,
         body={"query": query, "_source": False, "seq_no_primary_term": True},
         size=len(set(document_ids)),
+        ignore_unavailable=True,
     )
     deleted_ids = await delete_unchanged(
         client, index_name, deletable_matches["hits"]["hits"]
@@ -60,6 +86,9 @@ async def delete_unchanged(client, index_name, hits):
 
     Returns:
         The set of the ids of the deleted documents.
+
+    Raises:
+        DeletionError: if a deletion failed for another reason.
     """
     if not hits:
         return set()
@@ -74,11 +103,18 @@ async def delete_unchanged(client, index_name, hits):
         for hit in hits
     ]
     response = await client.bulk(index=index_name, body=actions)
-    return {
-        item["delete"]["_id"]
-        for item in response["items"]
-        if item["delete"].get("result") == "deleted"
-    }
+    items = [item["delete"] for item in response["items"]]
+    failures = [
+        item
+        for item in items
+        if "error" in item and item["status"] not in SKIPPED_STATUSES
+    ]
+    if failures:
+        logger.error(
+            "Failed to delete documents from index %s: %s", index_name, failures
+        )
+        raise DeletionError(index_name)
+    return {item["_id"] for item in items if item.get("result") == "deleted"}
 
 
 def get_query(user_sub, document_ids=None, tags=None):

@@ -289,6 +289,30 @@ def test_api_documents_delete_nonexistent_documents(settings):
 
 
 @responses.activate
+@pytest.mark.parametrize(
+    "filters,undeleted_ids",
+    [({"document_ids": ["some-id"]}, ["some-id"]), ({"tags": ["tag"]}, [])],
+)
+def test_api_documents_delete_service_without_index(settings, filters, undeleted_ids):
+    """Deleting from a service that never indexed documents should delete nothing."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": service.name, **filters},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nb-deleted-documents": 0,
+        "undeleted-document-ids": undeleted_ids,
+    }
+
+
+@responses.activate
 @pytest.mark.flaky(
     reruns=2, reason="OpenSearch index race condition under high parallelism"
 )

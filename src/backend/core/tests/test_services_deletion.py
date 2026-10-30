@@ -8,7 +8,7 @@ import pytest
 from opensearchpy import AsyncOpenSearch
 
 from core import factories
-from core.services.deletion import delete_documents
+from core.services.deletion import DeletionError, delete_documents
 from core.services.opensearch import opensearch_client, run_async
 from core.utils import prepare_index
 
@@ -191,3 +191,127 @@ def test_services_deletion_document_changed_after_check():
 
     assert result == (1, [changed["id"]])
     assert get_indexed_ids(service.index_name) == {changed["id"]}
+
+
+@pytest.mark.parametrize(
+    "filters,expected",
+    [
+        ({"document_ids": ["a", "b"]}, (0, ["a", "b"])),
+        ({"tags": ["tag"]}, (0, [])),
+    ],
+)
+def test_services_deletion_missing_index(filters, expected):
+    """A service that never indexed documents has no index, and nothing to delete."""
+    service = factories.ServiceFactory()
+
+    result = run_async(delete_documents, service.index_name, "user_sub", **filters)
+
+    assert result == expected
+
+
+def test_services_deletion_tags_only_proceeds_on_conflicts():
+    """
+    A document changed while deleting by tags should be kept, as with ids,
+    instead of aborting the deletion of the other documents.
+    """
+    service = factories.ServiceFactory()
+
+    with mock.patch(
+        "opensearchpy.AsyncOpenSearch.delete_by_query",
+        new_callable=mock.AsyncMock,
+        return_value={"deleted": 2, "version_conflicts": 1, "failures": []},
+    ) as delete_by_query:
+        result = run_async(
+            delete_documents, service.index_name, "user_sub", tags=["tag"]
+        )
+
+    assert result == (2, [])
+    assert delete_by_query.call_args.kwargs["conflicts"] == "proceed"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"deleted": 2, "failures": [{"cause": {"type": "es_rejected_execution"}}]},
+        {"deleted": 2, "failures": [], "timed_out": True},
+    ],
+)
+def test_services_deletion_tags_only_failure(response):
+    """A deletion by tags that failed or timed out should not report a count."""
+    service = factories.ServiceFactory()
+
+    with (
+        mock.patch(
+            "opensearchpy.AsyncOpenSearch.delete_by_query",
+            new_callable=mock.AsyncMock,
+            return_value=response,
+        ),
+        pytest.raises(DeletionError),
+    ):
+        run_async(delete_documents, service.index_name, "user_sub", tags=["tag"])
+
+
+def test_services_deletion_document_ids_failure():
+    """
+    A document that OpenSearch failed to delete should not be reported as
+    undeleted, as if the user could not delete it.
+    """
+    service = factories.ServiceFactory()
+    documents = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
+    prepare_index(service.index_name, documents)
+
+    with (
+        mock.patch(
+            "opensearchpy.AsyncOpenSearch.bulk",
+            new_callable=mock.AsyncMock,
+            return_value={
+                "items": [
+                    {
+                        "delete": {
+                            "_id": documents[0]["id"],
+                            "status": 200,
+                            "result": "deleted",
+                        }
+                    },
+                    {
+                        "delete": {
+                            "_id": documents[1]["id"],
+                            "status": 429,
+                            "error": {"type": "es_rejected_execution_exception"},
+                        }
+                    },
+                ]
+            },
+        ),
+        pytest.raises(DeletionError),
+    ):
+        run_async(
+            delete_documents,
+            service.index_name,
+            "user_sub",
+            document_ids=[document["id"] for document in documents],
+        )
+
+
+def test_services_deletion_document_deleted_after_check():
+    """A document deleted between the check and the deletion should be undeleted."""
+    service = factories.ServiceFactory()
+    deleted, kept = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
+    prepare_index(service.index_name, [deleted, kept])
+    search = AsyncOpenSearch.search
+
+    async def search_then_delete(client, *args, **kwargs):
+        response = await search(client, *args, **kwargs)
+        opensearch_client().delete(index=service.index_name, id=deleted["id"])
+        return response
+
+    with mock.patch.object(AsyncOpenSearch, "search", search_then_delete):
+        result = run_async(
+            delete_documents,
+            service.index_name,
+            "user_sub",
+            document_ids=[deleted["id"], kept["id"]],
+        )
+
+    assert result == (1, [deleted["id"]])
+    assert get_indexed_ids(service.index_name) == set()
