@@ -13,12 +13,14 @@ and this project adheres to
 - 💥(search) return a stable response contract instead of raw hits #179
 - ⚡️(search) query OpenSearch with an async client
 - ⚡️(delete) delete documents with the async OpenSearch client
+- ⚡️(index) index documents with the async OpenSearch client
 
 ## Fixed
 
 - 🔒️(ci) restrict GITHUB_TOKEN permissions in workflows
 - 🔒️(dependencies) upgrade vulnerable transitive dependencies
 - 🐛(demo) scope demo indices and their deletion to the index prefix
+- 🐛(index) refuse non-object documents and accept empty bulks, not a 500
 
 ## Added
 
