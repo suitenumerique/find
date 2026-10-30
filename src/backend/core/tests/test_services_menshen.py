@@ -89,6 +89,35 @@ def test_services_menshen_cache_timeout(settings, exp_in, cache_ttl, expected_ti
     aset.assert_called_once_with(get_cache_key(MENSHEN_TOKEN), user, expected_timeout)
 
 
+@pytest.mark.parametrize(
+    "exp_in, cache_ttl, expected_timeout",
+    [
+        (300, 30, 30),
+        (300, 10, 10),
+        # Never cached beyond the token's expiration
+        (5, 30, 5),
+    ],
+)
+@responses.activate
+def test_services_menshen_cache_expires(settings, exp_in, cache_ttl, expected_timeout):
+    """Menshen should be called again once the cached result expires."""
+    now = time.time()
+    settings.MENSHEN_INTROSPECTION_CACHE_TTL = cache_ttl
+    introspection = setup_menshen_introspection(responses, settings, exp=int(now) + exp_in)
+
+    # The clock of both the service and the cache
+    with mock.patch("time.time", return_value=now) as clock:
+        authenticate(MENSHEN_TOKEN)
+
+        clock.return_value = now + expected_timeout - 1
+        authenticate(MENSHEN_TOKEN)
+        assert introspection.call_count == 1
+
+        clock.return_value = now + expected_timeout + 1
+        authenticate(MENSHEN_TOKEN)
+        assert introspection.call_count == 2
+
+
 def test_services_menshen_cache_key_hides_token():
     """The cache key should not contain the token."""
     assert MENSHEN_TOKEN not in get_cache_key(MENSHEN_TOKEN)
