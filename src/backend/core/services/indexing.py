@@ -110,7 +110,8 @@ def prepare_bulk(index_name, documents_data):
 
     for i, document_data in enumerate(documents_data):
         try:
-            document = schemas.DocumentSchema(**document_data)
+            # Unlike unpacking, validation also rejects elements that are not objects
+            document = schemas.DocumentSchema.model_validate(document_data)
         except PydanticValidationError as excpt:
             errors = [
                 {key: error[key] for key in ("msg", "type", "loc")}
@@ -146,7 +147,8 @@ async def bulk_index_documents(index_name, documents_data):
     results, actions, has_errors = await asyncio.to_thread(
         prepare_bulk, index_name, documents_data
     )
-    if has_errors:
+    # OpenSearch refuses an empty bulk request
+    if has_errors or not actions:
         return results, has_errors
 
     await aensure_index_exists(index_name)

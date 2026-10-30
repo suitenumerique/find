@@ -104,7 +104,7 @@ class IndexDocumentView(views.APIView):
                 - 201 Created: Returns the indexed document ID.
                 - 400 Bad Request: Returns an error message if the document is invalid.
         """
-        document = schemas.DocumentSchema(**request.data)
+        document = schemas.DocumentSchema.model_validate(request.data)
         _id = run_async(index_document, index_name, document)
 
         return Response(

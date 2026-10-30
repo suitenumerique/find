@@ -25,6 +25,7 @@ and this project adheres to
 - 🔒️(ci) restrict GITHUB_TOKEN permissions in workflows
 - 🔒️(dependencies) upgrade vulnerable transitive dependencies
 - 🐛(demo) scope demo indices and their deletion to the index prefix
+- 🐛(index) refuse non-object documents and accept empty bulks, not a 500
 
 ## Added
 

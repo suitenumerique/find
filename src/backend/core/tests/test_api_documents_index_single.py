@@ -491,6 +491,22 @@ def test_api_documents_index_single_invalid_document(
     assert response.json()[0]["type"] == error_type
 
 
+@pytest.mark.parametrize("body", ["null", '"document"', "1"])
+def test_api_documents_index_single_not_an_object(body):
+    """A body that is neither an object nor a list should be refused."""
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        body,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()[0]["type"] == "model_type"
+
+
 @pytest.mark.parametrize(
     "field",
     [

@@ -257,6 +257,54 @@ def test_api_documents_index_bulk_invalid_document(
     ]
 
 
+@pytest.mark.parametrize("element", [None, "document", 1, []])
+def test_api_documents_index_bulk_not_an_object(element):
+    """Elements that are not objects should be reported as invalid documents."""
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        [document, element],
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == [
+        {"index": 0, "_id": document["id"], "status": "valid"},
+        {
+            "index": 1,
+            "status": "error",
+            "errors": [
+                {
+                    "msg": "Input should be a valid dictionary or instance of "
+                    "DocumentSchema",
+                    "type": "model_type",
+                    "loc": [],
+                }
+            ],
+        },
+    ]
+
+
+def test_api_documents_index_bulk_empty():
+    """An empty bulk should index nothing, without creating the index."""
+    service = factories.ServiceFactory()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        [],
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json() == []
+    with pytest.raises(NotFoundError):
+        opensearch.opensearch_client().indices.get(index=service.index_name)
+
+
 @pytest.mark.parametrize(
     "field",
     [
