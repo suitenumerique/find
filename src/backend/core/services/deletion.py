@@ -69,6 +69,14 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
         size=len(set(document_ids)),
         ignore_unavailable=True,
     )
+    # Partial hits would report deletable documents as undeleted
+    if deletable_matches.get("timed_out") or deletable_matches["_shards"].get("failed"):
+        logger.error(
+            "Failed to search the deletable documents of index %s: %s",
+            index_name,
+            deletable_matches["_shards"].get("failures") or "timed out",
+        )
+        raise DeletionError(index_name)
     deleted_ids = await delete_unchanged(
         client, index_name, deletable_matches["hits"]["hits"]
     )

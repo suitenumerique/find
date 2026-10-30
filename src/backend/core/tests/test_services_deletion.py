@@ -251,6 +251,45 @@ def test_services_deletion_tags_only_failure(response):
         run_async(delete_documents, service.index_name, "user_sub", tags=["tag"])
 
 
+@pytest.mark.parametrize(
+    "incomplete",
+    [
+        {"timed_out": True},
+        {"_shards": {"total": 2, "successful": 1, "failed": 1, "failures": []}},
+    ],
+)
+def test_services_deletion_document_ids_partial_search(incomplete):
+    """
+    Deletable documents missing from partial search hits should not be reported
+    as undeleted, as if the user could not delete them.
+    """
+    service = factories.ServiceFactory()
+    document = factories.DocumentSchemaFactory.build(users=["user_sub"])
+    prepare_index(service.index_name, [document])
+    search = AsyncOpenSearch.search
+
+    async def partial_search(client, *args, **kwargs):
+        response = await search(client, *args, **kwargs)
+        return {**response, **incomplete, "hits": {**response["hits"], "hits": []}}
+
+    with (
+        mock.patch.object(AsyncOpenSearch, "search", partial_search),
+        mock.patch(
+            "opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock
+        ) as bulk,
+        pytest.raises(DeletionError),
+    ):
+        run_async(
+            delete_documents,
+            service.index_name,
+            "user_sub",
+            document_ids=[document["id"]],
+        )
+
+    bulk.assert_not_called()
+    assert get_indexed_ids(service.index_name) == {document["id"]}
+
+
 def test_services_deletion_document_ids_failure():
     """
     A document that OpenSearch failed to delete should not be reported as
