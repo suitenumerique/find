@@ -92,31 +92,102 @@ def test_admin_services_regenerate_tokens(admin_client):
     assert stored.token_hash == other_service.token_hash
 
 
-def test_admin_services_regenerate_tokens_all_or_nothing(admin_client):
-    """If a token cannot be saved, no token of the selection should be replaced."""
-    services = factories.ServiceFactory.create_batch(2)
-    save = models.Service.save
-    calls = []
+def regenerate_tokens(admin_client, services):
+    """Run the regenerate action on services, following redirects"""
+    return admin_client.post(
+        reverse("admin:core_service_changelist"),
+        {
+            "action": "regenerate_tokens",
+            "_selected_action": [service.pk for service in services],
+        },
+        follow=True,
+    )
 
-    def failing_save(service, *args, **kwargs):
-        calls.append(service.pk)
-        if len(calls) == 2:
-            raise RuntimeError("database error")
-        save(service, *args, **kwargs)
+
+def test_admin_services_regenerate_tokens_concurrent_change(admin_client):
+    """
+    If a token changed since the selection was read, as when two administrators
+    regenerate it at once, no token of the selection should be replaced: the
+    token shown to the other administrator must keep working.
+    """
+    services = factories.ServiceFactory.create_batch(2)
+    set_token = models.Service.set_token
+    new_tokens = []
+
+    def set_token_concurrently(service, *args, **kwargs):
+        # The first token is saved, then the second one was changed meanwhile
+        if new_tokens:
+            models.Service.objects.filter(pk=service.pk).update(
+                token_hash=models.hash_token("concurrent-token")
+            )
+        new_tokens.append(set_token(service, *args, **kwargs))
+        return new_tokens[-1]
+
+    with mock.patch.object(models.Service, "set_token", set_token_concurrently):
+        response = regenerate_tokens(admin_client, services)
+
+    assert response.templates[0].name == "admin/change_list.html"
+    assert "A token was changed meanwhile" in response.content.decode()
+    assert len(new_tokens) == 2
+    stored_hashes = set(models.Service.objects.values_list("token_hash", flat=True))
+    assert not stored_hashes & {models.hash_token(token) for token in new_tokens}
+    for token in new_tokens:
+        assert escape(token) not in response.content.decode()
+
+
+def test_admin_services_regenerate_tokens_render_failure(admin_client):
+    """If the tokens cannot be shown, they should not replace the old ones."""
+    services = factories.ServiceFactory.create_batch(2)
 
     with (
-        mock.patch.object(models.Service, "save", failing_save),
+        mock.patch(
+            "core.admin.ServiceAdmin.render_tokens",
+            side_effect=RuntimeError("template error"),
+        ),
         pytest.raises(RuntimeError),
     ):
-        admin_client.post(
-            reverse("admin:core_service_changelist"),
-            {
-                "action": "regenerate_tokens",
-                "_selected_action": [service.pk for service in services],
-            },
-        )
+        regenerate_tokens(admin_client, services)
 
-    assert len(calls) == 2
     for service in services:
         stored = models.Service.objects.get(pk=service.pk)
         assert stored.token_hash == service.token_hash
+
+
+@pytest.mark.parametrize(
+    "button,next_url_name,next_label",
+    [
+        ("_continue", "admin:core_service_change", "Continue editing"),
+        ("_addanother", "admin:core_service_add", "Add another service"),
+    ],
+)
+def test_admin_services_add_and_continue(
+    admin_client, button, next_url_name, next_label
+):
+    """
+    Saving and continuing should still show the token, with a link to the
+    next step instead of going there directly.
+    """
+    response = admin_client.post(
+        reverse("admin:core_service_add"),
+        {"name": "docs", "is_active": "on", button: "1"},
+    )
+
+    assert response.status_code == 200
+    service = models.Service.objects.get(name="docs")
+    token = response.context["services"][0].token
+    assert service.token_hash == models.hash_token(token)
+    args = [service.pk] if next_url_name == "admin:core_service_change" else []
+    assert f'<a href="{reverse(next_url_name, args=args)}">{next_label}</a>' in (
+        response.content.decode()
+    )
+
+
+def test_admin_services_no_add_from_popup(admin_client):
+    """
+    Services cannot be added from the allowed services field: the popup would
+    close without showing the token.
+    """
+    response = admin_client.get(reverse("admin:core_service_add"))
+
+    assert response.status_code == 200
+    assert 'id="add_id_services"' not in response.content.decode()

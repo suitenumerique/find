@@ -37,6 +37,9 @@
   </tbody>
 </table>
 <p>
+  {% if next_url %}
+  <a href="{{ next_url }}">{{ next_label }}</a> &middot;
+  {% endif %}
   <a href="{% url opts|admin_urlname:'changelist' %}">{% translate "Back to services" %}</a>
 </p>
 {% translate "Copied" as copied %}
