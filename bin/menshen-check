@@ -44,6 +44,17 @@ function exchange() {
         --data-urlencode scope="$3"
 }
 
+# introspect <token file> <output file>: introspect a token as Find
+function introspect() {
+    curl -sf -u find:find-secret "${MENSHEN_URL}/auth/token/introspect/" \
+        --data-urlencode token@"$1" >"$2"
+}
+
+# has_scope <introspection file> <scope>: an action may grant several scopes
+function has_scope() {
+    [ "$(jq -r --arg scope "$2" '.scope // "" | split(" ") | any(. == $scope)' "$1")" = "true" ]
+}
+
 function fail() {
     echo "❌ $*" >&2
     exit 1
@@ -68,8 +79,7 @@ jq -j .access_token "${tmp}/exchange.json" >"${tmp}/find-token"
 echo "   scope=$(jq -r .scope "${tmp}/exchange.json") expires_in=$(jq -r .expires_in "${tmp}/exchange.json")"
 
 echo "3. introspect as find"
-curl -sf -u find:find-secret "${MENSHEN_URL}/auth/token/introspect/" \
-    --data-urlencode token@"${tmp}/find-token" >"${tmp}/introspect.json"
+introspect "${tmp}/find-token" "${tmp}/introspect.json" || fail "introspection failed"
 jq -c '{active, sub, aud, scope, client_id, exp}' "${tmp}/introspect.json" | sed 's/^/   /'
 
 echo "4. checks"
@@ -77,16 +87,22 @@ echo "4. checks"
 [ "$(jq -r .sub "${tmp}/introspect.json")" = "${user_sub}" ] ||
     fail "introspected sub differs from the user token's sub"
 echo "   ✅ the exchanged token carries the user's sub"
-[ "$(jq -r .scope "${tmp}/introspect.json")" = "${GRANTED_SCOPE}" ] ||
+has_scope "${tmp}/introspect.json" "${GRANTED_SCOPE}" ||
     fail "expected scope ${GRANTED_SCOPE}, got $(jq -r .scope "${tmp}/introspect.json")"
 echo "   ✅ the exchanged token carries ${GRANTED_SCOPE}, granted for ${ACTION}"
 
-# expect_action <service> <subject token file> <action> <granted scope>
+# expect_action <service> <subject token file> <action> <granted scope>: check
+# the scopes Find reads, those of the introspected token
 function expect_action() {
     status=$(exchange "$1" "$2" "$3" "${tmp}/action.json")
     [ "${status}" = "200" ] || fail "$1 asking $3 returned ${status}: $(cat "${tmp}/action.json")"
-    scope=$(jq -r .scope "${tmp}/action.json")
-    [ "${scope}" = "$4" ] || fail "$1 asking $3: expected scope $4, got ${scope}"
+    jq -j .access_token "${tmp}/action.json" >"${tmp}/action-token"
+    introspect "${tmp}/action-token" "${tmp}/action-introspect.json" ||
+        fail "$1 asking $3: introspection failed"
+    [ "$(jq -r .active "${tmp}/action-introspect.json")" = "true" ] ||
+        fail "$1 asking $3: token is not active"
+    has_scope "${tmp}/action-introspect.json" "$4" ||
+        fail "$1 asking $3: expected scope $4, got $(jq -r .scope "${tmp}/action-introspect.json")"
     echo "   ✅ $1 gets $4 for $3"
 }
 
