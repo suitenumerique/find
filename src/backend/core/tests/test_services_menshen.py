@@ -103,7 +103,9 @@ def test_services_menshen_cache_expires(settings, exp_in, cache_ttl, expected_ti
     """Menshen should be called again once the cached result expires."""
     now = time.time()
     settings.MENSHEN_INTROSPECTION_CACHE_TTL = cache_ttl
-    introspection = setup_menshen_introspection(responses, settings, exp=int(now) + exp_in)
+    introspection = setup_menshen_introspection(
+        responses, settings, exp=int(now) + exp_in
+    )
 
     # The clock of both the service and the cache
     with mock.patch("time.time", return_value=now) as clock:
