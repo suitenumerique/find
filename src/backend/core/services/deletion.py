@@ -33,25 +33,52 @@ async def delete_documents(index_name, user_sub, document_ids=None, tags=None):
     client = async_opensearch_client()
     query = get_query(user_sub, document_ids=document_ids, tags=tags)
 
-    undeleted_ids = []
-    if document_ids:
-        # An ids filter cannot match more documents than requested ids
-        deletable_matches = await client.search(
-            index=index_name,
-            body={"query": query, "_source": False},
-            size=len(set(document_ids)),
-        )
-        deletable_ids = {hit["_id"] for hit in deletable_matches["hits"]["hits"]}
-        undeleted_ids = [
-            document_id
-            for document_id in document_ids
-            if document_id not in deletable_ids
-        ]
-        if not deletable_ids:
-            return 0, undeleted_ids
+    if not document_ids:
+        response = await client.delete_by_query(index=index_name, body={"query": query})
+        return response.get("deleted", 0), []
 
-    response = await client.delete_by_query(index=index_name, body={"query": query})
-    return response.get("deleted", 0), undeleted_ids
+    # An ids filter cannot match more documents than requested ids
+    deletable_matches = await client.search(
+        index=index_name,
+        body={"query": query, "_source": False, "seq_no_primary_term": True},
+        size=len(set(document_ids)),
+    )
+    deleted_ids = await delete_unchanged(
+        client, index_name, deletable_matches["hits"]["hits"]
+    )
+    undeleted_ids = [
+        document_id for document_id in document_ids if document_id not in deleted_ids
+    ]
+    return len(deleted_ids), undeleted_ids
+
+
+async def delete_unchanged(client, index_name, hits):
+    """
+    Delete the documents of search hits, only if they did not change since the
+    search: a document updated in between may no longer match the user or the
+    tags, so its deletion fails with a version conflict and it is kept.
+
+    Returns:
+        The set of the ids of the deleted documents.
+    """
+    if not hits:
+        return set()
+    actions = [
+        {
+            "delete": {
+                "_id": hit["_id"],
+                "if_seq_no": hit["_seq_no"],
+                "if_primary_term": hit["_primary_term"],
+            }
+        }
+        for hit in hits
+    ]
+    response = await client.bulk(index=index_name, body=actions)
+    return {
+        item["delete"]["_id"]
+        for item in response["items"]
+        if item["delete"].get("result") == "deleted"
+    }
 
 
 def get_query(user_sub, document_ids=None, tags=None):

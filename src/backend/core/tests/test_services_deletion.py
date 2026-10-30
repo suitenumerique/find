@@ -5,6 +5,7 @@ Test suite for the opensearch deletion service
 from unittest import mock
 
 import pytest
+from opensearchpy import AsyncOpenSearch
 
 from core import factories
 from core.services.deletion import delete_documents
@@ -104,9 +105,12 @@ def test_services_deletion_nothing_to_delete():
     document = factories.DocumentSchemaFactory.build(users=["other_sub"])
     prepare_index(service.index_name, [document])
 
-    with mock.patch(
-        "opensearchpy.AsyncOpenSearch.delete_by_query", new_callable=mock.AsyncMock
-    ) as delete_by_query:
+    with (
+        mock.patch(
+            "opensearchpy.AsyncOpenSearch.delete_by_query", new_callable=mock.AsyncMock
+        ) as delete_by_query,
+        mock.patch("opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock) as bulk,
+    ):
         result = run_async(
             delete_documents,
             service.index_name,
@@ -116,6 +120,7 @@ def test_services_deletion_nothing_to_delete():
 
     assert result == (0, [document["id"]])
     delete_by_query.assert_not_called()
+    bulk.assert_not_called()
     assert get_indexed_ids(service.index_name) == {document["id"]}
 
 
@@ -155,3 +160,32 @@ def test_services_deletion_more_than_ten_documents_by_ids():
 
     assert result == (15, requested_ids[:3])
     assert get_indexed_ids(service.index_name) == {d["id"] for d in not_owned}
+
+
+def test_services_deletion_document_changed_after_check():
+    """
+    A document updated between the check and the deletion should be kept, and
+    reported as not deleted: it may no longer list the user.
+    """
+    service = factories.ServiceFactory()
+    changed, unchanged = factories.DocumentSchemaFactory.build_batch(
+        2, users=["user_sub"]
+    )
+    prepare_index(service.index_name, [changed, unchanged])
+    search = AsyncOpenSearch.search
+
+    async def search_then_change(client, *args, **kwargs):
+        response = await search(client, *args, **kwargs)
+        prepare_index(service.index_name, [{**changed, "users": ["other_sub"]}])
+        return response
+
+    with mock.patch.object(AsyncOpenSearch, "search", search_then_change):
+        result = run_async(
+            delete_documents,
+            service.index_name,
+            "user_sub",
+            document_ids=[changed["id"], unchanged["id"]],
+        )
+
+    assert result == (1, [changed["id"]])
+    assert get_indexed_ids(service.index_name) == {changed["id"]}
