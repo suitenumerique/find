@@ -1,5 +1,7 @@
 """Tests for the service admin."""
 
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.html import escape
@@ -88,3 +90,33 @@ def test_admin_services_regenerate_tokens(admin_client):
 
     stored = models.Service.objects.get(pk=other_service.pk)
     assert stored.token_hash == other_service.token_hash
+
+
+def test_admin_services_regenerate_tokens_all_or_nothing(admin_client):
+    """If a token cannot be saved, no token of the selection should be replaced."""
+    services = factories.ServiceFactory.create_batch(2)
+    save = models.Service.save
+    calls = []
+
+    def failing_save(service, *args, **kwargs):
+        calls.append(service.pk)
+        if len(calls) == 2:
+            raise RuntimeError("database error")
+        save(service, *args, **kwargs)
+
+    with (
+        mock.patch.object(models.Service, "save", failing_save),
+        pytest.raises(RuntimeError),
+    ):
+        admin_client.post(
+            reverse("admin:core_service_changelist"),
+            {
+                "action": "regenerate_tokens",
+                "_selected_action": [service.pk for service in services],
+            },
+        )
+
+    assert len(calls) == 2
+    for service in services:
+        stored = models.Service.objects.get(pk=service.pk)
+        assert stored.token_hash == service.token_hash

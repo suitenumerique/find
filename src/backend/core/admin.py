@@ -1,6 +1,7 @@
 """Admin config for find's core app"""
 
 from django.contrib import admin
+from django.db import transaction
 from django.shortcuts import render
 from django.urls import path
 from django.utils.translation import gettext_lazy as _
@@ -29,9 +30,11 @@ class ServiceAdmin(admin.ModelAdmin):
     def regenerate_tokens(self, request, queryset):
         """Replace the tokens of the selected services and show the new ones"""
         services = list(queryset)
-        for service in services:
-            service.set_token()
-            service.save(update_fields=["token_hash"])
+        # All or nothing: tokens that are never shown must not replace the old ones
+        with transaction.atomic():
+            for service in services:
+                service.set_token()
+                service.save(update_fields=["token_hash"])
         return self.render_tokens(request, services)
 
     def render_tokens(self, request, services):
