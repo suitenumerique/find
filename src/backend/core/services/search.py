@@ -188,4 +188,8 @@ def get_sort(order_by, order_direction):
     if order_by == enums.RELEVANCE:
         return {"_score": {"order": order_direction}}
 
+    if order_by == enums.TITLE:
+        # Titles are stored per language, title.sort gathers them all
+        return {f"{enums.TITLE}.sort": {"order": order_direction}}
+
     return {order_by: {"order": order_direction}}
