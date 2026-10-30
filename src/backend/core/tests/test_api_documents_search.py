@@ -14,6 +14,7 @@ import pytest
 import responses
 
 from core import enums, factories
+from core.services.opensearch import opensearch_client
 from core.utils import prepare_index
 
 from .utils import (
@@ -312,9 +313,6 @@ def test_api_documents_search_ordering_by_fields(settings):
             assert compare(data[i][field], data[i + 1][field])
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#175: there is no title field to sort on in the mapping"
-)
 @responses.activate
 def test_api_documents_search_ordering_by_title(settings):
     """It should be possible to order by title"""
@@ -340,6 +338,45 @@ def test_api_documents_search_ordering_by_title(settings):
         str(documents[1]["id"]),
         str(documents[0]["id"]),
     ]
+
+
+@responses.activate
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_api_documents_search_ordering_by_title_across_languages(settings, direction):
+    """Titles should be sorted together whatever their language, ignoring accents."""
+    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    service = factories.ServiceFactory()
+    titles = [
+        "Apfelbäume blühen im Frühling auf der Wiese",
+        "Écureuils roux dans la forêt de Fontainebleau",
+        "Elephants are walking slowly in the dry grassland",
+        "Zèbres et girafes de la savane africaine",
+    ]
+    documents = bulk_create_documents(
+        [{"title": title, "content": title} for title in reversed(titles)]
+    )
+    prepare_index(service.index_name, documents)
+
+    # The titles are indexed under different languages
+    hits = opensearch_client().search(index=service.index_name)["hits"]["hits"]
+    assert {
+        key for hit in hits for key in hit["_source"] if key.startswith("title.")
+    } == {
+        "title.de",
+        "title.en",
+        "title.fr",
+    }
+
+    response = Client().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "order_by": "title", "order_direction": direction},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    expected = titles if direction == "asc" else list(reversed(titles))
+    assert [r["title"] for r in response.json()["results"]] == expected
 
 
 @responses.activate

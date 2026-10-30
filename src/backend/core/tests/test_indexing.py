@@ -218,6 +218,10 @@ def test_aensure_index_exists():
     ]["properties"]
     assert properties["content"]["properties"]["fr"]["analyzer"] == "french_analyzer"
     assert properties["users"] == {"type": "keyword"}
+    assert properties["title"]["properties"]["sort"] == {
+        "type": "keyword",
+        "normalizer": "sort_normalizer",
+    }
 
 
 def test_index_document():

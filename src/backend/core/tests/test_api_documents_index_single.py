@@ -273,6 +273,7 @@ def test_api_documents_index_single_ensure_index():
                 "properties": {
                     "de": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -288,6 +289,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "en": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -303,6 +305,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "fr": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -318,6 +321,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "nl": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -333,6 +337,7 @@ def test_api_documents_index_single_ensure_index():
                     },
                     "und": {
                         "type": "keyword",
+                        "copy_to": ["title.sort"],
                         "fields": {
                             "text": {
                                 "type": "text",
@@ -346,6 +351,7 @@ def test_api_documents_index_single_ensure_index():
                             }
                         },
                     },
+                    "sort": {"type": "keyword", "normalizer": "sort_normalizer"},
                 }
             },
             "updated_at": {"type": "date"},

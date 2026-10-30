@@ -120,6 +120,13 @@ FILTERS = {
     },
 }
 
+NORMALIZERS = {
+    "sort_normalizer": {
+        "type": "custom",
+        "filter": ["lowercase", "asciifolding"],
+    },
+}
+
 MAPPINGS = {
     "dynamic": "strict",
     "properties": {
@@ -127,6 +134,7 @@ MAPPINGS = {
         # French
         "title.fr": {
             "type": "keyword",
+            "copy_to": "title.sort",
             "fields": {
                 "text": {
                     "type": "text",
@@ -153,6 +161,7 @@ MAPPINGS = {
         # English
         "title.en": {
             "type": "keyword",
+            "copy_to": "title.sort",
             "fields": {
                 "text": {
                     "type": "text",
@@ -179,6 +188,7 @@ MAPPINGS = {
         # German
         "title.de": {
             "type": "keyword",
+            "copy_to": "title.sort",
             "fields": {
                 "text": {
                     "type": "text",
@@ -205,6 +215,7 @@ MAPPINGS = {
         # Dutch
         "title.nl": {
             "type": "keyword",
+            "copy_to": "title.sort",
             "fields": {
                 "text": {
                     "type": "text",
@@ -231,6 +242,7 @@ MAPPINGS = {
         # Undetermined language
         "title.und": {
             "type": "keyword",
+            "copy_to": "title.sort",
             "fields": {
                 "text": {
                     "type": "text",
@@ -244,6 +256,8 @@ MAPPINGS = {
                 }
             },
         },
+        # Language-independent copy of the title, to sort on
+        "title.sort": {"type": "keyword", "normalizer": "sort_normalizer"},
         "content.und": {
             "type": "text",
             "analyzer": "undetermined_language_analyzer",

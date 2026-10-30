@@ -14,6 +14,7 @@ from core.services.opensearch_configuration import (
     ANALYZERS,
     FILTERS,
     MAPPINGS,
+    NORMALIZERS,
 )
 
 from .. import schemas
@@ -33,6 +34,7 @@ INDEX_BODY = {
         "analysis": {
             "analyzer": ANALYZERS,
             "filter": FILTERS,
+            "normalizer": NORMALIZERS,
         },
     },
     "mappings": MAPPINGS,
