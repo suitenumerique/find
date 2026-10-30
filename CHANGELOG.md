@@ -8,6 +8,10 @@ and this project adheres to
 
 ## Unreleased
 
+## Changed
+
+- 💥(search) return a stable response contract instead of raw hits #179
+
 ## Fixed
 
 - 🔒️(ci) restrict GITHUB_TOKEN permissions in workflows

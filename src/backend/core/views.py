@@ -19,7 +19,7 @@ from .services.indexing import (
     prepare_document_for_indexing,
 )
 from .services.opensearch import opensearch_client
-from .services.search import search
+from .services.search import format_hit, search
 from .utils import get_language_value
 
 logger = logging.getLogger(__name__)
@@ -349,7 +349,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
         Returns:
         --------
         Response : rest_framework.response.Response
-            - 200 OK: Returns a list of search results matching the query.
+            - 200 OK: Returns {"results": [...]}, the documents matching the query
+              (see schemas.SearchResultSchema).
             - 400 Bad Request: If the query parameter 'q' is not provided or invalid.
         """
         # Get list of groups related to the user from SCIM provider (consider caching result)
@@ -375,7 +376,7 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             )
 
         logger.info("Search '%s' on indices %s", params.q, search_indices)
-        result = search(
+        hits = search(
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,
@@ -388,7 +389,10 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             tags=params.tags,
             path=params.path,
         )["hits"]["hits"]
-        logger.info("found %d results", len(result))
-        logger.debug("results %s", result)
+        logger.info("found %d results", len(hits))
+        logger.debug("results %s", hits)
 
-        return Response(result, status=status.HTTP_200_OK)
+        response = schemas.SearchResponseSchema(
+            results=[format_hit(hit) for hit in hits]
+        )
+        return Response(response.model_dump(mode="json"), status=status.HTTP_200_OK)

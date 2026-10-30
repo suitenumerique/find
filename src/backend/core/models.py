@@ -20,6 +20,11 @@ def get_opensearch_index_name(name: str):
     return f"{settings.OPENSEARCH_INDEX_PREFIX}-{name}"
 
 
+def get_service_name(index_name: str):
+    """Returns the service name for an opensearch index"""
+    return index_name.removeprefix(f"{settings.OPENSEARCH_INDEX_PREFIX}-")
+
+
 class User(AbstractUser):
     """User for the find application"""
 

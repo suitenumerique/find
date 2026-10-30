@@ -135,3 +135,28 @@ class DeleteDocumentsSchema(BaseModel):
                 "At least one of 'document_ids' or 'tags' must be provided"
             )
         return self
+
+
+class SearchResultSchema(BaseModel):
+    """A document matching a search query"""
+
+    id: str
+    service: str
+    title: str
+    score: Optional[float] = Field(
+        description="Relevance score, null when results are ordered by another field"
+    )
+    path: str
+    depth: int
+    numchild: int
+    size: int
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    reach: Optional[enums.ReachEnum]
+    tags: List[str]
+
+
+class SearchResponseSchema(BaseModel):
+    """Response of the search API endpoint"""
+
+    results: List[SearchResultSchema]

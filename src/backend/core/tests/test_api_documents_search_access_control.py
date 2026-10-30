@@ -70,7 +70,7 @@ def test_api_documents_search_access_control(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -119,7 +119,7 @@ def test_api_documents_search_access__only_visited_public(
     )
 
     assert response.status_code == 200, response.json()
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected)
 
 
 @responses.activate
@@ -157,7 +157,7 @@ def test_api_documents_search_access__any_owner_public(settings):
     )
 
     assert response.status_code == 200, response.json()
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected)
 
 
 @responses.activate
@@ -192,7 +192,7 @@ def test_api_documents_search_access__services(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -213,7 +213,7 @@ def test_api_documents_search_access__missing_index(settings):
     )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"results": []}
 
 
 @responses.activate
@@ -255,7 +255,7 @@ def test_api_documents_search_access__related_services(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -293,7 +293,7 @@ def test_api_documents_search_access__related_missing_index(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
 @responses.activate
@@ -334,7 +334,7 @@ def test_api_documents_search_access__request_services(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(expected_ids)
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -425,7 +425,7 @@ def test_api_documents_search_access__authenticated(settings):
 
     assert response.status_code == 200
 
-    assert sorted([d["_id"] for d in response.json()]) == sorted(
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(
         [doc["id"] for doc in documents_user]
     )
 
@@ -440,7 +440,7 @@ def test_api_documents_search_access__authenticated(settings):
 
     assert response.status_code == 200
 
-    assert sorted([d["_id"] for d in response.json()]) == sorted(
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(
         [doc["id"] for doc in documents_user + documents_open]
     )
 
@@ -478,7 +478,7 @@ def test_api_documents_search_access__inactive_documents(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(
         [doc["id"] for doc in active_documents]
     )
 
@@ -517,7 +517,7 @@ def test_api_documents_search_access__full_text(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(
         [owned_document["id"], visited_document["id"]]
     )
 
@@ -556,6 +556,6 @@ def test_api_documents_search_access__request_related_service_only(settings):
     )
 
     assert response.status_code == 200
-    assert sorted([d["_id"] for d in response.json()]) == sorted(
+    assert sorted([d["id"] for d in response.json()["results"]]) == sorted(
         [doc["id"] for doc in service_a_docs]
     )

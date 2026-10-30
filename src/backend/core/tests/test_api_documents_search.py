@@ -154,9 +154,11 @@ def test_api_documents_search_match_all(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == nb_documents
+    assert len(response.json()["results"]) == nb_documents
 
-    assert [r["_id"] for r in response.json()] == [str(doc["id"]) for doc in documents]
+    assert [r["id"] for r in response.json()["results"]] == [
+        str(doc["id"]) for doc in documents
+    ]
 
 
 @responses.activate
@@ -183,32 +185,29 @@ def test_api_documents_search_full_text_query_title(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 2
+    assert len(response.json()["results"]) == 2
 
-    fox_response = response.json()[0]
-    fox_document = documents[0]
-    assert list(fox_response.keys()) == ["_index", "_id", "_score", "_source", "fields"]
-    assert fox_response["_index"] == service.index_name
-    assert fox_response["_id"] == str(fox_document["id"])
-    assert fox_response["_score"] > 0
-    assert fox_response["_source"] == {
-        "content.en": "the wolf",
+    fox_response, other_fox_response = response.json()["results"]
+    fox_document, other_fox_document = documents[:2]
+    assert fox_response["score"] > 0
+    assert fox_response == {
+        "id": str(fox_document["id"]),
+        "service": service.name,
+        "title": fox_document["title"],
+        "score": fox_response["score"],
+        "path": fox_document["path"],
         "depth": 1,
         "numchild": 0,
-        "path": fox_document["path"],
         "size": fox_document["size"],
-        "created_at": fox_document["created_at"].isoformat(),
-        "updated_at": fox_document["updated_at"].isoformat(),
+        # Pydantic serializes UTC datetimes with a "Z" suffix
+        "created_at": fox_document["created_at"].isoformat().replace("+00:00", "Z"),
+        "updated_at": fox_document["updated_at"].isoformat().replace("+00:00", "Z"),
         "reach": fox_document["reach"],
         "tags": [],
-        "title.en": fox_document["title"],
     }
-    assert fox_response["fields"] == {"number_of_users": [1], "number_of_groups": [3]}
 
-    other_fox_response = response.json()[1]
-    other_fox_document = documents[1]
-    assert other_fox_response["_id"] == str(other_fox_document["id"])
-    assert 0 < other_fox_response["_score"] < fox_response["_score"]
+    assert other_fox_response["id"] == str(other_fox_document["id"])
+    assert 0 < other_fox_response["score"] < fox_response["score"]
 
 
 @responses.activate
@@ -235,7 +234,7 @@ def test_api_documents_search_full_text_query_content(settings):
     )
 
     assert response.status_code == 200
-    assert [r["_id"] for r in response.json()] == [
+    assert [r["id"] for r in response.json()["results"]] == [
         str(documents[0]["id"]),
         str(documents[1]["id"]),
     ]
@@ -264,7 +263,7 @@ def test_api_documents_search_full_text_query_trigrams(settings):
     )
 
     assert response.status_code == 200
-    assert [r["_id"] for r in response.json()] == [str(documents[0]["id"])]
+    assert [r["id"] for r in response.json()["results"]] == [str(documents[0]["id"])]
 
 
 @responses.activate
@@ -302,13 +301,15 @@ def test_api_documents_search_ordering_by_fields(settings):
         )
 
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["results"]
         assert len(data) == 4
+
+        assert all(result["score"] is None for result in data)
 
         # Check that results are sorted by the field as expected
         compare = operator.le if direction == "asc" else operator.ge
         for i in range(len(data) - 1):
-            assert compare(data[i]["_source"][field], data[i + 1]["_source"][field])
+            assert compare(data[i][field], data[i + 1][field])
 
 
 @pytest.mark.xfail(
@@ -335,7 +336,7 @@ def test_api_documents_search_ordering_by_title(settings):
     )
 
     assert response.status_code == 200
-    assert [r["_id"] for r in response.json()] == [
+    assert [r["id"] for r in response.json()["results"]] == [
         str(documents[1]["id"]),
         str(documents[0]["id"]),
     ]
@@ -368,13 +369,13 @@ def test_api_documents_search_ordering_by_relevance(settings):
         )
 
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["results"]
         assert len(data) == 3
 
         # Check that results are sorted by score as expected
         compare = operator.le if direction == "asc" else operator.ge
         for i in range(len(data) - 1):
-            assert compare(data[i]["_score"], data[i + 1]["_score"])
+            assert compare(data[i]["score"], data[i + 1]["score"])
 
 
 @responses.activate
@@ -450,7 +451,7 @@ def test_api_documents_search_filtering_by_reach(settings):
         )
 
         assert response.status_code == 200
-        assert sorted(r["_id"] for r in response.json()) == sorted(
+        assert sorted(r["id"] for r in response.json()["results"]) == sorted(
             doc["id"] for doc in reach_documents
         )
 
@@ -476,7 +477,7 @@ def test_api_documents_search_with_nb_results(settings):
         )
 
         assert response.status_code == 200
-        assert [r["_id"] for r in response.json()] == expected_ids
+        assert [r["id"] for r in response.json()["results"]] == expected_ids
 
 
 @responses.activate
@@ -495,7 +496,7 @@ def test_api_documents_search_nb_results_default(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 50
+    assert len(response.json()["results"]) == 50
 
 
 @responses.activate
@@ -554,7 +555,7 @@ def test_api_documents_search_nb_results_with_filtering(settings):
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
     assert response.status_code == 200
-    assert [r["_id"] for r in response.json()] == public_ids[0:nb_results]
+    assert [r["id"] for r in response.json()["results"]] == public_ids[0:nb_results]
 
 
 @responses.activate
@@ -598,8 +599,8 @@ def test_api_documents_search_filtering_by_tags(settings):
     )
 
     assert response.status_code == 200
-    assert [r["_id"] for r in response.json()] == [str(documents[0]["id"])]
-    assert response.json()[0]["_source"]["tags"] == ["python", "programming"]
+    assert [r["id"] for r in response.json()["results"]] == [str(documents[0]["id"])]
+    assert response.json()["results"][0]["tags"] == ["python", "programming"]
 
     # Several tags are combined with OR, also as a comma-separated string
     for tags in [["python", "rust"], "python,rust"]:
@@ -611,7 +612,7 @@ def test_api_documents_search_filtering_by_tags(settings):
         )
 
         assert response.status_code == 200
-        assert sorted(r["_id"] for r in response.json()) == sorted(
+        assert sorted(r["id"] for r in response.json()["results"]) == sorted(
             [str(documents[0]["id"]), str(documents[2]["id"])]
         )
 
@@ -624,7 +625,7 @@ def test_api_documents_search_filtering_by_tags(settings):
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 4
+    assert len(response.json()["results"]) == 4
 
 
 @responses.activate
@@ -651,6 +652,6 @@ def test_api_documents_search_filtering_by_path(settings):
     )
 
     assert response.status_code == 200
-    assert sorted(r["_id"] for r in response.json()) == sorted(
+    assert sorted(r["id"] for r in response.json()["results"]) == sorted(
         [str(documents[0]["id"]), str(documents[1]["id"])]
     )
