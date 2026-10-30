@@ -81,8 +81,9 @@ In Menshen's development realm, the `sub` claim is mapped to the user's email
 `menshen-check` gets a token for the `menshen` user from Keycloak as Docs,
 exchanges it with Menshen for audience `find` with the
 `action:search-find-docs` action scope, introspects it as Find, and checks that
-the user's `sub` is preserved and that `find:docs:search` is granted. It then
-checks that the other actions of Docs and Drive grant their scope, and that
+the token is active for audience `find`, that the user's `sub` is preserved and
+that `find:docs:search` is granted. It then checks that the other actions of
+Docs and Drive grant their scope, a delete action no other scope, and that
 ungranted exchanges are refused.
 
 ## Exchange a token by hand

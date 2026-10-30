@@ -5,8 +5,9 @@
 #   2. exchange it with Menshen, as Docs, for a token targeting Find, by
 #      requesting an action scope,
 #   3. introspect the exchanged token with Menshen, as Find,
-#   4. check the subject and the scope granted for the action, the other
-#      actions of Docs and Drive, and that ungranted exchanges are refused.
+#   4. check the audience, the subject and the scope granted for the action,
+#      the other actions of Docs and Drive, and that ungranted exchanges are
+#      refused.
 #
 # Tokens are passed to curl through files, not arguments, so that they do not
 # show in process listings. Service credentials are Menshen's development ones.
@@ -23,6 +24,8 @@ PASSWORD="${PASSWORD:-${USERNAME}}"
 # find scope it grants
 ACTION="action:search-find-docs"
 GRANTED_SCOPE="find:docs:search"
+# Find's MENSHEN_AUDIENCE: Find rejects tokens introspected with another aud
+FIND_AUDIENCE="find"
 
 # user_token <client> <output file>: get a user access token as an OIDC client
 function user_token() {
@@ -40,7 +43,7 @@ function exchange() {
         -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
         --data-urlencode subject_token@"$2" \
         -d subject_token_type=urn:ietf:params:oauth:token-type:access_token \
-        -d audience=find \
+        -d audience="${FIND_AUDIENCE}" \
         --data-urlencode scope="$3"
 }
 
@@ -50,9 +53,20 @@ function introspect() {
         --data-urlencode token@"$1" >"$2"
 }
 
-# has_scope <introspection file> <scope>: an action may grant several scopes
+# has_scope <introspection file> <scope>: a search action may grant several
+# search scopes, a delete action grants only the delete scope of its service
 function has_scope() {
-    [ "$(jq -r --arg scope "$2" '.scope // "" | split(" ") | any(. == $scope)' "$1")" = "true" ]
+    case "$2" in
+    *:delete) [ "$(jq -r '.scope // ""' "$1")" = "$2" ] ;;
+    *) [ "$(jq -r --arg scope "$2" '.scope // "" | split(" ") | any(. == $scope)' "$1")" = "true" ] ;;
+    esac
+}
+
+# check_token <introspection file> <context>: check what Find checks first
+function check_token() {
+    [ "$(jq -r .active "$1")" = "true" ] || fail "$2: token is not active"
+    [ "$(jq -r .aud "$1")" = "${FIND_AUDIENCE}" ] ||
+        fail "$2: expected audience ${FIND_AUDIENCE}, got $(jq -c .aud "$1")"
 }
 
 function fail() {
@@ -83,7 +97,8 @@ introspect "${tmp}/find-token" "${tmp}/introspect.json" || fail "introspection f
 jq -c '{active, sub, aud, scope, client_id, exp}' "${tmp}/introspect.json" | sed 's/^/   /'
 
 echo "4. checks"
-[ "$(jq -r .active "${tmp}/introspect.json")" = "true" ] || fail "token is not active"
+check_token "${tmp}/introspect.json" "docs asking ${ACTION}"
+echo "   ✅ the exchanged token is active, for audience ${FIND_AUDIENCE}"
 [ "$(jq -r .sub "${tmp}/introspect.json")" = "${user_sub}" ] ||
     fail "introspected sub differs from the user token's sub"
 echo "   ✅ the exchanged token carries the user's sub"
@@ -99,8 +114,7 @@ function expect_action() {
     jq -j .access_token "${tmp}/action.json" >"${tmp}/action-token"
     introspect "${tmp}/action-token" "${tmp}/action-introspect.json" ||
         fail "$1 asking $3: introspection failed"
-    [ "$(jq -r .active "${tmp}/action-introspect.json")" = "true" ] ||
-        fail "$1 asking $3: token is not active"
+    check_token "${tmp}/action-introspect.json" "$1 asking $3"
     has_scope "${tmp}/action-introspect.json" "$4" ||
         fail "$1 asking $3: expected scope $4, got $(jq -r .scope "${tmp}/action-introspect.json")"
     echo "   ✅ $1 gets $4 for $3"
