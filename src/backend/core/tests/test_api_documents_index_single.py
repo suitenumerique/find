@@ -43,6 +43,25 @@ def test_api_documents_index_single_invalid_token():
     assert response.json() == {"detail": "Invalid token."}
 
 
+def test_api_documents_index_single_regenerated_token():
+    """The previous token of a service should be rejected once regenerated."""
+    service = factories.ServiceFactory()
+    old_token = service.token
+    service.set_token()
+    service.save()
+    document = factories.DocumentSchemaFactory.build()
+
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {old_token:s}",
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Invalid token."}
+
+
 def test_api_documents_index_single_success():
     """A registered service should be able to index a document with a valid token."""
     service = factories.ServiceFactory()

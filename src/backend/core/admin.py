@@ -17,7 +17,7 @@ class ServiceAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     list_filter = ("is_active", "created_at")
     ordering = ("-created_at",)
-    readonly_fields = ("created_at", "token")
+    readonly_fields = ("created_at",)
 
 
 def selftest_view(request):
