@@ -109,7 +109,9 @@ def test_services_deletion_nothing_to_delete():
         mock.patch(
             "opensearchpy.AsyncOpenSearch.delete_by_query", new_callable=mock.AsyncMock
         ) as delete_by_query,
-        mock.patch("opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock) as bulk,
+        mock.patch(
+            "opensearchpy.AsyncOpenSearch.bulk", new_callable=mock.AsyncMock
+        ) as bulk,
     ):
         result = run_async(
             delete_documents,
