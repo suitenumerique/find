@@ -177,8 +177,11 @@ We adopt **django-ninja with async views, served over ASGI**, and integrate
 Find selects the indices a request may touch from the caller's identity. Today
 the token audience is matched to `Service.client_id`. This no longer works with
 Menshen: in its introspection response, `aud` is the target (Find itself),
-`client_id` is Menshen's own client id, and no `act` or `azp` claim names the
-source service. Find therefore cannot tell Docs from Drive from the token alone.
+not the source service. Since suitenumerique/menshen#109, `client_id` is the
+audience id of the source service (`docs`, `drive`), so Find knows who calls
+it, but not which services that caller may search: keeping that in Find would
+mean keeping `Service.services` in its admin, apart from the exchange rules
+that already decide which services may call Find.
 
 We encode **what the caller may do, and on which service's documents, in OAuth
 scopes** granted by Menshen's token exchange rules (`TokenExchangeRule` /
@@ -207,9 +210,8 @@ Find's rules:
 
 As a result, the "Allowed services for search" configuration moves from Find's
 admin to Menshen. Authorization between services is configured in one place,
-and Find only reads scopes. Emitting the RFC 8693 `act` claim (or `azp`) with
-the source service would still be useful for logging and auditing, but Find
-does not depend on it.
+and Find only reads scopes. It logs the introspected `client_id` to identify
+the calling service, but does not use it for authorization.
 
 ### Removed
 
