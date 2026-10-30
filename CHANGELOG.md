@@ -27,6 +27,7 @@ and this project adheres to
 
 ## Added
 
+- ✨(menshen) authenticate user tokens with Menshen introspection
 - ✨(admin) show service tokens once, with a copy button
 - ✨(scopes) select indices from Menshen find scopes
 - 🔧(menshen) document and check a local Menshen for Find
