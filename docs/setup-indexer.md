@@ -70,9 +70,14 @@ For each application a new **Service** must be created through the admin interfa
 | Is active                   | Toggle service availability                                                               |
 | Client id                   | Calling service client_id (e.g `impress` for docs)                                        |
 | Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
-| Token (_read-only_)         | Random token for calling service authentication                                           |
 
-And add the key in the calling application Django settings.
+When the service is created, Find shows its random token, used by the calling
+service to authenticate. Copy it then: Find only stores its hash, so it cannot
+be shown again. If it is lost, select the service in the list and run the
+**Regenerate the tokens of selected services** action, which shows a new token
+and invalidates the old one.
+
+Add the token to the calling application's Django settings.
 
 **Development Mode (Docs + Find)**
 
