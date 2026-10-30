@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 
 import sentry_sdk
 from configurations import Configuration, values
+from lasuite.configuration.values import SecretFileValue
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import ignore_logger
 
@@ -373,6 +374,25 @@ class Base(Configuration):
     OIDC_RS_SCOPES = values.ListValue(
         ["openid"], environ_name="OIDC_RS_SCOPES", environ_prefix=None
     )
+    # Menshen: introspection of the user tokens exchanged for Find (ADR-0001)
+    MENSHEN_URL = values.Value(None, environ_name="MENSHEN_URL", environ_prefix=None)
+    MENSHEN_CLIENT_ID = values.Value(
+        None, environ_name="MENSHEN_CLIENT_ID", environ_prefix=None
+    )
+    MENSHEN_CLIENT_SECRET = SecretFileValue(
+        None, environ_name="MENSHEN_CLIENT_SECRET", environ_prefix=None
+    )
+    MENSHEN_AUDIENCE = values.Value(
+        "find", environ_name="MENSHEN_AUDIENCE", environ_prefix=None
+    )
+    MENSHEN_TIMEOUT = values.FloatValue(
+        3.0, environ_name="MENSHEN_TIMEOUT", environ_prefix=None
+    )
+    # Revoked tokens stay accepted until their cached introspection expires
+    MENSHEN_INTROSPECTION_CACHE_TTL = values.PositiveIntegerValue(
+        30, environ_name="MENSHEN_INTROSPECTION_CACHE_TTL", environ_prefix=None
+    )
+
     OIDC_RS_PRIVATE_KEY_STR = values.Value(
         default=None,
         environ_name="OIDC_RS_PRIVATE_KEY_STR",
