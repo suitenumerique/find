@@ -139,7 +139,8 @@ async def bulk_index_documents(index_name, documents_data):
     await aensure_index_exists(index_name)
     response = await async_opensearch_client().bulk(index=index_name, body=actions)
     for i, item in enumerate(response["items"]):
-        if item["index"]["status"] != 201:
+        # 201 when the document is created, 200 when an existing one is updated
+        if "error" in item["index"] or not 200 <= item["index"]["status"] < 300:
             results[i]["status"] = "error"
             results[i]["message"] = (
                 item["index"].get("error", {}).get("reason", "Unknown error")

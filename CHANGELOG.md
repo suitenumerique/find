@@ -17,6 +17,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(index) report re-indexed documents as successes in bulk #194
 - 🐛(search) sort by title across languages #175
 - 🐛(delete) delete every matching document, not only the first 10 #174
 - 🔒️(services) store service tokens hashed

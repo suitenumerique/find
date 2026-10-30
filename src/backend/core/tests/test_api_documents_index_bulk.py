@@ -64,6 +64,31 @@ def test_api_documents_index_bulk_success():
     ]
 
 
+def test_api_documents_index_bulk_reindex():
+    """Re-indexing existing documents should be reported as successful."""
+    service = factories.ServiceFactory()
+    documents = factories.DocumentSchemaFactory.build_batch(2)
+
+    for _ in range(2):
+        response = Client().post(
+            "/api/v1.0/documents/index/",
+            documents,
+            HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+            content_type="application/json",
+        )
+
+        assert response.status_code == 201
+        assert response.json() == [
+            {"index": 0, "_id": documents[0]["id"], "status": "success"},
+            {"index": 1, "_id": documents[1]["id"], "status": "success"},
+        ]
+
+    indexed = opensearch.opensearch_client().get(
+        index=service.index_name, id=documents[0]["id"]
+    )
+    assert indexed["_version"] == 2
+
+
 def test_api_documents_index_bulk_ensure_index():
     """A registered service should be created the opensearch index if needed."""
     opensearch_client_ = opensearch.opensearch_client()
