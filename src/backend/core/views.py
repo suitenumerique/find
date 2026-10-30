@@ -18,7 +18,7 @@ from .services.indexing import (
     get_opensearch_indices,
     prepare_document_for_indexing,
 )
-from .services.opensearch import opensearch_client
+from .services.opensearch import opensearch_client, run_async
 from .services.search import format_hit, search
 from .utils import get_language_value
 
@@ -376,7 +376,8 @@ class SearchDocumentView(ResourceServerMixin, views.APIView):
             )
 
         logger.info("Search '%s' on indices %s", params.q, search_indices)
-        hits = search(
+        hits = run_async(
+            search,
             q=params.q,
             nb_results=params.nb_results,
             order_by=params.order_by,

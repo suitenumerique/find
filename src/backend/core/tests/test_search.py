@@ -8,6 +8,7 @@ import operator
 import pytest
 
 from core import factories
+from core.services.opensearch import run_async
 from core.services.search import search
 from core.utils import prepare_index
 
@@ -47,7 +48,7 @@ def test_match_all(caplog):
 
     q = "*"
     with caplog.at_level(logging.INFO):
-        result = search(q=q, **search_params(service))
+        result = run_async(search, q=q, **search_params(service))
 
     assert any("Performing match_all query" in message for message in caplog.messages)
     assert result["hits"]["max_score"] > 0.0
@@ -68,7 +69,9 @@ def test_search_ordering_by_relevance():
     prepare_index(service.index_name, documents)
 
     for direction in ["asc", "desc"]:
-        result = search(q=q, **{**search_params(service), "order_direction": direction})
+        result = run_async(
+            search, q=q, **{**search_params(service), "order_direction": direction}
+        )
 
         # Check that results are sorted by score as expected
         hits = result["hits"]["hits"]
@@ -103,7 +106,9 @@ def test_search_filtering_by_single_tag():
     prepare_index(service.index_name, documents_to_search + documents_to_filter)
 
     # Search for documents with tag-to-search tag
-    result = search(q="*", **{**search_params(service), "tags": ["tag-to-search"]})
+    result = run_async(
+        search, q="*", **{**search_params(service), "tags": ["tag-to-search"]}
+    )
     returned_ids = {hit["_id"] for hit in result["hits"]["hits"]}
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
@@ -141,7 +146,8 @@ def test_search_filtering_by_multiple_tags():
     prepare_index(service.index_name, documents_to_search + documents_to_filter)
 
     # Search for documents with tag-to-search-1 OR tag-to-search-2 tags
-    result = search(
+    result = run_async(
+        search,
         q="*",
         **{**search_params(service), "tags": ["tag-to-search-1", "tag-to-search-2"]},
     )
@@ -171,7 +177,7 @@ def test_search_no_tags_filter_returns_all():
     prepare_index(service.index_name, documents)
 
     # Search without tags filter
-    result = search(q="*", **search_params(service))
+    result = run_async(search, q="*", **search_params(service))
 
     assert result["hits"]["total"]["value"] == len(documents)
 
@@ -207,7 +213,9 @@ def test_search_filtering_by_tag_and_query():
     prepare_index(service.index_name, documents_to_search + documents_to_filter)
 
     # Search with both query and tag filter
-    result = search(q="search", **{**search_params(service), "tags": ["tag-to-search"]})
+    result = run_async(
+        search, q="search", **{**search_params(service), "tags": ["tag-to-search"]}
+    )
     returned_ids = {hit["_id"] for hit in result["hits"]["hits"]}
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
@@ -239,7 +247,7 @@ def test_search_filtering_by_path():
     prepare_index(service.index_name, documents_to_search + documents_to_filter)
 
     path_filter = "path/to/search"
-    result = search(q="*", **{**search_params(service), "path": path_filter})
+    result = run_async(search, q="*", **{**search_params(service), "path": path_filter})
     returned_ids = {hit["_id"] for hit in result["hits"]["hits"]}
 
     assert result["hits"]["total"]["value"] == len(documents_to_search)
@@ -306,7 +314,8 @@ def test_search_filtering_by_query_path_and_tag():
     prepare_index(service.index_name, documents_to_search + documents_to_filter)
 
     # Search with query, path and tag filters combined
-    result = search(
+    result = run_async(
+        search,
         q="search",
         **{
             **search_params(service),
