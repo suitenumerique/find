@@ -51,9 +51,9 @@ class IndexDocumentView(views.APIView):
         2. **Bulk Indexing**: If the request contains a list of documents, each document is
             validated and indexed in bulk. The response includes a detailed status of each
             document, indicating whether it was successfully indexed or if an error occurred.
-            The HTTP status code for the bulk indexing operation is `207 Multi-Status`, and the
-            response body contains information about the success or failure of each individual
-            document.
+            The HTTP status code is `201 Created` if every document was indexed and
+            `207 Multi-Status` if some failed to be indexed, and the response body contains
+            information about the success or failure of each individual document.
 
         Methods:
         -------
@@ -80,7 +80,8 @@ class IndexDocumentView(views.APIView):
               indexing fails.
 
         - **Bulk Indexing**:
-            - 207 Multi-Status if all documents formatting is correct, 400 Bad Request otherwise:
+            - 201 Created if all documents were indexed, 207 Multi-Status if some failed to be
+              indexed, 400 Bad Request if any document is invalid, in which case none is indexed.
             - Returns a list of results for all documents, with details of success and indexing
               errors.
         """
@@ -121,12 +122,16 @@ class IndexDocumentView(views.APIView):
 
         Returns:
             Response: HTTP response with detailed status for each document.
-                - 201 Created: Returns status for all documents.
+                - 201 Created: Returns status for all documents, all indexed.
+                - 207 Multi-Status: Returns status for all documents, some failed to be
+                  indexed.
                 - 400 Bad Request: Returns errors if document validation fails.
         """
         results, has_errors = run_async(bulk_index_documents, index_name, request.data)
         if has_errors:
             return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        if any(result["status"] == "error" for result in results):
+            return Response(results, status=status.HTTP_207_MULTI_STATUS)
 
         return Response(results, status=status.HTTP_201_CREATED)
 
