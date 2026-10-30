@@ -54,19 +54,32 @@ function introspect() {
 }
 
 # has_scope <introspection file> <scope>: a search action may grant several
-# search scopes, a delete action grants only the delete scope of its service
+# search scopes but no delete scope, a delete action grants only the delete
+# scope of its service
 function has_scope() {
     case "$2" in
     *:delete) [ "$(jq -r '.scope // ""' "$1")" = "$2" ] ;;
-    *) [ "$(jq -r --arg scope "$2" '.scope // "" | split(" ") | any(. == $scope)' "$1")" = "true" ] ;;
+    *) [ "$(jq -r --arg scope "$2" '.scope // "" | split(" ") |
+        any(. == $scope) and all(endswith(":search"))' "$1")" = "true" ] ;;
     esac
 }
 
-# check_token <introspection file> <context>: check what Find checks first
+# token_sub <token file>: print the sub of a JWT, without checking it
+function token_sub() {
+    cut -d. -f2 "$1" | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r .sub || true
+}
+
+# check_token <introspection file> <subject token file> <context>: check what
+# Find checks first, and that the token is still the user's
 function check_token() {
-    [ "$(jq -r .active "$1")" = "true" ] || fail "$2: token is not active"
+    [ "$(jq -r .active "$1")" = "true" ] || fail "$3: token is not active"
     [ "$(jq -r .aud "$1")" = "${FIND_AUDIENCE}" ] ||
-        fail "$2: expected audience ${FIND_AUDIENCE}, got $(jq -c .aud "$1")"
+        fail "$3: expected audience ${FIND_AUDIENCE}, got $(jq -c .aud "$1")"
+    local sub
+    sub=$(token_sub "$2")
+    { [ -n "${sub}" ] && [ "${sub}" != "null" ]; } || fail "$3: no sub in the user token"
+    [ "$(jq -r .sub "$1")" = "${sub}" ] ||
+        fail "$3: introspected sub differs from the user token's sub"
 }
 
 function fail() {
@@ -80,7 +93,7 @@ trap 'rm -rf "${tmp}"' EXIT
 echo "1. user token from Keycloak (client docs, user ${USERNAME})"
 user_token docs "${tmp}/docs-user-token" ||
     fail "could not get a user token, is Menshen bootstrapped (make demo)?"
-user_sub=$(cut -d. -f2 "${tmp}/docs-user-token" | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r .sub || true)
+user_sub=$(token_sub "${tmp}/docs-user-token")
 if [ -z "${user_sub}" ] || [ "${user_sub}" = "null" ]; then
     fail "no sub in the user token"
 fi
@@ -97,11 +110,8 @@ introspect "${tmp}/find-token" "${tmp}/introspect.json" || fail "introspection f
 jq -c '{active, sub, aud, scope, client_id, exp}' "${tmp}/introspect.json" | sed 's/^/   /'
 
 echo "4. checks"
-check_token "${tmp}/introspect.json" "docs asking ${ACTION}"
-echo "   ✅ the exchanged token is active, for audience ${FIND_AUDIENCE}"
-[ "$(jq -r .sub "${tmp}/introspect.json")" = "${user_sub}" ] ||
-    fail "introspected sub differs from the user token's sub"
-echo "   ✅ the exchanged token carries the user's sub"
+check_token "${tmp}/introspect.json" "${tmp}/docs-user-token" "docs asking ${ACTION}"
+echo "   ✅ the exchanged token is active, for audience ${FIND_AUDIENCE}, with the user's sub"
 has_scope "${tmp}/introspect.json" "${GRANTED_SCOPE}" ||
     fail "expected scope ${GRANTED_SCOPE}, got $(jq -r .scope "${tmp}/introspect.json")"
 echo "   ✅ the exchanged token carries ${GRANTED_SCOPE}, granted for ${ACTION}"
@@ -114,7 +124,7 @@ function expect_action() {
     jq -j .access_token "${tmp}/action.json" >"${tmp}/action-token"
     introspect "${tmp}/action-token" "${tmp}/action-introspect.json" ||
         fail "$1 asking $3: introspection failed"
-    check_token "${tmp}/action-introspect.json" "$1 asking $3"
+    check_token "${tmp}/action-introspect.json" "$2" "$1 asking $3"
     has_scope "${tmp}/action-introspect.json" "$4" ||
         fail "$1 asking $3: expected scope $4, got $(jq -r .scope "${tmp}/action-introspect.json")"
     echo "   ✅ $1 gets $4 for $3"

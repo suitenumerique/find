@@ -83,8 +83,9 @@ exchanges it with Menshen for audience `find` with the
 `action:search-find-docs` action scope, introspects it as Find, and checks that
 the token is active for audience `find`, that the user's `sub` is preserved and
 that `find:docs:search` is granted. It then checks that the other actions of
-Docs and Drive grant their scope, a delete action no other scope, and that
-ungranted exchanges are refused.
+Docs and Drive grant their scope to the same user, a delete action no other
+scope and a search action no delete scope, and that ungranted exchanges are
+refused.
 
 ## Exchange a token by hand
 
