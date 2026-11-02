@@ -1,5 +1,7 @@
 """Fixtures shared by all tests of the find backend"""
 
+from django.core.cache import cache
+
 import pytest
 from faker import Faker
 from opensearchpy.exceptions import NotFoundError
@@ -31,3 +33,9 @@ def cleanup_test_index(settings):
         client.indices.delete(index=f"{prefix}-*")
     except NotFoundError:
         pass
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Start each test with an empty cache, e.g. no cached token introspection"""
+    cache.clear()

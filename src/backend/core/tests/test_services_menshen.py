@@ -26,12 +26,6 @@ from .utils import MENSHEN_TOKEN, setup_menshen_introspection
 authenticate = async_to_sync(authenticate_token)
 
 
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """Introspection results are cached: start each test with an empty cache"""
-    cache.clear()
-
-
 @responses.activate
 def test_services_menshen_valid_token(settings):
     """A valid token should authenticate its user with the granted scopes."""
