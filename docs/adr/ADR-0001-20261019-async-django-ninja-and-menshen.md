@@ -13,6 +13,7 @@ Accepted (2026-10-27). Implementation plan amended (2026-10-27): no spike,
 and a single switch from DRF to django-ninja. Amended (2026-10-29): scopes are
 granted through Menshen's action scopes (suitenumerique/menshen#106), the
 introspection cache is settled, and Menshen alone checks the token format.
+Step 3 of the implementation plan done (2026-11-02, #195).
 
 ## Context
 
@@ -148,6 +149,8 @@ We adopt **django-ninja with async views, served over ASGI**, and integrate
 
 - **API**: django-ninja; `async def` endpoints; Pydantic request **and
   response** schemas; a single exception handler producing one error format.
+  The format is unified after the switch, as its own API change: the switch
+  keeps the current status codes and error bodies (see step 4).
 - **Server**: ASGI with uvicorn (as Menshen does), or gunicorn with uvicorn
   workers; replaces the WSGI gunicorn setup in the Dockerfile and Helm chart.
 - **OpenSearch**: `opensearchpy.AsyncOpenSearch` (the `async` extra), one
@@ -241,6 +244,13 @@ authorization.
 separately (#183); if they are removed, a shared cache for introspection still
 needs a backend.
 
+django-lasuite 1.0.0 is available and splits its dependencies into extras.
+Find requires `django-lasuite[all]==0.0.26` today. Once DRF and the
+resource-server dependencies are removed, Find only uses
+`lasuite.configuration` (`SecretFileValue`), so it can require
+`django-lasuite[configuration]>=1.0.0`, which only depends on
+django-configurations.
+
 ## Open questions (to settle with the Menshen team before implementation)
 
 1. **Introspection on every request.** At the time of writing, Menshen exposes
@@ -322,11 +332,20 @@ needs a backend.
    service functions, hashed service tokens, and the fixes for #172–#175
    that do not depend on authentication. Each piece is tested on its own.
 4. **Switch from DRF to django-ninja in a single change**: the three endpoints
-   move to async ninja at the same URLs, user authentication moves to Menshen
-   and service selection to scopes, and DRF, drf-spectacular and the
-   resource-server code are removed. DRF and ninja never serve the API side by
-   side. The endpoint tests stay unchanged except for the authentication helper
-   and the bugs it fixes.
+   move to async ninja at the same URLs and await the async service functions
+   of step 3. User authentication moves to Menshen
+   (`core.services.menshen.authenticate_token`), service selection to scopes
+   (`core.services.scopes`), and indexing authenticates with
+   `core.services.service_tokens.get_service_by_token`. DRF, drf-spectacular,
+   the resource-server code and its settings and URLs, and the bridges of
+   step 3 (`run_async`, DRF's `ValidationError` in `core.services.opensearch`)
+   are removed, and the dependency on django-lasuite becomes
+   `django-lasuite[configuration]>=1.0.0` (see "Removed"). DRF and ninja
+   never serve the API side by side. The endpoint tests stay unchanged except
+   for the authentication helper and the bugs it fixes (#172, #173: remove
+   their `xfail` markers). Ninja exception handlers keep the status codes and
+   error bodies the tests pin: DRF's `{"detail": ...}` messages, and Pydantic
+   error lists answered with 400 rather than ninja's 422.
 5. **Clean up and switch deployment to ASGI**: remove `Service.client_id` and
    `Service.services`, keep only async-capable middleware (#177), switch the
    Dockerfile, gunicorn config and Helm chart to ASGI, and update
