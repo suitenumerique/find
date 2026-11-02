@@ -209,8 +209,6 @@ class Base(Configuration):
         "django.contrib.sites",
         "django.contrib.messages",
         "django.contrib.staticfiles",
-        # OIDC third party
-        "mozilla_django_oidc",
     ]
 
     # Cache
@@ -266,79 +264,6 @@ class Base(Configuration):
     SESSION_CACHE_ALIAS = "default"
     SESSION_COOKIE_AGE = 60 * 60 * 12
 
-    # OIDC - Authorization Code Flow
-    OIDC_CREATE_USER = values.BooleanValue(
-        default=True,
-        environ_name="OIDC_CREATE_USER",
-    )
-    OIDC_RP_SIGN_ALGO = values.Value(
-        "RS256", environ_name="OIDC_RP_SIGN_ALGO", environ_prefix=None
-    )
-    OIDC_RP_CLIENT_ID = values.Value(
-        "find", environ_name="OIDC_RP_CLIENT_ID", environ_prefix=None
-    )
-    OIDC_RP_CLIENT_SECRET = values.Value(
-        None,
-        environ_name="OIDC_RP_CLIENT_SECRET",
-        environ_prefix=None,
-    )
-    OIDC_OP_URL = values.Value(None, environ_name="OIDC_OP_URL", environ_prefix=None)
-    OIDC_OP_JWKS_ENDPOINT = values.Value(
-        environ_name="OIDC_OP_JWKS_ENDPOINT", environ_prefix=None
-    )
-    OIDC_OP_INTROSPECTION_ENDPOINT = values.Value(
-        environ_name="OIDC_OP_INTROSPECTION_ENDPOINT", environ_prefix=None
-    )
-    OIDC_OP_AUTHORIZATION_ENDPOINT = values.Value(
-        environ_name="OIDC_OP_AUTHORIZATION_ENDPOINT", environ_prefix=None
-    )
-    OIDC_OP_TOKEN_ENDPOINT = values.Value(
-        None, environ_name="OIDC_OP_TOKEN_ENDPOINT", environ_prefix=None
-    )
-    OIDC_OP_USER_ENDPOINT = values.Value(
-        None, environ_name="OIDC_OP_USER_ENDPOINT", environ_prefix=None
-    )
-    OIDC_OP_LOGOUT_ENDPOINT = values.Value(
-        None, environ_name="OIDC_OP_LOGOUT_ENDPOINT", environ_prefix=None
-    )
-    OIDC_AUTH_REQUEST_EXTRA_PARAMS = values.DictValue(
-        {}, environ_name="OIDC_AUTH_REQUEST_EXTRA_PARAMS", environ_prefix=None
-    )
-    OIDC_RP_SCOPES = values.Value(
-        "openid email", environ_name="OIDC_RP_SCOPES", environ_prefix=None
-    )
-
-    # OIDC - Resource server
-    OIDC_DRF_AUTH_BACKEND = values.Value(
-        "lasuite.oidc_login.backends.OIDCAuthenticationBackend",
-        environ_name="OIDC_DRF_AUTH_BACKEND",
-        environ_prefix=None,
-    )
-
-    OIDC_RS_BACKEND_CLASS = values.Value(
-        "core.authentication.FinderResourceServerBackend",
-        environ_name="OIDC_RS_BACKEND_CLASS",
-        environ_prefix=None,
-    )
-    OIDC_RS_AUDIENCE_CLAIM = values.Value(
-        "client_id",
-        environ_name="OIDC_RS_AUDIENCE_CLAIM",
-        environ_prefix=None,
-    )
-    OIDC_RS_CLIENT_ID = values.Value(
-        None, environ_name="OIDC_RS_CLIENT_ID", environ_prefix=None
-    )
-    OIDC_RS_CLIENT_SECRET = values.Value(
-        None,
-        environ_name="OIDC_RS_CLIENT_SECRET",
-        environ_prefix=None,
-    )
-    OIDC_RS_SIGNING_ALGO = values.Value(
-        default="ES256", environ_name="OIDC_RS_SIGNING_ALGO", environ_prefix=None
-    )
-    OIDC_RS_SCOPES = values.ListValue(
-        ["openid"], environ_name="OIDC_RS_SCOPES", environ_prefix=None
-    )
     # Menshen: introspection of the user tokens exchanged for Find (ADR-0001)
     MENSHEN_URL = values.Value(None, environ_name="MENSHEN_URL", environ_prefix=None)
     MENSHEN_CLIENT_ID = values.Value(
@@ -356,58 +281,6 @@ class Base(Configuration):
     # Revoked tokens stay accepted until their cached introspection expires
     MENSHEN_INTROSPECTION_CACHE_TTL = values.PositiveIntegerValue(
         30, environ_name="MENSHEN_INTROSPECTION_CACHE_TTL", environ_prefix=None
-    )
-
-    OIDC_RS_PRIVATE_KEY_STR = values.Value(
-        default=None,
-        environ_name="OIDC_RS_PRIVATE_KEY_STR",
-        environ_prefix=None,
-    )
-    OIDC_RS_ENCRYPTION_KEY_TYPE = values.Value(
-        default="RSA",
-        environ_name="OIDC_RS_ENCRYPTION_KEY_TYPE",
-        environ_prefix=None,
-    )
-    OIDC_RS_ENCRYPTION_ALGO = values.Value(
-        default="RSA-OAEP",
-        environ_name="OIDC_RS_ENCRYPTION_ALGO",
-        environ_prefix=None,
-    )
-    OIDC_RS_ENCRYPTION_ENCODING = values.Value(
-        default="A256GCM",
-        environ_name="OIDC_RS_ENCRYPTION_ENCODING",
-        environ_prefix=None,
-    )
-
-    OIDC_VERIFY_SSL = values.BooleanValue(
-        True, environ_name="OIDC_VERIFY_SSL", environ_prefix=None
-    )
-    OIDC_TIMEOUT = values.Value(None, environ_name="OIDC_TIMEOUT", environ_prefix=None)
-    OIDC_PROXY = values.Value(None, environ_name="OIDC_PROXY", environ_prefix=None)
-
-    LOGIN_REDIRECT_URL = values.Value(
-        None, environ_name="LOGIN_REDIRECT_URL", environ_prefix=None
-    )
-    LOGIN_REDIRECT_URL_FAILURE = values.Value(
-        None, environ_name="LOGIN_REDIRECT_URL_FAILURE", environ_prefix=None
-    )
-    LOGOUT_REDIRECT_URL = values.Value(
-        None, environ_name="LOGOUT_REDIRECT_URL", environ_prefix=None
-    )
-    OIDC_USE_NONCE = values.BooleanValue(
-        default=True, environ_name="OIDC_USE_NONCE", environ_prefix=None
-    )
-    OIDC_REDIRECT_REQUIRE_HTTPS = values.BooleanValue(
-        default=False, environ_name="OIDC_REDIRECT_REQUIRE_HTTPS", environ_prefix=None
-    )
-    OIDC_REDIRECT_ALLOWED_HOSTS = values.ListValue(
-        default=[], environ_name="OIDC_REDIRECT_ALLOWED_HOSTS", environ_prefix=None
-    )
-    OIDC_STORE_ID_TOKEN = values.BooleanValue(
-        default=True, environ_name="OIDC_STORE_ID_TOKEN", environ_prefix=None
-    )
-    ALLOW_LOGOUT_GET_METHOD = values.BooleanValue(
-        default=True, environ_name="ALLOW_LOGOUT_GET_METHOD", environ_prefix=None
     )
 
     # API documentation

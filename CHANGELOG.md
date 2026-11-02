@@ -13,6 +13,7 @@ and this project adheres to
 - 💥(api) serve the endpoints with async django-ninja instead of DRF
 - 💥(api) authenticate search and delete with Menshen-exchanged tokens
 - 💥(api) select the searched and deleted services from Menshen scopes
+- ➖(dependencies) remove DRF, drf-spectacular and the OIDC resource server
 - 💥(search) return a stable response contract instead of raw hits #179
 - ⚡️(search) query OpenSearch with an async client
 - ⚡️(delete) delete documents with the async OpenSearch client
