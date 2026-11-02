@@ -1,8 +1,8 @@
 # Using the Find indexer
 
 This guide explains how to setup the Find service which provide an API for indexation and fulltext search of
-documents from various sources in a secure way: only the documents within the scope of the user's OIDC token
-are visible.
+documents from various sources in a secure way: only the documents the user may access, in the services
+granted by the user's token, are visible.
 
 ## Setup OpenSearch
 
@@ -64,12 +64,14 @@ Other applications can index their files through the **`/index/`** endpoint with
 For each application a new **Service** must be created through the admin interface
 (see http://localhost:9071/admin/core/service/add/)
 
-| Field                       | Description                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Name                        | Name of the service and also the name of the index in Opensearch database                 |
-| Is active                   | Toggle service availability                                                               |
-| Client id                   | Calling service client_id (e.g `impress` for docs)                                        |
-| Allowed services for search | List of sub-services. Will add the results from all these index<br>to the search results. |
+| Field     | Description                                                               |
+| --------- | ------------------------------------------------------------------------- |
+| Name      | Name of the service and also the name of the index in Opensearch database |
+| Is active | Toggle service availability                                               |
+
+The **Client id** and **Allowed services for search** fields are no longer used:
+the services a caller may search or delete from are granted by Menshen scopes
+(see below). They will be removed.
 
 When the service is created, Find shows its random token, used by the calling
 service to authenticate. Copy it then: Find only stores its hash, so it cannot
@@ -93,42 +95,35 @@ SEARCH_INDEXER_SECRET="find-api-key-for-docs-with-exactly-50-chars-length"
 SEARCH_INDEXER_SECRET="find-api-key-for-driv-with-exactly-50-chars-length"
 ```
 
-## Setup search API
+## Setup search and delete API
 
-The **`/search/`** endpoint is an OIDC ResourceServer view and needs extra Django settings (see [django-lasuite](https://github.com/suitenumerique/django-lasuite/blob/main/documentation/how-to-use-oidc-resource-server-backend.md) for details)
+The **`/search/`** and **`/delete/`** endpoints authenticate users with access
+tokens exchanged with [Menshen](https://github.com/suitenumerique/menshen)
+(OAuth 2.0 Token Exchange): the calling service exchanges the user's access
+token for a token targeting Find, and sends it as a bearer token. Find
+introspects it with Menshen, and caches the result for a few seconds.
 
 ```shell
-OIDC_OP_JWKS_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/certs
-OIDC_OP_AUTHORIZATION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/auth
-OIDC_OP_TOKEN_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token
-OIDC_OP_USER_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/userinfo
-
-# To run Find in development mode along other projects like docs/impress
-# we should to use OIDC endpoints on a common keycloak realm. e.g :
-# OIDC_OP_URL = http://nginx:8083/realms/impress
-#
-# This will cause a conflict with the 'iss' claim validation rule because the docs realm
-# gives {'iss': 'http://localhost:8083/realms/impress'} so it must be the same
-OIDC_OP_URL=http://localhost:8083/realms/impress
-
-# Introspection endpoint is needed to get the "audience" and "sub" from the user token
-OIDC_OP_INTROSPECTION_ENDPOINT=http://nginx:8083/realms/impress/protocol/openid-connect/token/introspect
-
-# In development, the resource server use insecure settings
-# OIDC_VERIFY_SSL=False
-
-# Resource server
-OIDC_RS_SCOPES="openid"
-OIDC_RS_SIGN_ALGO=RS256
-
-# This backend allows authentication without any model in database.
-OIDC_RS_BACKEND_CLASS="core.authentication.FinderResourceServerBackend"
+# Menshen root URL
+MENSHEN_URL=http://menshen:8000
+# Find's credentials in Menshen, to introspect the user tokens
+MENSHEN_CLIENT_ID=find
+MENSHEN_CLIENT_SECRET=find-secret
+# Find's audience id in Menshen, expected in the introspected tokens
+MENSHEN_AUDIENCE=find
 ```
 
-## Development mode (Docs + Find)
+The token's scopes select the services whose documents the request may touch:
 
-Docs and Find projects stacks can be run together but must have the same Keycloak server.
+- `find:<service>:search` allows searching the documents indexed by `<service>`.
+  The search covers all the granted services, or only the services requested
+  with the `services` parameter, which must all be granted (otherwise 400).
+- `find:<service>:delete` allows deleting the documents indexed by `<service>`,
+  the `service` parameter of the request.
 
-So the endpoints of Docs on the 'nginx' domain for ResourceServer authentication and introspection are also used for Find.
+A token granting no applicable scope is answered with a 403. Scopes naming an
+unknown or inactive service are ignored. Inside the granted services, users
+only get the documents they may access (`users`, `reach` and `visited`).
 
-**IMPORTANT:** Keep `OIDC_OP_URL` on 'localhost' or it will break the OIDC token claims validation : the `iss` claim from the token of the 'impress' users are 'localhost' and not 'nginx'.
+These scopes are configured in Menshen, see
+[setup-menshen.md](setup-menshen.md) for a local setup.
