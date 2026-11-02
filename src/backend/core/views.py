@@ -13,6 +13,7 @@ from . import schemas
 from .authentication import MenshenBearer, ServiceTokenBearer
 from .services.deletion import delete_documents
 from .services.indexing import bulk_index_documents, index_document
+from .services.menshen import close_client as close_menshen_client
 from .services.opensearch import close_async_opensearch_client
 from .services.scopes import get_delete_index, get_search_indices
 from .services.search import format_hit, search
@@ -20,11 +21,11 @@ from .services.search import format_hit, search
 logger = logging.getLogger(__name__)
 
 
-def close_opensearch_client_after_wsgi_request(func):
+def close_clients_after_wsgi_request(func):
     """
     Under WSGI, Django runs each async view in its own event loop, which ends with
-    the request: close the AsyncOpenSearch client of this loop before it does. Under
-    ASGI, the event loop and its client live as long as the process.
+    the request: close the AsyncOpenSearch and Menshen clients of this loop before
+    it does. Under ASGI, the event loop and its clients live as long as the process.
     """
 
     @functools.wraps(func)
@@ -34,12 +35,14 @@ def close_opensearch_client_after_wsgi_request(func):
         finally:
             if not isinstance(request, ASGIRequest):
                 await close_async_opensearch_client()
+                await close_menshen_client()
 
     return wrapper
 
 
 router = Router()
-router.add_decorator(close_opensearch_client_after_wsgi_request)
+# In "view" mode, the decorator also wraps the authentication, which uses Menshen
+router.add_decorator(close_clients_after_wsgi_request, mode="view")
 
 USER_ERRORS = {
     400: Union[List[schemas.ValidationErrorSchema], schemas.ErrorSchema],

@@ -4,16 +4,20 @@ import asyncio
 import hashlib
 import logging
 import re
-import threading
 import time
+import weakref
 from dataclasses import dataclass, field
 from http import HTTPStatus
 
 from django.conf import settings
 from django.core.cache import cache
 
-import requests
-from menshen_client import Configuration, IntrospectionRequest, TokenExchangeClient
+import httpx2
+from menshen_client import (
+    Configuration,
+    IntrospectionRequest,
+    TokenExchangeAsyncClient,
+)
 from menshen_client.exceptions import ResponseParsingError
 
 logger = logging.getLogger(__name__)
@@ -25,9 +29,9 @@ TOKEN_PATTERN = re.compile(r"\S+")
 # Cached for tokens Menshen rejected, which cannot become valid again
 REJECTED = "rejected"
 
-# requests sessions are not guaranteed to be thread-safe, so each thread running
-# an introspection gets its own client
-_clients = threading.local()
+# TokenExchangeAsyncClient holds an httpx2 connection pool bound to the event loop
+# it was first used in, so clients cannot be shared between loops.
+_clients = weakref.WeakKeyDictionary()
 
 
 class MenshenUnavailable(Exception):
@@ -45,19 +49,30 @@ class MenshenUser:
     is_authenticated: bool = field(default=True, init=False)
 
 
-def get_client():
-    """Get the Menshen client of the current thread for the current settings"""
+async def get_client():
+    """Get the Menshen client of the running event loop for the current settings"""
     config = Configuration(
         client_id=settings.MENSHEN_CLIENT_ID,
         client_secret=settings.MENSHEN_CLIENT_SECRET,
         server_root_url=settings.MENSHEN_URL,
         requests_timeout=settings.MENSHEN_TIMEOUT,
     )
-    client = getattr(_clients, "client", None)
-    if client is None or client.config != config:
-        client = TokenExchangeClient(config)
-        _clients.client = client
+    loop = asyncio.get_running_loop()
+    client = _clients.get(loop)
+    if client is not None and client.config != config:
+        await client.aclose()
+        client = None
+    if client is None:
+        client = TokenExchangeAsyncClient(config)
+        _clients[loop] = client
     return client
+
+
+async def close_client():
+    """Close the Menshen client of the running event loop, if any"""
+    client = _clients.pop(asyncio.get_running_loop(), None)
+    if client is not None:
+        await client.aclose()
 
 
 def get_cache_key(token):
@@ -65,7 +80,7 @@ def get_cache_key(token):
     return f"{CACHE_KEY_PREFIX}:{hashlib.sha256(token.encode()).hexdigest()}"
 
 
-def introspect(token):
+async def introspect(token):
     """
     Introspect a token with Menshen.
 
@@ -75,15 +90,29 @@ def introspect(token):
     Raises:
         MenshenUnavailable: if Menshen could not introspect the token.
     """
+    if not all(
+        (
+            settings.MENSHEN_URL,
+            settings.MENSHEN_CLIENT_ID,
+            settings.MENSHEN_CLIENT_SECRET,
+        )
+    ):
+        logger.error(
+            "Menshen is not configured: MENSHEN_URL, MENSHEN_CLIENT_ID and "
+            "MENSHEN_CLIENT_SECRET are required"
+        )
+        raise MenshenUnavailable()
+
+    client = await get_client()
     try:
-        return get_client().introspect(IntrospectionRequest(token=token))
-    except requests.HTTPError as error:
+        return await client.introspect(IntrospectionRequest(token=token))
+    except httpx2.HTTPStatusError as error:
         if error.response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
             logger.warning("Menshen refused the format of a token")
             return None
         logger.error("Menshen could not introspect a token: %s", error)
         raise MenshenUnavailable() from error
-    except (requests.RequestException, ResponseParsingError) as error:
+    except (httpx2.HTTPError, ResponseParsingError) as error:
         logger.error("Menshen could not introspect a token: %s", error)
         raise MenshenUnavailable() from error
 
@@ -126,7 +155,7 @@ async def authenticate_token(token):
     if cached is not None:
         return None if cached == REJECTED else cached
 
-    response = await asyncio.to_thread(introspect, token)
+    response = await introspect(token)
     now = int(time.time())
     user = None if response is None else get_user(response, now)
 

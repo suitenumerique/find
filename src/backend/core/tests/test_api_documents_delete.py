@@ -4,7 +4,6 @@ from django.test import Client
 
 import opensearchpy
 import pytest
-import responses
 
 from core import factories
 from core.services.opensearch import opensearch_client
@@ -29,10 +28,9 @@ def test_api_documents_delete_anonymous():
     }
 
 
-@responses.activate
-def test_api_documents_delete_wrong_service_name(settings):
+def test_api_documents_delete_wrong_service_name(settings, httpx2_mock):
     """Requests with a wrong service name should return 400 Bad Request."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -46,10 +44,9 @@ def test_api_documents_delete_wrong_service_name(settings):
     assert response.json() == {"detail": "Invalid request."}
 
 
-@responses.activate
-def test_api_documents_delete_invalid_token(settings):
+def test_api_documents_delete_invalid_token(settings, httpx2_mock):
     """A token rejected by Menshen should not be allowed to delete documents."""
-    setup_menshen_introspection(responses, settings, active=False)
+    setup_menshen_introspection(httpx2_mock, settings, active=False)
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -63,10 +60,9 @@ def test_api_documents_delete_invalid_token(settings):
     assert response.json() == {"detail": "Invalid token."}
 
 
-@responses.activate
-def test_api_documents_delete_without_delete_scope(settings):
+def test_api_documents_delete_without_delete_scope(settings, httpx2_mock):
     """A token granting no find delete scope should get a 403, even to search."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:search")
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(1, users=["user_sub"])
     prepare_index(service.index_name, documents)
@@ -87,10 +83,9 @@ def test_api_documents_delete_without_delete_scope(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_scope_of_another_service(settings):
+def test_api_documents_delete_scope_of_another_service(settings, httpx2_mock):
     """A delete scope only allows deleting the documents of its own service."""
-    setup_menshen_introspection(responses, settings, scope="find:drive:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:drive:delete")
     factories.ServiceFactory(name="drive")
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(1, users=["user_sub"])
@@ -110,10 +105,9 @@ def test_api_documents_delete_scope_of_another_service(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_success(settings):
+def test_api_documents_delete_success(settings, httpx2_mock):
     """Authenticated users should be able to delete documents they have access to."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
 
     service = factories.ServiceFactory(name="docs")
     # Create documents user has access to
@@ -141,10 +135,9 @@ def test_api_documents_delete_success(settings):
             assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_no_access(settings):
+def test_api_documents_delete_no_access(settings, httpx2_mock):
     """Users should not be able to delete documents they don't have access to."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
     # Create documents where user_sub does NOT have access
     documents = factories.DocumentSchemaFactory.build_batch(2, users=["other_sub"])
@@ -172,10 +165,9 @@ def test_api_documents_delete_no_access(settings):
         assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_mixed_access(settings):
+def test_api_documents_delete_mixed_access(settings, httpx2_mock):
     """Deleting a mix of owned and non-owned documents should only delete owned ones."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
 
     service = factories.ServiceFactory(name="docs")
     # Create documents with different access
@@ -218,10 +210,9 @@ def test_api_documents_delete_mixed_access(settings):
         assert document["found"]
 
 
-@responses.activate
-def test_api_documents_delete_missing_document_ids_and_tags(settings):
+def test_api_documents_delete_missing_document_ids_and_tags(settings, httpx2_mock):
     """Requests missing both document_ids and tags should return 400."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -241,10 +232,9 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_empty_document_ids(settings):
+def test_api_documents_delete_empty_document_ids(settings, httpx2_mock):
     """Requests with empty document_ids and no tags should return 400."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -264,10 +254,9 @@ def test_api_documents_delete_empty_document_ids(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_both_filters_empty(settings):
+def test_api_documents_delete_both_filters_empty(settings, httpx2_mock):
     """Requests with both document_ids and tags empty should return 400."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -287,10 +276,9 @@ def test_api_documents_delete_both_filters_empty(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_missing_service(settings):
+def test_api_documents_delete_missing_service(settings, httpx2_mock):
     """Requests missing the service field should return 400."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -305,10 +293,9 @@ def test_api_documents_delete_missing_service(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_too_many_document_ids(settings):
+def test_api_documents_delete_too_many_document_ids(settings, httpx2_mock):
     """Requests with more than 1000 document ids should return 400."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -328,13 +315,12 @@ def test_api_documents_delete_too_many_document_ids(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_delete_nonexistent_documents(settings):
+def test_api_documents_delete_nonexistent_documents(settings, httpx2_mock):
     """
     Deleting non-existent documents should not raise an error
     and return the list of undeleted ids.
     """
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
     # Create index but with no documents
     prepare_index(service.index_name, [])
@@ -353,14 +339,15 @@ def test_api_documents_delete_nonexistent_documents(settings):
     }
 
 
-@responses.activate
 @pytest.mark.parametrize(
     "filters,undeleted_ids",
     [({"document_ids": ["some-id"]}, ["some-id"]), ({"tags": ["tag"]}, [])],
 )
-def test_api_documents_delete_service_without_index(settings, filters, undeleted_ids):
+def test_api_documents_delete_service_without_index(
+    settings, httpx2_mock, filters, undeleted_ids
+):
     """Deleting from a service that never indexed documents should delete nothing."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -377,13 +364,12 @@ def test_api_documents_delete_service_without_index(settings, filters, undeleted
     }
 
 
-@responses.activate
 @pytest.mark.flaky(
     reruns=2, reason="OpenSearch index race condition under high parallelism"
 )
-def test_api_documents_delete_by_single_tag(settings):
+def test_api_documents_delete_by_single_tag(settings, httpx2_mock):
     """Users should be able to delete documents by tags."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     document_to_deletes = [
@@ -425,10 +411,9 @@ def test_api_documents_delete_by_single_tag(settings):
         assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_by_multiple_tags(settings):
+def test_api_documents_delete_by_multiple_tags(settings, httpx2_mock):
     """Users should be able to delete documents matching any of multiple tags."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     document_to_deletes = [
@@ -473,10 +458,9 @@ def test_api_documents_delete_by_multiple_tags(settings):
         assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_by_ids_and_tags(settings):
+def test_api_documents_delete_by_ids_and_tags(settings, httpx2_mock):
     """Users should be able to delete documents by both IDs and tags (AND logic)."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     document_delete_by_tag_and_id = factories.DocumentSchemaFactory.build(
@@ -530,11 +514,10 @@ def test_api_documents_delete_by_ids_and_tags(settings):
     assert doc["found"]
 
 
-@responses.activate
-def test_api_documents_delete_service_with_sub_services(settings):
+def test_api_documents_delete_service_with_sub_services(settings, httpx2_mock):
     """Deletion should target the index of the requested service."""
     setup_menshen_introspection(
-        responses, settings, scope="find:test-index-a:delete find:test-index-c:delete"
+        httpx2_mock, settings, scope="find:test-index-a:delete find:test-index-c:delete"
     )
 
     service_a = factories.ServiceFactory(name="test-index-a")
@@ -564,10 +547,9 @@ def test_api_documents_delete_service_with_sub_services(settings):
         }
 
 
-@responses.activate
-def test_api_documents_delete_more_than_ten_documents(settings):
+def test_api_documents_delete_more_than_ten_documents(settings, httpx2_mock):
     """All the matching documents should be deleted, not only the first 10."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:delete")
     service = factories.ServiceFactory(name="docs")
 
     documents = factories.DocumentSchemaFactory.build_batch(

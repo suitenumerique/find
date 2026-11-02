@@ -5,7 +5,6 @@ Test suite for the authentication of the API requests
 from django.test import RequestFactory
 
 import pytest
-import responses
 from asgiref.sync import async_to_sync
 from ninja.errors import AuthenticationError, AuthorizationError
 
@@ -13,7 +12,12 @@ from core import factories
 from core.authentication import MenshenBearer, ServiceTokenBearer
 from core.services.menshen import MenshenUnavailable, MenshenUser
 
-from .utils import MENSHEN_TOKEN, setup_menshen_introspection
+from .utils import (
+    MENSHEN_INTROSPECTION_URL,
+    MENSHEN_TOKEN,
+    setup_menshen,
+    setup_menshen_introspection,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -41,11 +45,10 @@ def test_authentication_menshen_not_provided(authorization):
     assert str(error.value) == "Authentication credentials were not provided."
 
 
-@responses.activate
 @pytest.mark.parametrize("scheme", ["Bearer", "bearer"])
-def test_authentication_menshen_valid_token(settings, scheme):
+def test_authentication_menshen_valid_token(settings, httpx2_mock, scheme):
     """A token accepted by Menshen should authenticate its user."""
-    setup_menshen_introspection(responses, settings, scope="find:docs:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:docs:search")
 
     user = authenticate(MenshenBearer(), f"{scheme} {MENSHEN_TOKEN}")
 
@@ -54,10 +57,9 @@ def test_authentication_menshen_valid_token(settings, scheme):
     )
 
 
-@responses.activate
-def test_authentication_menshen_rejected_token(settings):
+def test_authentication_menshen_rejected_token(settings, httpx2_mock):
     """A token rejected by Menshen should get a 401."""
-    setup_menshen_introspection(responses, settings, active=False)
+    setup_menshen_introspection(httpx2_mock, settings, active=False)
 
     with pytest.raises(AuthenticationError) as error:
         authenticate(MenshenBearer(), f"Bearer {MENSHEN_TOKEN}")
@@ -66,14 +68,11 @@ def test_authentication_menshen_rejected_token(settings):
     assert str(error.value) == "Invalid token."
 
 
-@responses.activate
-def test_authentication_menshen_unavailable(settings):
+def test_authentication_menshen_unavailable(settings, httpx2_mock):
     """Menshen being unavailable should not be answered as a rejected token."""
-    setup_menshen_introspection(responses, settings)
-    responses.replace(
-        responses.POST,
-        "https://menshen.example.com/auth/token/introspect/",
-        status=500,
+    setup_menshen(settings)
+    httpx2_mock.add_response(
+        method="POST", url=MENSHEN_INTROSPECTION_URL, status_code=500
     )
 
     with pytest.raises(MenshenUnavailable):

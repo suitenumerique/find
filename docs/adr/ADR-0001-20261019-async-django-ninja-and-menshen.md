@@ -178,10 +178,11 @@ We adopt **django-ninja with async views, served over ASGI**, and integrate
   of a user, and indexing happens without one). Tokens are stored hashed rather
   than in plaintext.
 - **Async Menshen client**: `menshen_client` uses blocking `requests`. An async
-  client (`TokenExchangeAsyncClient`, based on httpx) was added upstream in
+  client (`TokenExchangeAsyncClient`, based on httpx2) was added upstream in
   suitenumerique/menshen#110, and we use it rather than maintain a private
-  copy. Until it is released (Find uses 0.2.0, the latest release when step 4
-  was done), the sync client is called through `asyncio.to_thread`.
+  copy. *Done*: Find uses it since `menshen-client` 0.3.0, with one client per
+  event loop, like `AsyncOpenSearch`; the sync client was called through
+  `asyncio.to_thread` until then.
 
 ### Service identification by scopes
 
@@ -317,7 +318,8 @@ django-configurations.
   query time rather than waiting. Find is not deployed yet, so this can only be
   measured once it runs on ASGI with real traffic.
 - The `menshen_client` async contribution could be delayed; the
-  `asyncio.to_thread` fallback limits this risk.
+  `asyncio.to_thread` fallback limits this risk. *Resolved*: released in
+  `menshen-client` 0.3.0.
 
 ## Implementation plan
 

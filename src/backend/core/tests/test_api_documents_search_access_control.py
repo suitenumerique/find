@@ -10,7 +10,6 @@ import random
 from django.test import Client
 
 import pytest
-import responses
 
 from core import enums, factories
 from core.utils import prepare_index
@@ -38,8 +37,7 @@ def test_api_documents_search_access_control_anonymous():
     assert response.status_code == 401
 
 
-@responses.activate
-def test_api_documents_search_access_control(settings):
+def test_api_documents_search_access_control(settings, httpx2_mock):
     """
     Authenticated users should only see documents:
     - for which they are listed in the "users" field
@@ -47,7 +45,7 @@ def test_api_documents_search_access_control(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemented)
     """
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -73,7 +71,6 @@ def test_api_documents_search_access_control(settings):
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
-@responses.activate
 @pytest.mark.parametrize(
     "doc_ids,visited,expected",
     [
@@ -88,13 +85,13 @@ def test_api_documents_search_access_control(settings):
     ],
 )
 def test_api_documents_search_access__only_visited_public(
-    doc_ids, visited, expected, settings
+    doc_ids, visited, expected, settings, httpx2_mock
 ):
     """
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -122,13 +119,12 @@ def test_api_documents_search_access__only_visited_public(
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected)
 
 
-@responses.activate
-def test_api_documents_search_access__any_owner_public(settings):
+def test_api_documents_search_access__any_owner_public(settings, httpx2_mock):
     """
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -160,13 +156,12 @@ def test_api_documents_search_access__any_owner_public(settings):
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected)
 
 
-@responses.activate
-def test_api_documents_search_access__services(settings):
+def test_api_documents_search_access__services(settings, httpx2_mock):
     """
     Authenticated users should only see documents of the services granted by
     the search scopes (e.g docs)
     """
-    setup_menshen_introspection(responses, settings, scope="find:test-index-a:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:test-index-a:search")
     token = build_authorization_bearer()
 
     service_a = factories.ServiceFactory(name="test-index-a")
@@ -195,12 +190,11 @@ def test_api_documents_search_access__services(settings):
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
-@responses.activate
-def test_api_documents_search_access__missing_index(settings):
+def test_api_documents_search_access__missing_index(settings, httpx2_mock):
     """
     When the service has no opensearch index, returns an empty list.
     """
-    setup_menshen_introspection(responses, settings, scope="find:test-index-a:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:test-index-a:search")
     token = build_authorization_bearer()
     factories.ServiceFactory(name="test-index-a")
 
@@ -216,14 +210,13 @@ def test_api_documents_search_access__missing_index(settings):
     assert response.json() == {"results": []}
 
 
-@responses.activate
-def test_api_documents_search_access__related_services(settings):
+def test_api_documents_search_access__related_services(settings, httpx2_mock):
     """
     Authenticated users should only see documents of all the services granted by
     the search scopes (e.g drive + docs)
     """
     setup_menshen_introspection(
-        responses, settings, scope="find:test-index-c:search find:test-index-a:search"
+        httpx2_mock, settings, scope="find:test-index-c:search find:test-index-a:search"
     )
     token = build_authorization_bearer()
 
@@ -258,13 +251,12 @@ def test_api_documents_search_access__related_services(settings):
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
-@responses.activate
-def test_api_documents_search_access__related_missing_index(settings):
+def test_api_documents_search_access__related_missing_index(settings, httpx2_mock):
     """
     When the service has no opensearch index, returns the related services data.
     """
     setup_menshen_introspection(
-        responses, settings, scope="find:test-index-a:search find:test-index-c:search"
+        httpx2_mock, settings, scope="find:test-index-a:search find:test-index-c:search"
     )
     token = build_authorization_bearer()
 
@@ -296,14 +288,13 @@ def test_api_documents_search_access__related_missing_index(settings):
     assert sorted([d["id"] for d in response.json()["results"]]) == sorted(expected_ids)
 
 
-@responses.activate
-def test_api_documents_search_access__request_services(settings):
+def test_api_documents_search_access__request_services(settings, httpx2_mock):
     """
     Authenticated users should only see documents of the requested services:
     'services' parameter.
     Raise 400 error if not all requested services are granted.
     """
-    setup_menshen_introspection(responses, settings, scope="find:test-index-c:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:test-index-c:search")
     token = build_authorization_bearer()
 
     service_a = factories.ServiceFactory(name="test-index-a")
@@ -347,14 +338,13 @@ def test_api_documents_search_access__request_services(settings):
     assert response.json() == {"detail": "Invalid request."}
 
 
-@responses.activate
-def test_api_documents_search_access__request_inactive_services(settings):
+def test_api_documents_search_access__request_inactive_services(settings, httpx2_mock):
     """
     Scopes naming an inactive service should be ignored.
     Raise 400 error if not all requested services are active.
     """
     setup_menshen_introspection(
-        responses, settings, scope="find:test-index:search find:test-index-b:search"
+        httpx2_mock, settings, scope="find:test-index:search find:test-index-b:search"
     )
     token = build_authorization_bearer()
 
@@ -383,8 +373,7 @@ def test_api_documents_search_access__request_inactive_services(settings):
     assert response.json() == {"results": []}
 
 
-@responses.activate
-def test_api_documents_search_access__authenticated(settings):
+def test_api_documents_search_access__authenticated(settings, httpx2_mock):
     """
     Authenticated users should only see documents
     - for which they are listed in the "users" field
@@ -392,7 +381,7 @@ def test_api_documents_search_access__authenticated(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemented)
     """
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -446,13 +435,12 @@ def test_api_documents_search_access__authenticated(settings):
     )
 
 
-@responses.activate
-def test_api_documents_search_access__inactive_documents(settings):
+def test_api_documents_search_access__inactive_documents(settings, httpx2_mock):
     """
     Inactive documents should never be returned, even to their owner or when
     they are public and visited.
     """
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -484,10 +472,9 @@ def test_api_documents_search_access__inactive_documents(settings):
     )
 
 
-@responses.activate
-def test_api_documents_search_access__full_text(settings):
+def test_api_documents_search_access__full_text(settings, httpx2_mock):
     """Access control should also apply to full-text queries, not only to q='*'."""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     token = build_authorization_bearer()
 
     service = factories.ServiceFactory(name="docs")
@@ -523,14 +510,15 @@ def test_api_documents_search_access__full_text(settings):
     )
 
 
-@responses.activate
-def test_api_documents_search_access__request_related_service_only(settings):
+def test_api_documents_search_access__request_related_service_only(
+    settings, httpx2_mock
+):
     """
     Requesting a single allowed service through the 'services' parameter should
     restrict the search to that service.
     """
     setup_menshen_introspection(
-        responses, settings, scope="find:test-index-c:search find:test-index-a:search"
+        httpx2_mock, settings, scope="find:test-index-c:search find:test-index-a:search"
     )
     token = build_authorization_bearer()
 

@@ -11,25 +11,25 @@ import random
 from django.test import Client
 
 import pytest
-import responses
 
 from core import enums, factories
 from core.services.opensearch import opensearch_client
 from core.utils import prepare_index
 
 from .utils import (
+    MENSHEN_INTROSPECTION_URL,
     build_authorization_bearer,
     bulk_create_documents,
+    setup_menshen,
     setup_menshen_introspection,
 )
 
 pytestmark = pytest.mark.django_db
 
 
-@responses.activate
-def test_api_documents_search_inactive_token(settings):
+def test_api_documents_search_inactive_token(settings, httpx2_mock):
     """A token that Menshen reports as inactive should be rejected."""
-    setup_menshen_introspection(responses, settings, active=False)
+    setup_menshen_introspection(httpx2_mock, settings, active=False)
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -43,14 +43,11 @@ def test_api_documents_search_inactive_token(settings):
     assert response.json() == {"detail": "Invalid token."}
 
 
-@responses.activate
-def test_api_documents_search_menshen_unavailable(settings):
+def test_api_documents_search_menshen_unavailable(settings, httpx2_mock):
     """A 503 should be returned when Menshen cannot introspect the token."""
-    setup_menshen_introspection(responses, settings)
-    responses.replace(
-        responses.POST,
-        "https://menshen.example.com/auth/token/introspect/",
-        status=500,
+    setup_menshen(settings)
+    httpx2_mock.add_response(
+        method="POST", url=MENSHEN_INTROSPECTION_URL, status_code=500
     )
     factories.ServiceFactory(name="docs")
 
@@ -65,10 +62,9 @@ def test_api_documents_search_menshen_unavailable(settings):
     assert response.json() == {"detail": "The authentication service is unavailable."}
 
 
-@responses.activate
-def test_api_documents_search_without_search_scope(settings):
+def test_api_documents_search_without_search_scope(settings, httpx2_mock):
     """A token granting no find search scope should get a 403."""
-    setup_menshen_introspection(responses, settings, scope="openid find:docs:delete")
+    setup_menshen_introspection(httpx2_mock, settings, scope="openid find:docs:delete")
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -84,10 +80,9 @@ def test_api_documents_search_without_search_scope(settings):
     }
 
 
-@responses.activate
-def test_api_documents_search_unknown_service_scope(settings):
+def test_api_documents_search_unknown_service_scope(settings, httpx2_mock):
     """A search scope naming no registered service should result in a 403."""
-    setup_menshen_introspection(responses, settings, scope="find:unknown:search")
+    setup_menshen_introspection(httpx2_mock, settings, scope="find:unknown:search")
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -103,10 +98,9 @@ def test_api_documents_search_unknown_service_scope(settings):
     }
 
 
-@responses.activate
-def test_api_documents_search_query_missing(settings):
+def test_api_documents_search_query_missing(settings, httpx2_mock):
     """The "q" parameter is required."""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -122,10 +116,9 @@ def test_api_documents_search_query_missing(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_search_services_invalid_parameters(settings):
+def test_api_documents_search_services_invalid_parameters(settings, httpx2_mock):
     """Invalid services parameter should result in a 400 error"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -146,10 +139,9 @@ def test_api_documents_search_services_invalid_parameters(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_search_visited_invalid_parameters(settings):
+def test_api_documents_search_visited_invalid_parameters(settings, httpx2_mock):
     """Invalid visited parameters should result in a 400 error"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     response = Client().post(
@@ -170,10 +162,9 @@ def test_api_documents_search_visited_invalid_parameters(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_search_match_all(settings):
+def test_api_documents_search_match_all(settings, httpx2_mock):
     """Searching a document with q='*' should match all docs"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     nb_documents = 12
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
@@ -196,10 +187,9 @@ def test_api_documents_search_match_all(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_search_full_text_query_title(settings):
+def test_api_documents_search_full_text_query_title(settings, httpx2_mock):
     """Searching a document by its title should work as expected"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
@@ -245,10 +235,9 @@ def test_api_documents_search_full_text_query_title(settings):
     assert 0 < other_fox_response["score"] < fox_response["score"]
 
 
-@responses.activate
-def test_api_documents_search_full_text_query_content(settings):
+def test_api_documents_search_full_text_query_content(settings, httpx2_mock):
     """Searching a document by its content should work as expected"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
@@ -275,10 +264,9 @@ def test_api_documents_search_full_text_query_content(settings):
     ]
 
 
-@responses.activate
-def test_api_documents_search_full_text_query_trigrams(settings):
+def test_api_documents_search_full_text_query_trigrams(settings, httpx2_mock):
     """A partial word should match documents through trigrams"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
@@ -301,10 +289,9 @@ def test_api_documents_search_full_text_query_trigrams(settings):
     assert [r["id"] for r in response.json()["results"]] == [str(documents[0]["id"])]
 
 
-@responses.activate
-def test_api_documents_search_ordering_by_fields(settings):
+def test_api_documents_search_ordering_by_fields(settings, httpx2_mock):
     """It should be possible to order by several fields"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
@@ -347,10 +334,9 @@ def test_api_documents_search_ordering_by_fields(settings):
             assert compare(data[i][field], data[i + 1][field])
 
 
-@responses.activate
-def test_api_documents_search_ordering_by_title(settings):
+def test_api_documents_search_ordering_by_title(settings, httpx2_mock):
     """It should be possible to order by title"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = bulk_create_documents(
         [
@@ -374,11 +360,12 @@ def test_api_documents_search_ordering_by_title(settings):
     ]
 
 
-@responses.activate
 @pytest.mark.parametrize("direction", ["asc", "desc"])
-def test_api_documents_search_ordering_by_title_across_languages(settings, direction):
+def test_api_documents_search_ordering_by_title_across_languages(
+    settings, httpx2_mock, direction
+):
     """Titles should be sorted together whatever their language, ignoring accents."""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     titles = [
         "Apfelbäume blühen im Frühling auf der Wiese",
@@ -413,10 +400,9 @@ def test_api_documents_search_ordering_by_title_across_languages(settings, direc
     assert [r["title"] for r in response.json()["results"]] == expected
 
 
-@responses.activate
-def test_api_documents_search_ordering_by_relevance(settings):
+def test_api_documents_search_ordering_by_relevance(settings, httpx2_mock):
     """It should be possible to order by relevance (score)"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = bulk_create_documents(
         [
@@ -449,10 +435,9 @@ def test_api_documents_search_ordering_by_relevance(settings):
             assert compare(data[i]["score"], data[i + 1]["score"])
 
 
-@responses.activate
-def test_api_documents_search_ordering_by_unknown_field(settings):
+def test_api_documents_search_ordering_by_unknown_field(settings, httpx2_mock):
     """Trying to sort by an unknown field should return a 400 error"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     for direction in ["asc", "desc"]:
@@ -476,10 +461,9 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
         ]
 
 
-@responses.activate
-def test_api_documents_search_ordering_by_unknown_direction(settings):
+def test_api_documents_search_ordering_by_unknown_direction(settings, httpx2_mock):
     """Trying to sort with an unknown direction should return a 400 error"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     for field in enums.ORDER_BY_OPTIONS:
@@ -500,10 +484,9 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
         ]
 
 
-@responses.activate
-def test_api_documents_search_filtering_by_reach(settings):
+def test_api_documents_search_filtering_by_reach(settings, httpx2_mock):
     """It should be possible to filter results by their reach"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = {
         reach: factories.DocumentSchemaFactory.build_batch(
@@ -527,10 +510,9 @@ def test_api_documents_search_filtering_by_reach(settings):
         )
 
 
-@responses.activate
-def test_api_documents_search_with_nb_results(settings):
+def test_api_documents_search_with_nb_results(settings, httpx2_mock):
     """nb_size should correctly return results of given size"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
@@ -551,10 +533,9 @@ def test_api_documents_search_with_nb_results(settings):
         assert [r["id"] for r in response.json()["results"]] == expected_ids
 
 
-@responses.activate
-def test_api_documents_search_nb_results_default(settings):
+def test_api_documents_search_nb_results_default(settings, httpx2_mock):
     """At most 50 results should be returned by default"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(51, users=["user_sub"])
     prepare_index(service.index_name, documents)
@@ -570,10 +551,9 @@ def test_api_documents_search_nb_results_default(settings):
     assert len(response.json()["results"]) == 50
 
 
-@responses.activate
-def test_api_documents_search_nb_results_invalid_parameters(settings):
+def test_api_documents_search_nb_results_invalid_parameters(settings, httpx2_mock):
     """Invalid nb_results parameters should result in a 400 error"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     factories.ServiceFactory(name="docs")
 
     parameters = [
@@ -601,10 +581,9 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
         ]
 
 
-@responses.activate
-def test_api_documents_search_nb_results_with_filtering(settings):
+def test_api_documents_search_nb_results_with_filtering(settings, httpx2_mock):
     """nb_results should work correctly when combined with filtering by reach"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
@@ -629,10 +608,9 @@ def test_api_documents_search_nb_results_with_filtering(settings):
     assert [r["id"] for r in response.json()["results"]] == public_ids[0:nb_results]
 
 
-@responses.activate
-def test_api_documents_search_filtering_by_tags(settings):
+def test_api_documents_search_filtering_by_tags(settings, httpx2_mock):
     """Documents matching any of the given tags should be returned"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
@@ -699,10 +677,9 @@ def test_api_documents_search_filtering_by_tags(settings):
     assert len(response.json()["results"]) == 4
 
 
-@responses.activate
-def test_api_documents_search_filtering_by_path(settings):
+def test_api_documents_search_filtering_by_path(settings, httpx2_mock):
     """Test filtering documents by path prefix via API"""
-    setup_menshen_introspection(responses, settings)
+    setup_menshen_introspection(httpx2_mock, settings)
     service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(

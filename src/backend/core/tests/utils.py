@@ -49,21 +49,27 @@ def build_authorization_bearer(token="some_token"):
 
 
 MENSHEN_TOKEN = "an-exchanged-token-with-at-least-32-characters"
+MENSHEN_INTROSPECTION_URL = "https://menshen.example.com/auth/token/introspect/"
 
 
-def setup_menshen_introspection(responses, settings, **introspection):
-    """
-    Configure Menshen and simulate its introspection of any token, returning a
-    valid token for "user_sub" called by Docs, unless overridden by the
-    `introspection` fields (e.g. `active=False`, `scope="find:drive:search"`).
-    NOTE : Use it with @responses.activate.
-
-    Returns the mocked introspection response, to count its calls.
-    """
+def setup_menshen(settings):
+    """Configure Find's Menshen settings, without simulating any response."""
     settings.MENSHEN_URL = "https://menshen.example.com"
     settings.MENSHEN_CLIENT_ID = "find"
     settings.MENSHEN_CLIENT_SECRET = "find-secret"
     settings.MENSHEN_AUDIENCE = "find"
+
+
+def setup_menshen_introspection(httpx2_mock, settings, **introspection):
+    """
+    Configure Menshen and simulate its introspection of any token, returning a
+    valid token for "user_sub" called by Docs, unless overridden by the
+    `introspection` fields (e.g. `active=False`, `scope="find:drive:search"`).
+
+    The response is reusable and optional: count the introspections with
+    `httpx2_mock.get_requests()`.
+    """
+    setup_menshen(settings)
 
     token_data = {
         "active": True,
@@ -77,8 +83,10 @@ def setup_menshen_introspection(responses, settings, **introspection):
     if not token_data["active"]:
         # Menshen only says that inactive tokens are inactive
         token_data = {"active": False}
-    return responses.add(
-        responses.POST,
-        "https://menshen.example.com/auth/token/introspect/",
+    httpx2_mock.add_response(
+        method="POST",
+        url=MENSHEN_INTROSPECTION_URL,
         json=token_data,
+        is_reusable=True,
+        is_optional=True,
     )
