@@ -3,24 +3,16 @@
 import logging
 
 from django.conf import settings
-from django.core.exceptions import (
-    PermissionDenied,
-    SuspiciousOperation,
-    ValidationError,
-)
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
 
 from ninja import NinjaAPI
 from ninja.errors import ValidationError as NinjaValidationError
 from ninja.renderers import BaseRenderer
-from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import to_json
-from rest_framework import exceptions as drf_exceptions
-from rest_framework import status
-from rest_framework import views as drf_views
-from rest_framework.response import Response
 
 from .schemas import format_validation_errors
 from .services.menshen import MenshenUnavailable
+from .views import router
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +37,7 @@ api = NinjaAPI(
     openapi_url=settings.API_OPENAPI_URL if settings.API_OPENAPI_ENABLED else None,
     renderer=PydanticJSONRenderer(),
 )
+api.add_router("documents/", router, tags=["documents"])
 
 
 @api.exception_handler(NinjaValidationError)
@@ -84,31 +77,3 @@ def menshen_unavailable(request, _exc):
         {"detail": "The authentication service is unavailable."},
         status=503,
     )
-
-
-def exception_handler(exc, context):
-    """Handle Django ValidationError as an accepted exception.
-
-    For the parameters, see ``exception_handler``
-    This code comes from twidi's gist:
-    https://gist.github.com/twidi/9d55486c36b6a51bdcb05ce3a763e79f
-    """
-    if isinstance(exc, ValidationError):
-        detail = exc.message_dict
-
-        if hasattr(exc, "message"):
-            detail = exc.message
-        elif hasattr(exc, "messages"):
-            detail = exc.messages
-        exc = drf_exceptions.ValidationError(detail=detail)
-
-    elif isinstance(exc, PydanticValidationError):
-        return Response(
-            [
-                {key: error[key] for key in ("msg", "type", "loc")}
-                for error in exc.errors()
-            ],
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    return drf_views.exception_handler(exc, context)

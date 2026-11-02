@@ -8,11 +8,10 @@ import operator
 import pytest
 
 from core import factories
-from core.services.opensearch import run_async
 from core.services.search import search
 from core.utils import prepare_index
 
-from .utils import bulk_create_documents
+from .utils import bulk_create_documents, run_async
 
 pytestmark = pytest.mark.django_db
 

@@ -10,6 +10,9 @@ and this project adheres to
 
 ## Changed
 
+- 💥(api) serve the endpoints with async django-ninja instead of DRF
+- 💥(api) authenticate search and delete with Menshen-exchanged tokens
+- 💥(api) select the searched and deleted services from Menshen scopes
 - 💥(search) return a stable response contract instead of raw hits #179
 - ⚡️(search) query OpenSearch with an async client
 - ⚡️(delete) delete documents with the async OpenSearch client
@@ -17,6 +20,8 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(search) restrict the search to the requested services #172
+- 🐛(delete) delete from the index of the requested service only #173
 - 🐛(index) report re-indexed documents as successes in bulk #194
 - 🐛(index) answer 207 when OpenSearch fails some documents of a bulk
 - 🐛(search) sort by title across languages #175

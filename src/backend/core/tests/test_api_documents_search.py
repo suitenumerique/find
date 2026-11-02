@@ -20,7 +20,7 @@ from core.utils import prepare_index
 from .utils import (
     build_authorization_bearer,
     bulk_create_documents,
-    setup_oicd_resource_server,
+    setup_menshen_introspection,
 )
 
 pytestmark = pytest.mark.django_db
@@ -28,18 +28,9 @@ pytestmark = pytest.mark.django_db
 
 @responses.activate
 def test_api_documents_search_inactive_token(settings):
-    """A token that the identity provider reports as inactive should be rejected."""
-    setup_oicd_resource_server(
-        responses,
-        settings,
-        sub="user_sub",
-        introspect=lambda request, user_info: (
-            200,
-            {},
-            '{"active": false}',
-        ),
-    )
-    factories.ServiceFactory()
+    """A token that Menshen reports as inactive should be rejected."""
+    setup_menshen_introspection(responses, settings, active=False)
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -48,15 +39,20 @@ def test_api_documents_search_inactive_token(settings):
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
-    # The resource server raises a SuspiciousOperation, that Django turns into a 400
-    assert response.status_code == 400
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid token."}
 
 
 @responses.activate
-def test_api_documents_search_unknown_calling_service(settings):
-    """A token whose audience matches no registered service should result in a 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="unknown")
-    factories.ServiceFactory(client_id="some_client_id")
+def test_api_documents_search_menshen_unavailable(settings):
+    """A 503 should be returned when Menshen cannot introspect the token."""
+    setup_menshen_introspection(responses, settings)
+    responses.replace(
+        responses.POST,
+        "https://menshen.example.com/auth/token/introspect/",
+        status=500,
+    )
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -65,15 +61,53 @@ def test_api_documents_search_unknown_calling_service(settings):
         HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
     )
 
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid request."}
+    assert response.status_code == 503
+    assert response.json() == {"detail": "The authentication service is unavailable."}
+
+
+@responses.activate
+def test_api_documents_search_without_search_scope(settings):
+    """A token granting no find search scope should get a 403."""
+    setup_menshen_introspection(responses, settings, scope="openid find:docs:delete")
+    factories.ServiceFactory(name="docs")
+
+    response = Client().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*"},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
+
+
+@responses.activate
+def test_api_documents_search_unknown_service_scope(settings):
+    """A search scope naming no registered service should result in a 403."""
+    setup_menshen_introspection(responses, settings, scope="find:unknown:search")
+    factories.ServiceFactory(name="docs")
+
+    response = Client().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*"},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @responses.activate
 def test_api_documents_search_query_missing(settings):
     """The "q" parameter is required."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -91,8 +125,8 @@ def test_api_documents_search_query_missing(settings):
 @responses.activate
 def test_api_documents_search_services_invalid_parameters(settings):
     """Invalid services parameter should result in a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -115,8 +149,8 @@ def test_api_documents_search_services_invalid_parameters(settings):
 @responses.activate
 def test_api_documents_search_visited_invalid_parameters(settings):
     """Invalid visited parameters should result in a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -139,9 +173,9 @@ def test_api_documents_search_visited_invalid_parameters(settings):
 @responses.activate
 def test_api_documents_search_match_all(settings):
     """Searching a document with q='*' should match all docs"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings)
     nb_documents = 12
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
         nb_documents, reach=random.choice(["public", "authenticated"])
     )
@@ -165,8 +199,8 @@ def test_api_documents_search_match_all(settings):
 @responses.activate
 def test_api_documents_search_full_text_query_title(settings):
     """Searching a document by its title should work as expected"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
         [
@@ -214,8 +248,8 @@ def test_api_documents_search_full_text_query_title(settings):
 @responses.activate
 def test_api_documents_search_full_text_query_content(settings):
     """Searching a document by its content should work as expected"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
         [
@@ -244,8 +278,8 @@ def test_api_documents_search_full_text_query_content(settings):
 @responses.activate
 def test_api_documents_search_full_text_query_trigrams(settings):
     """A partial word should match documents through trigrams"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
         [
@@ -270,8 +304,8 @@ def test_api_documents_search_full_text_query_trigrams(settings):
 @responses.activate
 def test_api_documents_search_ordering_by_fields(settings):
     """It should be possible to order by several fields"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
         4, reach=random.choice(["public", "authenticated"])
     )
@@ -316,8 +350,8 @@ def test_api_documents_search_ordering_by_fields(settings):
 @responses.activate
 def test_api_documents_search_ordering_by_title(settings):
     """It should be possible to order by title"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = bulk_create_documents(
         [
             {"title": "Beta", "content": "content"},
@@ -344,8 +378,8 @@ def test_api_documents_search_ordering_by_title(settings):
 @pytest.mark.parametrize("direction", ["asc", "desc"])
 def test_api_documents_search_ordering_by_title_across_languages(settings, direction):
     """Titles should be sorted together whatever their language, ignoring accents."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     titles = [
         "Apfelbäume blühen im Frühling auf der Wiese",
         "Écureuils roux dans la forêt de Fontainebleau",
@@ -382,8 +416,8 @@ def test_api_documents_search_ordering_by_title_across_languages(settings, direc
 @responses.activate
 def test_api_documents_search_ordering_by_relevance(settings):
     """It should be possible to order by relevance (score)"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = bulk_create_documents(
         [
             {"title": "wolf", "content": "wolves live in packs and hunt together"},
@@ -418,8 +452,8 @@ def test_api_documents_search_ordering_by_relevance(settings):
 @responses.activate
 def test_api_documents_search_ordering_by_unknown_field(settings):
     """Trying to sort by an unknown field should return a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     for direction in ["asc", "desc"]:
         response = Client().post(
@@ -445,8 +479,8 @@ def test_api_documents_search_ordering_by_unknown_field(settings):
 @responses.activate
 def test_api_documents_search_ordering_by_unknown_direction(settings):
     """Trying to sort with an unknown direction should return a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     for field in enums.ORDER_BY_OPTIONS:
         response = Client().post(
@@ -469,8 +503,8 @@ def test_api_documents_search_ordering_by_unknown_direction(settings):
 @responses.activate
 def test_api_documents_search_filtering_by_reach(settings):
     """It should be possible to filter results by their reach"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = {
         reach: factories.DocumentSchemaFactory.build_batch(
             2, reach=reach, users=["user_sub"]
@@ -496,8 +530,8 @@ def test_api_documents_search_filtering_by_reach(settings):
 @responses.activate
 def test_api_documents_search_with_nb_results(settings):
     """nb_size should correctly return results of given size"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(
         9, reach=random.choice(["public", "authenticated"])
     )
@@ -520,8 +554,8 @@ def test_api_documents_search_with_nb_results(settings):
 @responses.activate
 def test_api_documents_search_nb_results_default(settings):
     """At most 50 results should be returned by default"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     documents = factories.DocumentSchemaFactory.build_batch(51, users=["user_sub"])
     prepare_index(service.index_name, documents)
 
@@ -539,8 +573,8 @@ def test_api_documents_search_nb_results_default(settings):
 @responses.activate
 def test_api_documents_search_nb_results_invalid_parameters(settings):
     """Invalid nb_results parameters should result in a 400 error"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    factories.ServiceFactory(name="docs")
 
     parameters = [
         (
@@ -570,8 +604,8 @@ def test_api_documents_search_nb_results_invalid_parameters(settings):
 @responses.activate
 def test_api_documents_search_nb_results_with_filtering(settings):
     """nb_results should work correctly when combined with filtering by reach"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
     public_documents = factories.DocumentSchemaFactory.build_batch(3, reach="public")
     public_ids = [str(doc["id"]) for doc in public_documents]
     private_documents = factories.DocumentSchemaFactory.build_batch(
@@ -598,8 +632,8 @@ def test_api_documents_search_nb_results_with_filtering(settings):
 @responses.activate
 def test_api_documents_search_filtering_by_tags(settings):
     """Documents matching any of the given tags should be returned"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
         [
@@ -668,8 +702,8 @@ def test_api_documents_search_filtering_by_tags(settings):
 @responses.activate
 def test_api_documents_search_filtering_by_path(settings):
     """Test filtering documents by path prefix via API"""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings)
+    service = factories.ServiceFactory(name="docs")
 
     documents = bulk_create_documents(
         [

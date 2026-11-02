@@ -5,8 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/_config.sh"
 _dc_run \
     -e DJANGO_CONFIGURATION=Test \
     app \
-    python manage.py spectacular \
-    --api-version 'v1.0' \
-    --urlconf 'find.api_urls' \
-    --format openapi-json \
-    --file /app/core/tests/swagger/swagger.json
+    sh -c "mkdir -p /app/core/tests/swagger && python manage.py export_openapi_schema \
+    --api core.api.api \
+    --indent 2 \
+    --output /app/core/tests/swagger/swagger.json"

@@ -17,7 +17,7 @@ from core.utils import prepare_index
 
 from .utils import (
     build_authorization_bearer,
-    setup_oicd_resource_server,
+    setup_menshen_introspection,
 )
 
 pytestmark = pytest.mark.django_db
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.django_db
 
 def test_api_documents_search_access_control_anonymous():
     """Anonymous users should not be allowed to search documents even public."""
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
     documents = []
     for reach in enums.ReachEnum:
         documents.extend(factories.DocumentSchemaFactory.build_batch(3, reach=reach))
@@ -47,10 +47,10 @@ def test_api_documents_search_access_control(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemented)
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
     documents_reach = factories.DocumentSchemaFactory.build_batch(6)
     documents_open = [
         doc for doc in documents_reach if doc["reach"] in ["authenticated", "public"]
@@ -94,10 +94,10 @@ def test_api_documents_search_access__only_visited_public(
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(client_id="docs")
+    service = factories.ServiceFactory(name="docs")
 
     docs = [
         factories.DocumentSchemaFactory(
@@ -128,10 +128,10 @@ def test_api_documents_search_access__any_owner_public(settings):
     Authenticated users should only see documents with reach="public"
     that are in "visited" list.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(client_id="docs")
+    service = factories.ServiceFactory(name="docs")
 
     docs = factories.DocumentSchemaFactory.build_batch(
         6,
@@ -163,14 +163,14 @@ def test_api_documents_search_access__any_owner_public(settings):
 @responses.activate
 def test_api_documents_search_access__services(settings):
     """
-    Authenticated users should only see documents of audience
-    service providers (e.g docs)
+    Authenticated users should only see documents of the services granted by
+    the search scopes (e.g docs)
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
+    setup_menshen_introspection(responses, settings, scope="find:test-index-a:search")
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(client_id="a-client")
-    service_b = factories.ServiceFactory(client_id="b-client")
+    service_a = factories.ServiceFactory(name="test-index-a")
+    service_b = factories.ServiceFactory(name="test-index-b")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
@@ -200,11 +200,11 @@ def test_api_documents_search_access__missing_index(settings):
     """
     When the service has no opensearch index, returns an empty list.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
+    setup_menshen_introspection(responses, settings, scope="find:test-index-a:search")
     token = build_authorization_bearer()
-    factories.ServiceFactory(name="test-index-a", client_id="a-client")
+    factories.ServiceFactory(name="test-index-a")
 
-    # a-client has no index. ignore it.
+    # test-index-a has no index. ignore it.
     response = Client().post(
         "/api/v1.0/documents/search/",
         {"q": "*"},
@@ -219,17 +219,17 @@ def test_api_documents_search_access__missing_index(settings):
 @responses.activate
 def test_api_documents_search_access__related_services(settings):
     """
-    Authenticated users should only see documents of audience
-    service providers and its related services (e.g drive + docs)
+    Authenticated users should only see documents of all the services granted by
+    the search scopes (e.g drive + docs)
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
+    setup_menshen_introspection(
+        responses, settings, scope="find:test-index-c:search find:test-index-a:search"
+    )
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_b = factories.ServiceFactory(name="test-index-b", client_id="b-client")
-    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
-    service_c.services.set([service_a])
-    service_c.save()
+    service_a = factories.ServiceFactory(name="test-index-a")
+    service_b = factories.ServiceFactory(name="test-index-b")
+    service_c = factories.ServiceFactory(name="test-index-c")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
@@ -263,14 +263,14 @@ def test_api_documents_search_access__related_missing_index(settings):
     """
     When the service has no opensearch index, returns the related services data.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="a-client")
+    setup_menshen_introspection(
+        responses, settings, scope="find:test-index-a:search find:test-index-c:search"
+    )
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_b = factories.ServiceFactory(name="test-index-b", client_id="b-client")
-    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
-    service_c.services.set([service_a])
-    service_c.save()
+    factories.ServiceFactory(name="test-index-a")
+    service_b = factories.ServiceFactory(name="test-index-b")
+    service_c = factories.ServiceFactory(name="test-index-c")
 
     service_b_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
@@ -284,7 +284,7 @@ def test_api_documents_search_access__related_missing_index(settings):
     prepare_index(service_b.index_name, service_b_docs)
     prepare_index(service_c.index_name, service_c_docs)
 
-    # a-client has no index. ignore it.
+    # test-index-a has no index. ignore it.
     response = Client().post(
         "/api/v1.0/documents/search/",
         {"q": "*"},
@@ -299,16 +299,16 @@ def test_api_documents_search_access__related_missing_index(settings):
 @responses.activate
 def test_api_documents_search_access__request_services(settings):
     """
-    Authenticated users should only see documents of audience
-    from requested services : 'services' parameter.
-    Raise 400 error if not all requested services are authorized.
+    Authenticated users should only see documents of the requested services:
+    'services' parameter.
+    Raise 400 error if not all requested services are granted.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
+    setup_menshen_introspection(responses, settings, scope="find:test-index-c:search")
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_b = factories.ServiceFactory(name="test-index-b", client_id="b-client")
-    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
+    service_a = factories.ServiceFactory(name="test-index-a")
+    service_b = factories.ServiceFactory(name="test-index-b")
+    service_c = factories.ServiceFactory(name="test-index-c")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]
@@ -350,15 +350,16 @@ def test_api_documents_search_access__request_services(settings):
 @responses.activate
 def test_api_documents_search_access__request_inactive_services(settings):
     """
-    Authenticated users should only see documents of audience
-    from requested services : 'services' parameter.
+    Scopes naming an inactive service should be ignored.
     Raise 400 error if not all requested services are active.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="client")
+    setup_menshen_introspection(
+        responses, settings, scope="find:test-index:search find:test-index-b:search"
+    )
     token = build_authorization_bearer()
 
-    factories.ServiceFactory(name="test-index", client_id="client", is_active=False)
-    factories.ServiceFactory(name="test-index-b", client_id="b-client")
+    factories.ServiceFactory(name="test-index", is_active=False)
+    factories.ServiceFactory(name="test-index-b")
 
     response = Client().post(
         "/api/v1.0/documents/search/",
@@ -370,7 +371,7 @@ def test_api_documents_search_access__request_inactive_services(settings):
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid request."}
 
-    # Event without explicit argument, the client service from the request is not active
+    # Without explicit argument, only the active service is searched
     response = Client().post(
         "/api/v1.0/documents/search/",
         {"q": "*"},
@@ -378,8 +379,8 @@ def test_api_documents_search_access__request_inactive_services(settings):
         HTTP_AUTHORIZATION=f"Bearer {token}",
     )
 
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid request."}
+    assert response.status_code == 200
+    assert response.json() == {"results": []}
 
 
 @responses.activate
@@ -391,10 +392,10 @@ def test_api_documents_search_access__authenticated(settings):
     - only configured services providers are allowed (e.g docs)
     (groups is not yet implemented)
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="docs")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory(client_id="docs")
+    service = factories.ServiceFactory(name="docs")
 
     documents_open = factories.DocumentSchemaFactory.build_batch(
         2, reach=enums.ReachEnum.PUBLIC
@@ -451,10 +452,10 @@ def test_api_documents_search_access__inactive_documents(settings):
     Inactive documents should never be returned, even to their owner or when
     they are public and visited.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
 
     active_documents = factories.DocumentSchemaFactory.build_batch(
         2, users=["user_sub"]
@@ -486,10 +487,10 @@ def test_api_documents_search_access__inactive_documents(settings):
 @responses.activate
 def test_api_documents_search_access__full_text(settings):
     """Access control should also apply to full-text queries, not only to q='*'."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings)
     token = build_authorization_bearer()
 
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
 
     owned_document = factories.DocumentSchemaFactory.build(
         title="secret fox", users=["user_sub"]
@@ -522,21 +523,19 @@ def test_api_documents_search_access__full_text(settings):
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#172: the services parameter is validated but not applied"
-)
 @responses.activate
 def test_api_documents_search_access__request_related_service_only(settings):
     """
     Requesting a single allowed service through the 'services' parameter should
     restrict the search to that service.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
+    setup_menshen_introspection(
+        responses, settings, scope="find:test-index-c:search find:test-index-a:search"
+    )
     token = build_authorization_bearer()
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
-    service_c.services.set([service_a])
+    service_a = factories.ServiceFactory(name="test-index-a")
+    service_c = factories.ServiceFactory(name="test-index-c")
 
     service_a_docs = factories.DocumentSchemaFactory.build_batch(
         3, reach=enums.ReachEnum.AUTHENTICATED, users=["user_sub"]

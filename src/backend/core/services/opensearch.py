@@ -6,10 +6,9 @@ import weakref
 from functools import cache
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
-from asgiref.sync import async_to_sync
 from opensearchpy import AsyncOpenSearch, OpenSearch
-from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ def get_client_options():
         if getattr(settings, variable, None) is None
     ]
     if missing_env_variables:
-        raise ValidationError(
+        raise ImproperlyConfigured(
             f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"
         )
 
@@ -69,20 +68,3 @@ async def close_async_opensearch_client():
     client = _async_clients.pop(asyncio.get_running_loop(), None)
     if client is not None:
         await client.close()
-
-
-def run_async(func, *args, **kwargs):
-    """
-    Run an async function from sync code, in its own event loop, and close the
-    AsyncOpenSearch client of this loop afterwards.
-
-    Only needed while the views are synchronous (ADR-0001).
-    """
-
-    async def wrapper():
-        try:
-            return await func(*args, **kwargs)
-        finally:
-            await close_async_opensearch_client()
-
-    return async_to_sync(wrapper)()

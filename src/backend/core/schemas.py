@@ -1,6 +1,7 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, Any, List, Literal, Optional, Union
+from uuid import UUID
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -12,6 +13,7 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
+    PlainValidator,
     conint,
     field_validator,
     model_validator,
@@ -87,6 +89,17 @@ class DocumentSchema(BaseModel):
         return validated_groups
 
 
+# The body of the indexing endpoint is a document or a list of documents. It is
+# validated by the endpoint, so that each document of a list gets its own status.
+IndexPayload = Annotated[
+    Any,
+    PlainValidator(
+        lambda value: value,
+        json_schema_input_type=Union[DocumentSchema, List[DocumentSchema]],
+    ),
+]
+
+
 def format_validation_errors(errors, loc_start=0):
     """
     Keep the fields of Pydantic validation errors that the API returns, removing
@@ -110,6 +123,30 @@ class ValidationErrorSchema(BaseModel):
     msg: str
     type: str
     loc: List[Union[str, int]]
+
+
+class IndexedDocumentSchema(BaseModel):
+    """Response of the indexing endpoint for a single document"""
+
+    status: Literal["created"]
+    id: UUID = Field(alias="_id")
+
+
+class BulkIndexResultSchema(BaseModel):
+    """Status of a document indexed in bulk"""
+
+    index: int = Field(description="Position of the document in the request")
+    status: Literal["valid", "success", "error"] = Field(
+        description=(
+            "'valid' when another document failed validation and nothing was "
+            "indexed, 'error' when the document failed validation or indexing"
+        )
+    )
+    id: Optional[UUID] = Field(default=None, alias="_id")
+    errors: Optional[List[ValidationErrorSchema]] = Field(
+        default=None, description="Validation errors of the document"
+    )
+    message: Optional[str] = Field(default=None, description="Indexing error")
 
 
 def cleanlist(value):
@@ -162,6 +199,19 @@ class DeleteDocumentsSchema(BaseModel):
                 "At least one of 'document_ids' or 'tags' must be provided"
             )
         return self
+
+
+class DeleteDocumentsResponseSchema(BaseModel):
+    """Response of the delete endpoint"""
+
+    nb_deleted_documents: int = Field(alias="nb-deleted-documents")
+    undeleted_document_ids: List[str] = Field(
+        alias="undeleted-document-ids",
+        description=(
+            "Requested ids that were not deleted, because the document does not "
+            "exist, the user may not delete it or it does not match the tags"
+        ),
+    )
 
 
 class SearchResultSchema(BaseModel):

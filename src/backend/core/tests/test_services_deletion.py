@@ -9,8 +9,10 @@ from opensearchpy import AsyncOpenSearch, RequestError
 
 from core import factories
 from core.services.deletion import DeletionError, delete_documents
-from core.services.opensearch import opensearch_client, run_async
+from core.services.opensearch import opensearch_client
 from core.utils import prepare_index
+
+from .utils import run_async
 
 pytestmark = pytest.mark.django_db
 

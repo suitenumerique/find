@@ -10,7 +10,7 @@ from core import factories
 from core.services.opensearch import opensearch_client
 from core.utils import prepare_index
 
-from .utils import build_authorization_bearer, setup_oicd_resource_server
+from .utils import build_authorization_bearer, setup_menshen_introspection
 
 pytestmark = pytest.mark.django_db
 
@@ -32,7 +32,8 @@ def test_api_documents_delete_anonymous():
 @responses.activate
 def test_api_documents_delete_wrong_service_name(settings):
     """Requests with a wrong service name should return 400 Bad Request."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -46,11 +47,75 @@ def test_api_documents_delete_wrong_service_name(settings):
 
 
 @responses.activate
+def test_api_documents_delete_invalid_token(settings):
+    """A token rejected by Menshen should not be allowed to delete documents."""
+    setup_menshen_introspection(responses, settings, active=False)
+    factories.ServiceFactory(name="docs")
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": "docs", "document_ids": ["doc1"]},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid token."}
+
+
+@responses.activate
+def test_api_documents_delete_without_delete_scope(settings):
+    """A token granting no find delete scope should get a 403, even to search."""
+    setup_menshen_introspection(responses, settings, scope="find:docs:search")
+    service = factories.ServiceFactory(name="docs")
+    documents = factories.DocumentSchemaFactory.build_batch(1, users=["user_sub"])
+    prepare_index(service.index_name, documents)
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": "docs", "document_ids": [documents[0]["id"]]},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
+    assert opensearch_client().get(index=service.index_name, id=documents[0]["id"])[
+        "found"
+    ]
+
+
+@responses.activate
+def test_api_documents_delete_scope_of_another_service(settings):
+    """A delete scope only allows deleting the documents of its own service."""
+    setup_menshen_introspection(responses, settings, scope="find:drive:delete")
+    factories.ServiceFactory(name="drive")
+    service = factories.ServiceFactory(name="docs")
+    documents = factories.DocumentSchemaFactory.build_batch(1, users=["user_sub"])
+    prepare_index(service.index_name, documents)
+
+    response = Client().post(
+        "/api/v1.0/documents/delete/",
+        {"service": "docs", "document_ids": [documents[0]["id"]]},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid request."}
+    assert opensearch_client().get(index=service.index_name, id=documents[0]["id"])[
+        "found"
+    ]
+
+
+@responses.activate
 def test_api_documents_delete_success(settings):
     """Authenticated users should be able to delete documents they have access to."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
 
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
     # Create documents user has access to
     documents = factories.DocumentSchemaFactory.build_batch(3, users=["user_sub"])
     prepare_index(service.index_name, documents)
@@ -79,8 +144,8 @@ def test_api_documents_delete_success(settings):
 @responses.activate
 def test_api_documents_delete_no_access(settings):
     """Users should not be able to delete documents they don't have access to."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
     # Create documents where user_sub does NOT have access
     documents = factories.DocumentSchemaFactory.build_batch(2, users=["other_sub"])
     prepare_index(service.index_name, documents)
@@ -110,9 +175,9 @@ def test_api_documents_delete_no_access(settings):
 @responses.activate
 def test_api_documents_delete_mixed_access(settings):
     """Deleting a mix of owned and non-owned documents should only delete owned ones."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
 
-    service = factories.ServiceFactory()
+    service = factories.ServiceFactory(name="docs")
     # Create documents with different access
     owned_documents = factories.DocumentSchemaFactory.build_batch(2, users=["user_sub"])
     other_documents = factories.DocumentSchemaFactory.build_batch(
@@ -156,8 +221,8 @@ def test_api_documents_delete_mixed_access(settings):
 @responses.activate
 def test_api_documents_delete_missing_document_ids_and_tags(settings):
     """Requests missing both document_ids and tags should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -179,8 +244,8 @@ def test_api_documents_delete_missing_document_ids_and_tags(settings):
 @responses.activate
 def test_api_documents_delete_empty_document_ids(settings):
     """Requests with empty document_ids and no tags should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -202,8 +267,8 @@ def test_api_documents_delete_empty_document_ids(settings):
 @responses.activate
 def test_api_documents_delete_both_filters_empty(settings):
     """Requests with both document_ids and tags empty should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -225,7 +290,7 @@ def test_api_documents_delete_both_filters_empty(settings):
 @responses.activate
 def test_api_documents_delete_missing_service(settings):
     """Requests missing the service field should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -243,8 +308,8 @@ def test_api_documents_delete_missing_service(settings):
 @responses.activate
 def test_api_documents_delete_too_many_document_ids(settings):
     """Requests with more than 1000 document ids should return 400."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -269,8 +334,8 @@ def test_api_documents_delete_nonexistent_documents(settings):
     Deleting non-existent documents should not raise an error
     and return the list of undeleted ids.
     """
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
     # Create index but with no documents
     prepare_index(service.index_name, [])
 
@@ -295,8 +360,8 @@ def test_api_documents_delete_nonexistent_documents(settings):
 )
 def test_api_documents_delete_service_without_index(settings, filters, undeleted_ids):
     """Deleting from a service that never indexed documents should delete nothing."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     response = Client().post(
         "/api/v1.0/documents/delete/",
@@ -318,8 +383,8 @@ def test_api_documents_delete_service_without_index(settings, filters, undeleted
 )
 def test_api_documents_delete_by_single_tag(settings):
     """Users should be able to delete documents by tags."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     document_to_deletes = [
         factories.DocumentSchemaFactory.build(
@@ -363,8 +428,8 @@ def test_api_documents_delete_by_single_tag(settings):
 @responses.activate
 def test_api_documents_delete_by_multiple_tags(settings):
     """Users should be able to delete documents matching any of multiple tags."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     document_to_deletes = [
         factories.DocumentSchemaFactory.build(
@@ -411,8 +476,8 @@ def test_api_documents_delete_by_multiple_tags(settings):
 @responses.activate
 def test_api_documents_delete_by_ids_and_tags(settings):
     """Users should be able to delete documents by both IDs and tags (AND logic)."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     document_delete_by_tag_and_id = factories.DocumentSchemaFactory.build(
         users=["user_sub"], tags=["delete-tag"]
@@ -465,18 +530,15 @@ def test_api_documents_delete_by_ids_and_tags(settings):
     assert doc["found"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#173: delete may target the wrong index when a service has sub-services",
-)
 @responses.activate
 def test_api_documents_delete_service_with_sub_services(settings):
     """Deletion should target the index of the requested service."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub", audience="c-client")
+    setup_menshen_introspection(
+        responses, settings, scope="find:test-index-a:delete find:test-index-c:delete"
+    )
 
-    service_a = factories.ServiceFactory(name="test-index-a", client_id="a-client")
-    service_c = factories.ServiceFactory(name="test-index-c", client_id="c-client")
-    service_c.services.set([service_a])
+    service_a = factories.ServiceFactory(name="test-index-a")
+    service_c = factories.ServiceFactory(name="test-index-c")
 
     documents = {}
     for service in [service_a, service_c]:
@@ -505,8 +567,8 @@ def test_api_documents_delete_service_with_sub_services(settings):
 @responses.activate
 def test_api_documents_delete_more_than_ten_documents(settings):
     """All the matching documents should be deleted, not only the first 10."""
-    setup_oicd_resource_server(responses, settings, sub="user_sub")
-    service = factories.ServiceFactory()
+    setup_menshen_introspection(responses, settings, scope="find:docs:delete")
+    service = factories.ServiceFactory(name="docs")
 
     documents = factories.DocumentSchemaFactory.build_batch(
         11, users=["user_sub"], tags=["delete-tag"]

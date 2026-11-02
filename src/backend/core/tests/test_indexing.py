@@ -21,7 +21,9 @@ from core.services.indexing import (
     ensure_index_exists,
     index_document,
 )
-from core.services.opensearch import opensearch_client, run_async
+from core.services.opensearch import opensearch_client
+
+from .utils import run_async
 
 SERVICE_NAME = "test-service"
 
