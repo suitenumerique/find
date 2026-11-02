@@ -13,7 +13,8 @@ Accepted (2026-10-27). Implementation plan amended (2026-10-27): no spike,
 and a single switch from DRF to django-ninja. Amended (2026-10-29): scopes are
 granted through Menshen's action scopes (suitenumerique/menshen#106), the
 introspection cache is settled, and Menshen alone checks the token format.
-Step 3 of the implementation plan done (2026-11-02, #195).
+Step 3 of the implementation plan done (2026-11-02, #195). Step 4 done
+(2026-11-02).
 
 ## Context
 
@@ -177,10 +178,10 @@ We adopt **django-ninja with async views, served over ASGI**, and integrate
   of a user, and indexing happens without one). Tokens are stored hashed rather
   than in plaintext.
 - **Async Menshen client**: `menshen_client` uses blocking `requests`. An async
-  client (`TokenExchangeAsyncClient`, based on httpx) is proposed upstream in
+  client (`TokenExchangeAsyncClient`, based on httpx) was added upstream in
   suitenumerique/menshen#110, and we use it rather than maintain a private
-  copy. Until it is released, the sync client (0.2.0) is called through
-  `asyncio.to_thread`.
+  copy. Until it is released (Find uses 0.2.0, the latest release when step 4
+  was done), the sync client is called through `asyncio.to_thread`.
 
 ### Service identification by scopes
 
@@ -346,6 +347,16 @@ django-configurations.
    their `xfail` markers). Ninja exception handlers keep the status codes and
    error bodies the tests pin: DRF's `{"detail": ...}` messages, and Pydantic
    error lists answered with 400 rather than ninja's 422.
+   *Done*: the cases the scopes redefine changed status: a token Menshen
+   rejects gets a 401 (the resource server answered 400), a token granting
+   no applicable scope a 403 (an unknown calling service got a 400), and
+   Menshen being unavailable a 503. Responses are rendered by Pydantic, so
+   datetimes keep their microseconds. The API documentation and OpenAPI
+   schema are configured as in Menshen, disabled by default. Until step 5
+   serves Find over ASGI, each async view runs in its own event loop, so the
+   endpoints close the loop's `AsyncOpenSearch` client after each WSGI
+   request. django-lasuite is pinned to `[configuration]==1.0.0`, as Find
+   pins its dependencies.
 5. **Clean up and switch deployment to ASGI**: remove `Service.client_id` and
    `Service.services`, keep only async-capable middleware (#177), switch the
    Dockerfile, gunicorn config and Helm chart to ASGI, and update
