@@ -201,6 +201,7 @@ class Base(Configuration):
         "corsheaders",
         "dockerflow.django",
         "drf_spectacular",
+        "ninja",
         "rest_framework",
         # Django
         "django.contrib.admin",
@@ -445,6 +446,21 @@ class Base(Configuration):
         default=True, environ_name="ALLOW_LOGOUT_GET_METHOD", environ_prefix=None
     )
 
+    # API documentation
+    # https://django-ninja.dev/guide/openapi/#hiding-or-disabling-the-docs
+    API_DOCS_ENABLED = values.BooleanValue(
+        default=False, environ_name="API_DOCS_ENABLED", environ_prefix=None
+    )
+    API_OPENAPI_ENABLED = values.BooleanValue(
+        default=False, environ_name="API_OPENAPI_ENABLED", environ_prefix=None
+    )
+    API_DOCS_URL = values.Value(
+        default="/docs", environ_name="API_DOCS_URL", environ_prefix=None
+    )
+    API_OPENAPI_URL = values.Value(
+        default="/openapi.json", environ_name="API_OPENAPI_URL", environ_prefix=None
+    )
+
     # Logging
     # We want to make it easy to log to console but by default we log production
     # to Sentry and don't want to log to console.
@@ -556,6 +572,9 @@ class Development(Base):
     SESSION_COOKIE_NAME = "find_sessionid"
 
     USE_SWAGGER = True
+    # API documentation is available in development
+    API_DOCS_ENABLED = True
+    API_OPENAPI_ENABLED = True
 
     def __init__(self):
         self.INSTALLED_APPS += ["django_extensions", "drf_spectacular_sidecar"]

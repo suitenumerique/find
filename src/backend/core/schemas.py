@@ -1,6 +1,6 @@
 """Pydantic model to validate documents before indexation."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Literal, Optional, Union
 
 from django.utils import timezone
 from django.utils.text import slugify
@@ -85,6 +85,31 @@ class DocumentSchema(BaseModel):
                 )
             validated_groups.append(value)
         return validated_groups
+
+
+def format_validation_errors(errors, loc_start=0):
+    """
+    Keep the fields of Pydantic validation errors that the API returns, removing
+    the first `loc_start` items of their location.
+    """
+    return [
+        {"msg": error["msg"], "type": error["type"], "loc": error["loc"][loc_start:]}
+        for error in errors
+    ]
+
+
+class ErrorSchema(BaseModel):
+    """An error response"""
+
+    detail: str
+
+
+class ValidationErrorSchema(BaseModel):
+    """An error of a request that failed validation"""
+
+    msg: str
+    type: str
+    loc: List[Union[str, int]]
 
 
 def cleanlist(value):

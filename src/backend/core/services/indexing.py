@@ -113,10 +113,7 @@ def prepare_bulk(index_name, documents_data):
             # Unlike unpacking, validation also rejects elements that are not objects
             document = schemas.DocumentSchema.model_validate(document_data)
         except PydanticValidationError as excpt:
-            errors = [
-                {key: error[key] for key in ("msg", "type", "loc")}
-                for error in excpt.errors()
-            ]
+            errors = schemas.format_validation_errors(excpt.errors())
             results.append({"index": i, "status": "error", "errors": errors})
             has_errors = True
         else:

@@ -30,6 +30,7 @@ and this project adheres to
 
 ## Added
 
+- ✨(api) add the django-ninja API, its error handling and documentation
 - ✨(services) look up services by token from async code
 - ✨(menshen) authenticate user tokens with Menshen introspection
 - ✨(admin) show service tokens once, with a copy button
