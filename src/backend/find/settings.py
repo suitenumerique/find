@@ -179,7 +179,6 @@ class Base(Configuration):
         "django.contrib.sessions.middleware.SessionMiddleware",
         "django.middleware.locale.LocaleMiddleware",
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
-        "corsheaders.middleware.CorsMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -197,7 +196,6 @@ class Base(Configuration):
         "core",
         "demo",
         # Third party apps
-        "corsheaders",
         "dockerflow.django",
         "ninja",
         # Django
@@ -245,12 +243,6 @@ class Base(Configuration):
     TRIGRAMS_MINIMUM_SHOULD_MATCH = values.Value(
         default="75%", environ_name="TRIGRAMS_MINIMUM_SHOULD_MATCH", environ_prefix=None
     )
-
-    # CORS
-    CORS_ALLOW_CREDENTIALS = True
-    CORS_ALLOW_ALL_ORIGINS = values.BooleanValue(True)
-    CORS_ALLOWED_ORIGINS = values.ListValue([])
-    CORS_ALLOWED_ORIGIN_REGEXES = values.ListValue([])
 
     # Sentry
     SENTRY_DSN = values.Value(None, environ_name="SENTRY_DSN", environ_prefix=None)
@@ -402,7 +394,6 @@ class Development(Base):
     """
 
     ALLOWED_HOSTS = ["*"]
-    CORS_ALLOW_ALL_ORIGINS = True
     CSRF_TRUSTED_ORIGINS = ["http://localhost:8072", "http://localhost:3000"]
     DEBUG = True
 

@@ -26,6 +26,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🔒️(settings) remove CORS, not needed by a server-to-server API #177
 - 🐛(search) restrict the search to the requested services #172
 - 🐛(delete) delete from the index of the requested service only #173
 - 🐛(index) report re-indexed documents as successes in bulk #194
