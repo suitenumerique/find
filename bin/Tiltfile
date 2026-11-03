@@ -9,11 +9,10 @@ docker_build(
     only=['./src/backend', './docker'],
     target = 'backend-production',
     live_update=[
+        # The dependencies are installed by uv when the image is built: rebuild it
+        # when they change, the code changes are synced
+        fall_back_on(['../src/backend/pyproject.toml', '../src/backend/uv.lock']),
         sync('../src/backend', '/app'),
-        run(
-            'pip install .',
-            trigger=['../src/backend/pyproject.toml']
-        )
     ]
 )
 

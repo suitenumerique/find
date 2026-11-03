@@ -29,6 +29,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(tilt) rebuild the image when the dependencies change
 - 🔒️(settings) remove CORS, not needed by a server-to-server API #177
 - 🐛(search) restrict the search to the requested services #172
 - 🐛(delete) delete from the index of the requested service only #173
