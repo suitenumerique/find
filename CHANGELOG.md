@@ -29,6 +29,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(helm) render the helmfile templates with helmfile v1
 - 🐛(tilt) rebuild the image when the dependencies change
 - 🔒️(settings) remove CORS, not needed by a server-to-server API #177
 - 🐛(search) restrict the search to the requested services #172
