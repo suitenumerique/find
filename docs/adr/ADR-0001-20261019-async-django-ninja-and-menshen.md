@@ -14,7 +14,8 @@ and a single switch from DRF to django-ninja. Amended (2026-10-29): scopes are
 granted through Menshen's action scopes (suitenumerique/menshen#106), the
 introspection cache is settled, and Menshen alone checks the token format.
 Step 3 of the implementation plan done (2026-11-02, #195). Step 4 done
-(2026-11-02).
+(2026-11-02, #197). Step 5 done (2026-11-03): the implementation plan is
+complete.
 
 ## Context
 
@@ -363,6 +364,15 @@ django-configurations.
    `Service.services`, keep only async-capable middleware (#177), switch the
    Dockerfile, gunicorn config and Helm chart to ASGI, and update
    `docs/architecture.md` (#186).
+   *Done*: CORS and django-cors-headers are removed (#177). WhiteNoise's
+   middleware is sync only, so static files are served by ServeStatic, its
+   async fork, with Brotli and minification. Find is served by uvicorn, as
+   Menshen is: 2 workers by default (`WEB_CONCURRENCY`), restarting after
+   20000 to 40000 requests so that their restarts are staggered. The
+   development server and the Helm dev values run uvicorn with reload. The
+   endpoints still close their clients after a WSGI request, for the tests,
+   which go through Django's WSGI test client. Configuring Menshen in the
+   Helm chart is left to the shared Menshen setup.
 
 Step 3 used to be a spike load-testing an async search endpoint against the
 current implementation. It was dropped: Find is not deployed anywhere, so
