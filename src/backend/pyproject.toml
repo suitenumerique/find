@@ -32,7 +32,6 @@ dependencies = [
   "django-redis==6.0.0",
   "django==6.0.8",
   "dockerflow==2026.3.4",
-  "gunicorn==25.3.0",
   "menshen-client==0.3.0",
   "opensearch-py[async]==3.2.0",
   "psycopg[binary]==3.3.3",
@@ -41,6 +40,7 @@ dependencies = [
   "redis==6.4.0",
   "sentry-sdk==2.58.0",
   "servestatic[brotli,minify]==4.4.0",
+  "uvicorn==0.54.0",
 ]
 
 [project.urls]

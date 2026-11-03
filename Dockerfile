@@ -123,17 +123,21 @@ USER ${DOCKER_USER}
 ENV DB_HOST=postgresql \
     DB_PORT=5432
 
-# Run django development server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run the uvicorn ASGI server, reloading it when the code changes
+CMD [\
+  "uvicorn",\
+  "--host=0.0.0.0",\
+  "--port=8000",\
+  "--reload",\
+  "--reload-dir=/app",\
+  "--lifespan=off",\
+  "find.asgi:application"\
+]
 
 # ---- Production image ----
 FROM core AS backend-production
 
 ARG FIND_STATIC_ROOT=/data/static
-
-# Gunicorn
-RUN mkdir -p /usr/local/etc/gunicorn
-COPY docker/files/usr/local/etc/gunicorn/find.py /usr/local/etc/gunicorn/find.py
 
 # Un-privileged user running the application
 ARG DOCKER_USER
@@ -142,5 +146,19 @@ USER ${DOCKER_USER}
 # Copy statics
 COPY --from=link-collector ${FIND_STATIC_ROOT} ${FIND_STATIC_ROOT}
 
-# The default command runs gunicorn WSGI server in find's main module
-CMD ["gunicorn", "-c", "/usr/local/etc/gunicorn/find.py", "find.wsgi:application"]
+# The default command runs uvicorn ASGI server in find's main module
+# WEB_CONCURRENCY: number of workers to run <=> --workers=2
+# Each worker restarts after 20000 to 40000 requests: the jitter staggers the
+# restarts, so that the other workers keep accepting requests
+ENV WEB_CONCURRENCY=2
+CMD [\
+  "uvicorn",\
+  "--host=0.0.0.0",\
+  "--port=8000",\
+  "--proxy-headers",\
+  "--timeout-graceful-shutdown=90",\
+  "--limit-max-requests=20000",\
+  "--limit-max-requests-jitter=20000",\
+  "--lifespan=off",\
+  "find.asgi:application"\
+]

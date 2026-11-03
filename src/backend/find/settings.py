@@ -77,7 +77,7 @@ class Base(Configuration):
 
     # Application definition
     ROOT_URLCONF = "find.urls"
-    WSGI_APPLICATION = "find.wsgi.application"
+    ASGI_APPLICATION = "find.asgi.application"
 
     # Database
     DATABASES = {

@@ -25,26 +25,6 @@ backend:
     DJANGO_EMAIL_HOST: "mailcatcher"
     DJANGO_EMAIL_PORT: 1025
     DJANGO_EMAIL_USE_SSL: False
-    OIDC_OP_JWKS_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/jwks
-    OIDC_OP_AUTHORIZATION_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/authorize
-    OIDC_OP_TOKEN_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/token
-    OIDC_OP_USER_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/userinfo
-    OIDC_OP_LOGOUT_ENDPOINT: https://fca.integ01.dev-agentconnect.fr/api/v2/session/end
-    OIDC_RP_CLIENT_ID:
-      secretKeyRef:
-        name: find-backend
-        key: OIDC_RP_CLIENT_ID
-    OIDC_RP_CLIENT_SECRET:
-      secretKeyRef:
-        name: find-backend
-        key: OIDC_RP_CLIENT_SECRET
-    OIDC_RP_SIGN_ALGO: RS256
-    OIDC_RP_SCOPES: "openid email"
-    OIDC_REDIRECT_ALLOWED_HOSTS: https://find.127.0.0.1.nip.io
-    OIDC_AUTH_REQUEST_EXTRA_PARAMS: "{'acr_values': 'eidas1'}"
-    LOGIN_REDIRECT_URL: https://find.127.0.0.1.nip.io
-    LOGIN_REDIRECT_URL_FAILURE: https://find.127.0.0.1.nip.io
-    LOGOUT_REDIRECT_URL: https://find.127.0.0.1.nip.io
     DB_HOST: postgres-postgresql
     DB_NAME: find
     DB_USER: dinum
@@ -72,11 +52,13 @@ backend:
     restartPolicy: Never
 
   command:
-    - "gunicorn"
-    - "-c"
-    - "/usr/local/etc/gunicorn/find.py"
-    - "find.wsgi:application"
+    - "uvicorn"
+    - "--host=0.0.0.0"
+    - "--port=8000"
+    - "--lifespan=off"
     - "--reload"
+    - "--reload-dir=/app"
+    - "find.asgi:application"
 
   createsuperuser:
     enabled: true
