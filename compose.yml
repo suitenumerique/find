@@ -81,22 +81,6 @@ services:
       opensearch:
         condition: service_healthy
 
-  celery:
-    user: ${DOCKER_USER:-1000}
-    image: find:backend-development
-    command: ["celery", "-A", "find.celery_app", "worker", "-l", "DEBUG"]
-    environment:
-      - DJANGO_CONFIGURATION=Development
-    env_file:
-      - env.d/development/common
-      - env.d/development/postgresql
-    volumes:
-      - ./src/backend:/app
-      - ./data/static:/data/static
-      - /app/.venv
-    depends_on:
-      - app
-
   dockerize:
     image: jwilder/dockerize
 

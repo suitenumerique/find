@@ -25,6 +25,7 @@ and this project adheres to
 
 ## Removed
 
+- 🔥(celery) remove Celery, which ran no task #183
 - 🔥(services) remove the client id and allowed services of a service
 
 ## Fixed

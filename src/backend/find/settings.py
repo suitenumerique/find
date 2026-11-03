@@ -250,10 +250,6 @@ class Base(Configuration):
     # Sentry
     SENTRY_DSN = values.Value(None, environ_name="SENTRY_DSN", environ_prefix=None)
 
-    # Celery
-    CELERY_BROKER_URL = values.Value("redis://redis:6379/0")
-    CELERY_BROKER_TRANSPORT_OPTIONS = values.DictValue({})
-
     # Session
     SESSION_ENGINE = "django.contrib.sessions.backends.cache"
     SESSION_CACHE_ALIAS = "default"
@@ -416,7 +412,6 @@ class Test(Base):
     PASSWORD_HASHERS = [
         "django.contrib.auth.hashers.MD5PasswordHasher",
     ]
-    CELERY_TASK_ALWAYS_EAGER = values.BooleanValue(True)
 
 
 class ContinuousIntegration(Test):

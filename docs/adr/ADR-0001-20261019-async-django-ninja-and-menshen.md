@@ -243,9 +243,9 @@ authorization.
 `djangorestframework`, `drf-spectacular`, `drf-spectacular-sidecar`,
 `lasuite.oidc_resource_server` usage, `core.authentication.ResourceUser` /
 `FinderResourceServerBackend`, and the `Service.client_id` and
-`Service.services` fields (replaced by scopes). Celery and Redis are decided
-separately (#183); if they are removed, a shared cache for introspection still
-needs a backend.
+`Service.services` fields (replaced by scopes). Celery is removed too, as it
+ran no task (#183, step 5); Redis stays, as the shared cache of the
+introspection results and of the admin sessions.
 
 django-lasuite 1.0.0 is available and splits its dependencies into extras.
 Find requires `django-lasuite[all]==0.0.26` today. Once DRF and the

@@ -95,7 +95,7 @@ logs: ## display app logs (follow mode)
 .PHONY: logs
 
 run: ## start the development server
-	@$(COMPOSE) up --force-recreate -d celery
+	@$(COMPOSE) up --force-recreate -d app
 	@echo "Wait for postgresql to be up..."
 	@$(WAIT_DB)
 .PHONY: run
