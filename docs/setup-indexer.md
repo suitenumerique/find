@@ -69,9 +69,8 @@ For each application a new **Service** must be created through the admin interfa
 | Name      | Name of the service and also the name of the index in Opensearch database |
 | Is active | Toggle service availability                                               |
 
-The **Client id** and **Allowed services for search** fields are no longer used:
-the services a caller may search or delete from are granted by Menshen scopes
-(see below). They will be removed.
+The services a caller may search or delete from are not configured here: they
+are granted by Menshen scopes (see below).
 
 When the service is created, Find shows its random token, used by the calling
 service to authenticate. Copy it then: Find only stores its hash, so it cannot

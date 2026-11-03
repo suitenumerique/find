@@ -22,13 +22,6 @@ class ServiceAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at",)
     actions = ("regenerate_tokens",)
 
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
-        if db_field.name == "services":
-            # A service added from the popup would close it without its token
-            formfield.widget.can_add_related = False
-        return formfield
-
     def response_add(self, request, obj, post_url_continue=None):
         """Show the token of the new service, the only time it is available"""
         if "_continue" in request.POST:

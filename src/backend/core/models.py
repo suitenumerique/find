@@ -46,12 +46,6 @@ class Service(models.Model):
     token_hash = models.CharField(max_length=64, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
-    client_id = models.CharField(blank=True, null=True)
-    services = models.ManyToManyField(
-        "self",
-        verbose_name=_("Allowed services for search"),
-        blank=True,
-    )
 
     class Meta:
         db_table = "find_service"

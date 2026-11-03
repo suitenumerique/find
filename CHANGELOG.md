@@ -20,6 +20,10 @@ and this project adheres to
 - ⚡️(delete) delete documents with the async OpenSearch client
 - ⚡️(index) index documents with the async OpenSearch client
 
+## Removed
+
+- 🔥(services) remove the client id and allowed services of a service
+
 ## Fixed
 
 - 🐛(search) restrict the search to the requested services #172

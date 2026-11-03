@@ -65,8 +65,8 @@ their own documents. Cross-service search is still supported for services
 added later: an action can grant several `find:<service>:search` scopes, which
 lets its source search those services' documents (e.g. granting
 `find:drive:search` for `action:search-find-docs` would let Docs search
-Drive's documents). This replaces the "Allowed services for search" setting of
-Find's admin. Scopes only select which indices are searched; Find's
+Drive's documents). This replaces the former "Allowed services for search"
+setting of Find's admin. Scopes only select which indices are searched; Find's
 per-document access filter (`users`, `reach`, `visited`) still applies inside
 them.
 

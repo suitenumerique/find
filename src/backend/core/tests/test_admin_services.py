@@ -202,14 +202,3 @@ def test_admin_services_add_and_continue(
     assert f'<a href="{reverse(next_url_name, args=args)}">{next_label}</a>' in (
         response.content.decode()
     )
-
-
-def test_admin_services_no_add_from_popup(admin_client):
-    """
-    Services cannot be added from the allowed services field: the popup would
-    close without showing the token.
-    """
-    response = admin_client.get(reverse("admin:core_service_add"))
-
-    assert response.status_code == 200
-    assert 'id="add_id_services"' not in response.content.decode()

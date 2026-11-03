@@ -35,8 +35,7 @@ def test_commands_create_demo():
         == 4
     )
 
-    docs = models.Service.objects.get(name="docs")
-    assert docs.client_id == "impress"
-
-    drive = models.Service.objects.get(name="drive")
-    assert drive.client_id == "drive"
+    # The development services keep their documented tokens
+    for conf in defaults.DEV_SERVICES:
+        service = models.Service.objects.get(name=conf["name"])
+        assert service.token_hash == models.hash_token(conf["token"])
