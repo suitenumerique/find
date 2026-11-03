@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Changed
 
+- ⚡️(static) serve static files with the async ServeStatic
 - 💥(api) serve the endpoints with async django-ninja instead of DRF
 - 💥(api) authenticate search and delete with Menshen-exchanged tokens
 - 💥(api) select the searched and deleted services from Menshen scopes
