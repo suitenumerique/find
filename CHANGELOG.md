@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Changed
 
+- 📝(docs) rewrite the architecture documentation #186
 - 🚀(deploy) serve Find over ASGI with uvicorn
 - ⚡️(static) serve static files with the async ServeStatic
 - 💥(api) serve the endpoints with async django-ninja instead of DRF
