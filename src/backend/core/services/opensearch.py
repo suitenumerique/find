@@ -38,13 +38,16 @@ def get_client_options():
             f"Missing required OpenSearch environment variables: {', '.join(missing_env_variables)}"
         )
 
-    return {
+    options = {
         "hosts": [{"host": settings.OPENSEARCH_HOST, "port": settings.OPENSEARCH_PORT}],
         "http_auth": (settings.OPENSEARCH_USER, settings.OPENSEARCH_PASSWORD),
         "timeout": 50,
         "use_ssl": settings.OPENSEARCH_USE_SSL,
-        "verify_certs": False,
+        "verify_certs": settings.OPENSEARCH_VERIFY_CERTS,
     }
+    if settings.OPENSEARCH_CA_CERTS:
+        options["ca_certs"] = settings.OPENSEARCH_CA_CERTS
+    return options
 
 
 @cache
