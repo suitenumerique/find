@@ -400,6 +400,64 @@ def test_api_documents_search_ordering_by_title_across_languages(
     assert [r["title"] for r in response.json()["results"]] == expected
 
 
+def test_api_documents_search_ordering_by_title_ignores_case(settings, httpx2_mock):
+    """Titles should be sorted case-insensitively, and returned with their case."""
+    setup_menshen_introspection(httpx2_mock, settings)
+    service = factories.ServiceFactory(name="docs")
+    titles = ["alpha", "Beta", "gamma", "Delta"]
+    documents = bulk_create_documents(
+        [{"title": title, "content": "content"} for title in titles]
+    )
+    prepare_index(service.index_name, documents)
+
+    response = Client().post(
+        "/api/v1.0/documents/search/",
+        {"q": "*", "order_by": "title", "order_direction": "asc"},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert [r["title"] for r in response.json()["results"]] == [
+        "alpha",
+        "Beta",
+        "Delta",
+        "gamma",
+    ]
+
+
+def test_api_documents_search_title_case_kept_from_indexing(settings, httpx2_mock):
+    """
+    A title indexed through the API should be returned by the search as received,
+    and found whatever the case of the query.
+    """
+    setup_menshen_introspection(httpx2_mock, settings)
+    service = factories.ServiceFactory(name="docs")
+    document = factories.DocumentSchemaFactory.build(
+        title="  Rapport Annuel 2025  ",
+        content="Bilan des activités de l'année",
+        users=["user_sub"],
+    )
+    response = Client().post(
+        "/api/v1.0/documents/index/",
+        document,
+        HTTP_AUTHORIZATION=f"Bearer {service.token:s}",
+        content_type="application/json",
+    )
+    assert response.status_code == 201
+    opensearch_client().indices.refresh(index=service.index_name)
+
+    response = Client().post(
+        "/api/v1.0/documents/search/",
+        {"q": "RAPPORT annuel"},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {build_authorization_bearer()}",
+    )
+
+    assert response.status_code == 200
+    assert [r["title"] for r in response.json()["results"]] == ["Rapport Annuel 2025"]
+
+
 def test_api_documents_search_ordering_by_relevance(settings, httpx2_mock):
     """It should be possible to order by relevance (score)"""
     setup_menshen_introspection(httpx2_mock, settings)

@@ -46,12 +46,6 @@ class DocumentSchema(BaseModel):
         str_min_length=1, str_strip_whitespace=True, use_enum_values=True
     )
 
-    @field_validator("title")
-    @staticmethod
-    def normalize_title(value):
-        """Normalize the title field by stripping whitespace and converting to lowercase"""
-        return value.strip().lower()
-
     @field_validator("created_at", "updated_at")
     @staticmethod
     def must_be_past(value, info):

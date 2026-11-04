@@ -36,6 +36,7 @@ and this project adheres to
 
 - 🔒️(opensearch) verify TLS certificates by default #176: set
   OPENSEARCH_CA_CERTS for a private CA (or OPENSEARCH_VERIFY_CERTS=false)
+- 🐛(index) keep the case of titles, lowercased before being stored #178
 - 🐛(helm) render the helmfile templates with helmfile v1
 - 🐛(tilt) rebuild the image when the dependencies change
 - 🔒️(settings) remove CORS, not needed by a server-to-server API #177

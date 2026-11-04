@@ -241,7 +241,7 @@ def test_index_document():
 
     assert _id == document.id
     source = opensearch_client().get(index=index_name, id=str(_id))["_source"]
-    assert source["title.en"] == "the quick brown fox"
+    assert source["title.en"] == "The quick brown fox"
     assert source["content.en"] == "jumps over the lazy dog"
     assert "id" not in source
 

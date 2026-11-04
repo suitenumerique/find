@@ -87,9 +87,9 @@ def test_api_documents_index_single_success():
         assert datetime.datetime.fromisoformat(source.pop(field)) == document[
             field
         ].replace(microsecond=document[field].microsecond // 1000 * 1000)
-    # The title is stripped and lowercased
+    # The title is stripped, its case is kept
     assert source == {
-        "title.en": "the quick brown fox",
+        "title.en": "The Quick Brown Fox",
         "content.en": document["content"],
         "depth": document["depth"],
         "path": document["path"],
@@ -134,7 +134,7 @@ def test_api_documents_index_single_language_detection(title, content, language_
     source = opensearch.opensearch_client().get(
         index=service.index_name, id=str(document["id"])
     )["_source"]
-    assert source[f"title.{language_code}"] == title.lower()
+    assert source[f"title.{language_code}"] == title
     assert source[f"content.{language_code}"] == content
     # Only the detected language is indexed
     assert [key for key in source if key.startswith(("title.", "content."))] == [
@@ -166,10 +166,7 @@ def test_api_documents_index_and_reindex_same_document():
         index=service.index_name, id=str(document["id"])
     )
     assert new_indexed_document["_version"] == 1
-    assert (
-        new_indexed_document["_source"]["title.und"]
-        == document["title"].strip().lower()
-    )
+    assert new_indexed_document["_source"]["title.und"] == document["title"]
     assert new_indexed_document["_source"]["content.und"] == document["content"].strip()
 
     # Index the same document with a french content
@@ -186,9 +183,7 @@ def test_api_documents_index_and_reindex_same_document():
     )
     assert new_indexed_document["_version"] == 2
     # the document is detected as french
-    assert (
-        new_indexed_document["_source"]["title.fr"] == document["title"].strip().lower()
-    )
+    assert new_indexed_document["_source"]["title.fr"] == document["title"]
     assert new_indexed_document["_source"]["content.fr"] == document["content"]
     # und field are removed
     assert "title.und" not in new_indexed_document["_source"]
