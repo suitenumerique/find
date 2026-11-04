@@ -62,7 +62,7 @@ either an absolute number or proportion.
 Other applications can index their files through the **`/index/`** endpoint with a simple token authentication.
 
 For each application a new **Service** must be created through the admin interface
-(see http://localhost:9071/admin/core/service/add/)
+(see http://localhost:10001/admin/core/service/add/)
 
 | Field     | Description                                                               |
 | --------- | ------------------------------------------------------------------------- |
