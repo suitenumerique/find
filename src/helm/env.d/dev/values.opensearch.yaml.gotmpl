@@ -1,9 +1,24 @@
-security:
-  existingSecret: opensearch
-dashboards:
+# Single node without the security plugin, like the docker compose stack.
+# Service: opensearch-cluster-master:9200 (plain HTTP)
+singleNode: true
+replicas: 1
+protocol: http
+
+config:
+  opensearch.yml: |
+    cluster.name: opensearch-cluster
+    network.host: 0.0.0.0
+    plugins.security.disabled: true
+
+extraEnvs:
+  - name: DISABLE_INSTALL_DEMO_CONFIG
+    value: "true"
+  - name: DISABLE_SECURITY_PLUGIN
+    value: "true"
+
+# OpenSearch needs vm.max_map_count >= 262144 on the node
+sysctlInit:
   enabled: true
-  ingress:
-    enabled: true
-    tls: true
-    selfSigned: true
-    hostname: find-dashboard.127.0.0.1.nip.io
+
+persistence:
+  size: 1Gi

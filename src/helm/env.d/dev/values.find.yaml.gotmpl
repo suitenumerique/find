@@ -9,39 +9,22 @@ backend:
     DJANGO_CSRF_TRUSTED_ORIGINS: https://find.127.0.0.1.nip.io,http://find.127.0.0.1.nip.io
     DJANGO_CONFIGURATION: Production
     DJANGO_ALLOWED_HOSTS: "*"
-    DJANGO_SECRET_KEY:
-      secretKeyRef:
-        name: find-backend
-        key: DJANGO_SECRET_KEY
+    DJANGO_SECRET_KEY: dev-secret-key-not-for-production
     DJANGO_SETTINGS_MODULE: find.settings
-    DJANGO_SUPERUSER_EMAIL:
-      secretKeyRef:
-        name: find-backend
-        key: DJANGO_SUPERUSER_EMAIL
-    DJANGO_SUPERUSER_PASSWORD:
-      secretKeyRef:
-        name: find-backend
-        key: DJANGO_SUPERUSER_PASSWORD
-    DJANGO_EMAIL_HOST: "mailcatcher"
-    DJANGO_EMAIL_PORT: 1025
-    DJANGO_EMAIL_USE_SSL: False
-    DB_HOST: postgres-postgresql
+    DB_HOST: dev-backend-postgres
     DB_NAME: find
     DB_USER: dinum
     DB_PASSWORD: pass
     DB_PORT: 5432
-    POSTGRES_DB: find
-    POSTGRES_USER: dinum
-    POSTGRES_PASSWORD: pass
-    REDIS_URL: redis://default:pass@redis-master:6379/1
-    STORAGES_STATICFILES_BACKEND: django.contrib.staticfiles.storage.StaticFilesStorage
-    OPENSEARCH_HOST: opensearch
-    OPENSEARCH_USE_SSL: False
+    REDIS_URL: redis://dev-backend-redis:6379/1
+    OPENSEARCH_HOST: opensearch-cluster-master
     OPENSEARCH_PORT: 9200
-    OPENSEARCH_PASSWORD:
-      secretKeyRef:
-        name: find-backend
-        key: OPENSEARCH_PASSWORD
+    OPENSEARCH_USE_SSL: False
+    # Required by the settings, ignored by OpenSearch without its security plugin
+    OPENSEARCH_PASSWORD: find.PASS123
+    MENSHEN_URL: http://menshen:8000
+    MENSHEN_CLIENT_ID: find
+    MENSHEN_CLIENT_SECRET: find-secret
 
   migrate:
     command:

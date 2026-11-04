@@ -10,6 +10,8 @@ and this project adheres to
 
 ## Changed
 
+- 🔧(helm) deploy PostgreSQL and Redis with the dev-backend chart
+- 🔧(helm) deploy OpenSearch with the official OpenSearch charts
 - 📝(docs) rewrite the architecture documentation #186
 - 🚀(deploy) serve Find over ASGI with uvicorn
 - ⚡️(static) serve static files with the async ServeStatic
@@ -27,6 +29,7 @@ and this project adheres to
 
 - 🔥(celery) remove Celery, which ran no task #183
 - 🔥(services) remove the client id and allowed services of a service
+- 🔥(helm) remove the Bitnami charts and the SOPS-encrypted secrets
 
 ## Fixed
 

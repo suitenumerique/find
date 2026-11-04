@@ -1,0 +1,15 @@
+opensearchHosts: http://opensearch-cluster-master:9200
+
+extraEnvs:
+  - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+    value: "true"
+
+ingress:
+  enabled: true
+  hosts:
+    - host: find-dashboard.127.0.0.1.nip.io
+      paths:
+        - path: /
+          backend:
+            serviceName: opensearch-dashboards
+            servicePort: 5601
