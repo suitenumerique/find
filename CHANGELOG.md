@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Changed
 
+- 🔧(compose) commit the dev env files, override them in ignored .local files
 - 🔧(helm) deploy PostgreSQL and Redis with the dev-backend chart
 - 🔧(helm) deploy OpenSearch with the official OpenSearch charts
 - 📝(docs) rewrite the architecture documentation #186
