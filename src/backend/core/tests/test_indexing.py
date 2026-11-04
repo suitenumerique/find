@@ -197,13 +197,23 @@ def test_opensearch_analyzers(
         ("Ceci est une phrase de test.", "fr"),
         ("Dies ist ein Testsatz.", "de"),
         ("Dit is een testzin.", "nl"),
-        ("Esta es una oración de prueba.", "und"),  # Spanish, unsupported
+        # Unsupported languages, detected with a high confidence
+        ("Esta es una oración de prueba.", "und"),  # Spanish
+        ("El rápido zorro marrón salta sobre el perro perezoso", "und"),  # Spanish
+        ("¿Dónde está la biblioteca?", "und"),  # Spanish
+        ("Obrigado pela ajuda", "und"),  # Portuguese
+        ("Buongiorno, come stai?", "und"),  # Italian
+        ("Jeg heter Ola", "und"),  # Norwegian
+        # Not confident enough
         ("", "und"),
         ("zefk,l", "und"),
     ],
 )
 def test_detect_language_code(text, expected_language_code):
-    """Test detect_language_code function"""
+    """
+    The detected language code should be returned if it is supported, and the
+    undetermined language code otherwise.
+    """
 
     assert detect_language_code(text) == expected_language_code
 

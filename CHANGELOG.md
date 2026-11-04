@@ -34,6 +34,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(index) index unsupported languages as undetermined, not misdetected #190
 - 🔒️(opensearch) verify TLS certificates by default #176: set
   OPENSEARCH_CA_CERTS for a private CA (or OPENSEARCH_VERIFY_CERTS=false)
 - 🐛(index) keep the case of titles, lowercased before being stored #178

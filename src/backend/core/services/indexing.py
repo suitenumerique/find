@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 # see https://pypi.org/project/py3langid/
+# The text is classified against all the languages of the model: restricting the
+# model to the supported languages would force any other language into one of
+# them, with a high confidence.
 LANGUAGE_IDENTIFIER = LanguageIdentifier.from_pickled_model(MODEL_FILE, norm_probs=True)
-LANGUAGE_IDENTIFIER.set_languages(["en", "fr", "de", "nl"])
 
 
 INDEX_BODY = {
@@ -183,11 +185,19 @@ def prepare_document_for_indexing(document):
 
 
 def detect_language_code(text):
-    """Detect the language code of the document content."""
+    """
+    Detect the language code of the document content.
+
+    Falls back to the undetermined language code when the detection is not
+    confident enough, or when the detected language is not supported.
+    """
 
     detected_code, confidence = LANGUAGE_IDENTIFIER.classify(text)
 
-    if confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD:
+    if (
+        confidence < settings.LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD
+        or detected_code not in settings.SUPPORTED_LANGUAGE_CODES
+    ):
         return settings.UNDETERMINED_LANGUAGE_CODE
 
     return detected_code

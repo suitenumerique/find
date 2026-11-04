@@ -112,12 +112,15 @@ def test_api_documents_index_single_success():
         ("De snelle bruine vos", "springt over de luie hond", "nl"),
         # Detection confidence is too low
         ("planning", "", "und"),
+        # Unsupported language (Spanish)
+        ("El rápido zorro marrón", "salta sobre el perro perezoso", "und"),
     ],
 )
 def test_api_documents_index_single_language_detection(title, content, language_code):
     """
     Title and content should be stored under fields suffixed with the detected
-    language, falling back to "und" when the detection is not confident enough.
+    language, falling back to "und" when the detection is not confident enough or
+    the language is not supported.
     """
     service = factories.ServiceFactory()
     document = factories.DocumentSchemaFactory.build(title=title, content=content)
