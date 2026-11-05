@@ -36,6 +36,8 @@ and this project adheres to
 
 ## Fixed
 
+- 🔒️(dependencies) upgrade certifi to 2026.10.23, GHSA-6q48-6c7w-9gw2
+- 🔒️(dependencies) upgrade pylint to 4.1.3, GHSA-22qq-2fwx-7p67
 - 🐛(index) index unsupported languages as undetermined, not misdetected #190
 - 🔒️(opensearch) verify TLS certificates by default #176: set
   OPENSEARCH_CA_CERTS for a private CA (or OPENSEARCH_VERIFY_CERTS=false)
