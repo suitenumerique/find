@@ -2,8 +2,8 @@ apiVersion: v1
 entries:
   find:
   - apiVersion: v2
-    created: "2026-11-04T15:51:17.283900923Z"
-    digest: f9d8a05856eb56c0f80759f8c9f9e496a78b9041576c4635af1f1543fa9acc79
+    created: "2026-11-05T13:53:26.513149492Z"
+    digest: 7d492bbdf1de81e22df4b48cda0f6544d3679fe1812efc763c4c977b8a48f8d7
     name: find
     type: application
     urls:
@@ -33,4 +33,4 @@ entries:
     urls:
     - https://suitenumerique.github.io/find/find-0.0.1.tgz
     version: 0.0.1
-generated: "2026-11-04T15:51:17.28321472Z"
+generated: "2026-11-05T13:53:26.512389611Z"
