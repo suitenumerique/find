@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Changed
 
+- 🐳(docker) build the image on python 3.14.10 alpine, like Docs
 - 🔧(compose) commit the dev env files, override them in ignored .local files
 - 🔧(helm) deploy PostgreSQL and Redis with the dev-backend chart
 - 🔧(helm) deploy OpenSearch with the official OpenSearch charts

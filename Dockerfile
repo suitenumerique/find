@@ -1,12 +1,16 @@
 # Django find
 
+# ---- uv, the single place where its version is set ----
+FROM ghcr.io/astral-sh/uv:0.9.10 AS uv
+
 # ---- base image to inherit from ----
-FROM python:3.14.6-slim-bookworm AS base
+FROM python:3.14.10-alpine AS base
 
 # Upgrade system packages to install security updates
-RUN apt-get update && \
-  apt-get -y upgrade && \
-  rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache
+
+# We must do that to avoid having an outdated pip version with security issues
+RUN python -m pip install --upgrade pip
 
 # ---- Back-end builder image ----
 FROM base AS back-builder
@@ -20,7 +24,7 @@ ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 
 # install uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /uvx /bin/
+COPY --from=uv /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -38,12 +42,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM base AS link-collector
 ARG FIND_STATIC_ROOT=/data/static
 
-# Install libpangocairo & rdfind
-RUN apt-get update && \
-    apt-get install -y \
-      libpangocairo-1.0-0 \
-      rdfind && \
-    rm -rf /var/lib/apt/lists/*
+# Install rdfind
+RUN apk add --no-cache rdfind
 
 # Copy the application from the builder
 COPY --from=back-builder /app /app
@@ -68,16 +68,7 @@ FROM base AS core
 ENV PYTHONUNBUFFERED=1
 
 # Install required system libs
-RUN apt-get update && \
-    apt-get install -y \
-      gettext \
-      libcairo2 \
-      libffi-dev \
-      libgdk-pixbuf2.0-0 \
-      libpango-1.0-0 \
-      libpangocairo-1.0-0 \
-      shared-mime-info && \
-  rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache gettext
 
 # Copy entrypoint
 COPY ./docker/files/usr/local/bin/entrypoint /usr/local/bin/entrypoint
@@ -106,12 +97,10 @@ FROM core AS backend-development
 USER root:root
 
 # Install psql
-RUN apt-get update && \
-    apt-get install -y postgresql-client && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache postgresql-client
 
 # Install development dependencies
-RUN --mount=from=ghcr.io/astral-sh/uv:0.9.10,source=/uv,target=/bin/uv \
+RUN --mount=from=uv,source=/uv,target=/bin/uv \
     uv sync --locked --all-extras
 
 # Restore the un-privileged user running the application
@@ -136,6 +125,9 @@ CMD [\
 
 # ---- Production image ----
 FROM core AS backend-production
+
+# pip is not needed at runtime (the dependencies are installed with uv)
+RUN /usr/local/bin/python -m pip uninstall --yes pip
 
 ARG FIND_STATIC_ROOT=/data/static
 
