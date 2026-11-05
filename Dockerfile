@@ -1,7 +1,7 @@
 # Django find
 
 # ---- uv, the single place where its version is set ----
-FROM ghcr.io/astral-sh/uv:0.9.10 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 # ---- base image to inherit from ----
 FROM python:3.14.10-alpine AS base
