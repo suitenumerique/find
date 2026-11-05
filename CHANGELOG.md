@@ -36,6 +36,7 @@ and this project adheres to
 
 ## Fixed
 
+- 🐛(settings) read OPENSEARCH_PORT and TRIGRAMS_BOOST as numbers
 - 🔒️(dependencies) upgrade certifi to 2026.10.23, GHSA-6q48-6c7w-9gw2
 - 🔒️(dependencies) upgrade pylint to 4.1.3, GHSA-22qq-2fwx-7p67
 - 🐛(index) index unsupported languages as undetermined, not misdetected #190

@@ -221,7 +221,7 @@ class Base(Configuration):
     OPENSEARCH_HOST = values.Value(
         default="opensearch", environ_name="OPENSEARCH_HOST", environ_prefix=None
     )
-    OPENSEARCH_PORT = values.Value(
+    OPENSEARCH_PORT = values.PositiveIntegerValue(
         default=9200, environ_name="OPENSEARCH_PORT", environ_prefix=None
     )
     OPENSEARCH_USER = values.Value(
@@ -248,7 +248,7 @@ class Base(Configuration):
     AUTH_USER_MODEL = "core.User"
 
     # Trigrams search settings
-    TRIGRAMS_BOOST = values.Value(
+    TRIGRAMS_BOOST = values.FloatValue(
         default=0.25, environ_name="TRIGRAMS_BOOST", environ_prefix=None
     )
     TRIGRAMS_MINIMUM_SHOULD_MATCH = values.Value(
