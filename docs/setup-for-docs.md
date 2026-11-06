@@ -1,4 +1,4 @@
-# Setup the Find search for Impress
+# Setup the Find search for Docs
 
 This configuration will enable the fulltext search feature for Docs :
 - Each save on **core.Document** or **core.DocumentAccess** will trigger the indexer
@@ -10,7 +10,7 @@ Configure a **Service** for Docs application with these settings
 
 - **Name**: `docs`<br>_request.auth.name of the Docs application._
 
-See [how-to-use-indexer.md](how-to-use-indexer.md) for details.
+See [setup-indexer.md](setup-indexer.md) for details.
 
 ## Configure settings of Docs
 
