@@ -323,7 +323,7 @@ class Base(Configuration):
             ),
         },
         "loggers": {
-            "find": {
+            "core": {
                 "handlers": ["console"],
                 "level": values.Value(
                     "INFO",
@@ -331,6 +331,13 @@ class Base(Configuration):
                     environ_prefix=None,
                 ),
                 "propagate": True,
+            },
+            "request.summary": {
+                "level": values.Value(
+                    "WARNING",
+                    environ_name="LOGGING_LEVEL_REQUEST_SUMMARY",
+                    environ_prefix=None,
+                )
             },
         },
     }
