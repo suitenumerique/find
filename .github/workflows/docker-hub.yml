@@ -14,47 +14,19 @@ on:
 permissions:
   contents: read
 
-env:
-  DOCKER_USER: 1001:127
-
 jobs:
   build-and-push-backend:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
-      -
-        name: Docker meta
-        id: meta
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
-        with:
-          images: lasuite/find
-      -
-        name: Login to DockerHub
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USER }}" --password-stdin
-      -
-        name: Run trivy scan
-        uses: numerique-gouv/action-trivy-cache@d6e94cfb488f03a0b3e8b8739aad94e74d24d8da # main
-        with:
-          docker-build-args: '--target backend-production -f Dockerfile'
-          docker-image-name: 'docker.io/lasuite/find:${{ github.sha }}'
-        continue-on-error: true
-      -
-        name: Build and push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
-        with:
-          context: .
-          target: backend-production
-          platforms: linux/amd64,linux/arm64
-          build-args: DOCKER_USER=${{ env.DOCKER_USER }}:-1000
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+    permissions:
+      contents: read
+    uses: suitenumerique/ci/.github/workflows/_docker-publish.yml@ca6401ac83e981e5b0a94f06f68baaa6e6d0a436 # v0.0.1
+    with:
+      image_name: lasuite/find
+      context: .
+      file: ./Dockerfile
+      target: backend-production
+      docker_user: "1001:127"
+      should_push: ${{ github.event_name != 'pull_request' }}
+      trivy_continue_on_error: true
+    secrets:
+      DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+      DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
