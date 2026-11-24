@@ -58,7 +58,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-transform dictionnary of environment variables
+transform dictionary of environment variables
 Usage : {{ include "find.env.transformDict" .Values.envVars }}
 
 Example:

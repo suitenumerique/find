@@ -13,7 +13,7 @@ from .selftests import registry
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    """Register the serivce model for the admin site"""
+    """Register the service model for the admin site"""
 
     list_display = ("name", "created_at", "is_active")
     search_fields = ("name",)
