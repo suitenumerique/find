@@ -1,7 +1,7 @@
 # Find
 
 Find can index documents from several applications sharing a common OIDC federation
-and allows users to search documents with their access rights accross all applications
+and allows users to search documents with their access rights across all applications
 in the federation.
 
 Find is built on top of [Django Rest

@@ -10,6 +10,7 @@ and this project adheres to
 
 ## Changed
 
+- 👷(ci) use the shared workflows of suitenumerique/ci
 - 🐳(docker) build the image on python 3.14.10 alpine, like Docs
 - ⬆️(docker) upgrade uv to 0.13.7
 - 🔧(compose) commit the dev env files, override them in ignored .local files

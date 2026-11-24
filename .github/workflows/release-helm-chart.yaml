@@ -12,26 +12,14 @@ on:
     branches:
       - 'main'
 
+permissions:
+  contents: read
+
 jobs:
   release:
     if: github.event_name != 'pull_request'
     permissions:
       contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Install Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Publish Helm charts
-        uses: numerique-gouv/helm-gh-pages@89c6698c192e70ed0e495bee7d3d1ca5b477fe82 # master
-        with:
-          charts_dir: ./src/helm
-          linting: on
-          token: ${{ secrets.GITHUB_TOKEN }}
+    uses: suitenumerique/ci/.github/workflows/_release-helm-chart.yml@ca6401ac83e981e5b0a94f06f68baaa6e6d0a436 # v0.0.1
+    with:
+      cleanup_paths: ""
